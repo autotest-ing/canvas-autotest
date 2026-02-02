@@ -8,6 +8,7 @@ import { KeyboardShortcutsProvider } from "@/components/KeyboardShortcutsProvide
 import Index from "./pages/Index";
 import Suites from "./pages/Suites";
 import Runs from "./pages/Runs";
+import RunDetail from "./pages/RunDetail";
 import Sources from "./pages/Sources";
 import Environments from "./pages/Environments";
 import Integrations from "./pages/Integrations";
@@ -31,6 +32,7 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/suites" element={<Suites />} />
               <Route path="/runs" element={<Runs />} />
+              <Route path="/runs/:runId" element={<RunDetail />} />
               <Route path="/sources" element={<Sources />} />
               <Route path="/environments" element={<Environments />} />
               <Route path="/integrations" element={<Integrations />} />
