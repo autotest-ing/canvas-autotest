@@ -124,43 +124,29 @@ export function LeftRail({ activeItem, onItemClick }: LeftRailProps) {
   if (isMobile) {
     return (
       <>
-        {/* Mobile Header */}
-        <header className="fixed top-0 left-0 right-0 z-50 h-14 bg-sidebar border-b border-sidebar-border flex items-center justify-between px-4">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">A</span>
-            </div>
-            <span className="font-semibold text-foreground">Autotest</span>
-          </div>
-          
-          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9">
-                <Menu className="w-5 h-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-72 p-0">
-              <div className="p-4 border-b border-border">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                    <span className="text-primary-foreground font-bold text-sm">A</span>
-                  </div>
-                  <span className="font-semibold text-foreground">Autotest</span>
+        {/* Mobile Menu Sheet */}
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <SheetContent side="right" className="w-72 p-0">
+            <div className="p-4 border-b border-border">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                  <span className="text-primary-foreground font-bold text-sm">A</span>
                 </div>
+                <span className="font-semibold text-foreground">Autotest</span>
               </div>
-              <nav className="p-2 space-y-1">
-                {topItems.map((item) => (
-                  <NavButton key={item.id} item={item} showLabel />
-                ))}
-              </nav>
-              <nav className="p-2 space-y-1 border-t border-border">
-                {bottomItems.map((item) => (
-                  <NavButton key={item.id} item={item} showLabel />
-                ))}
-              </nav>
-            </SheetContent>
-          </Sheet>
-        </header>
+            </div>
+            <nav className="p-2 space-y-1">
+              {topItems.map((item) => (
+                <NavButton key={item.id} item={item} showLabel />
+              ))}
+            </nav>
+            <nav className="p-2 space-y-1 border-t border-border">
+              {bottomItems.map((item) => (
+                <NavButton key={item.id} item={item} showLabel />
+              ))}
+            </nav>
+          </SheetContent>
+        </Sheet>
 
         {/* Mobile Bottom Navigation */}
         <nav className="fixed bottom-0 left-0 right-0 z-50 h-16 bg-sidebar border-t border-sidebar-border">
@@ -201,9 +187,6 @@ export function LeftRail({ activeItem, onItemClick }: LeftRailProps) {
             </button>
           </div>
         </nav>
-
-        {/* Spacers for fixed header/footer */}
-        <div className="h-14" /> {/* Top spacer */}
       </>
     );
   }
