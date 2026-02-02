@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import { StepTimeline, type Step } from "./StepTimeline";
-import { StepCanvas } from "./StepCanvas";
+import { RunTestCaseList, type RunTestCase } from "./RunTestCaseList";
+import { RunTestCaseCanvas } from "./RunTestCaseCanvas";
 import { AIFixCard } from "./AIFixCard";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { MobileBottomSpacer } from "./LeftRail";
@@ -12,15 +12,116 @@ import { Button } from "@/components/ui/button";
 import { List } from "lucide-react";
 import { toast } from "sonner";
 
-const mockSteps: Step[] = [
-  { id: "1", name: "Login", status: "success", duration: "245ms" },
-  { id: "2", name: "Get user profile", status: "success", duration: "189ms" },
-  { id: "3", name: "List products", status: "success", duration: "312ms" },
-  { id: "4", name: "Add to cart", status: "success", duration: "156ms" },
-  { id: "5", name: "Create order", status: "failure", duration: "1.2s" },
-  { id: "6", name: "Get order status", status: "skipped" },
-  { id: "7", name: "Process payment", status: "skipped" },
-  { id: "8", name: "Confirm order", status: "skipped" },
+// Mock data with proper hierarchy: Run → Test Cases → Test Steps
+const mockRunTestCases: RunTestCase[] = [
+  {
+    id: "1",
+    name: "User Login Flow",
+    status: "pass",
+    duration: "434ms",
+    steps: [
+      {
+        id: "1-1",
+        name: "Submit Login Request",
+        method: "POST",
+        endpoint: "/auth/login",
+        status: "pass",
+        duration: "245ms",
+        assertionsPassed: 3,
+        assertionsTotal: 3,
+      },
+      {
+        id: "1-2",
+        name: "Verify User Session",
+        method: "GET",
+        endpoint: "/auth/me",
+        status: "pass",
+        duration: "189ms",
+        assertionsPassed: 2,
+        assertionsTotal: 2,
+      },
+    ],
+  },
+  {
+    id: "2",
+    name: "Token Refresh Flow",
+    status: "mixed",
+    duration: "562ms",
+    steps: [
+      {
+        id: "2-1",
+        name: "Request Token Refresh",
+        method: "POST",
+        endpoint: "/auth/refresh",
+        status: "pass",
+        duration: "212ms",
+        assertionsPassed: 2,
+        assertionsTotal: 2,
+      },
+      {
+        id: "2-2",
+        name: "Validate New Token",
+        method: "GET",
+        endpoint: "/auth/validate",
+        status: "fail",
+        duration: "350ms",
+        assertionsPassed: 1,
+        assertionsTotal: 2,
+      },
+    ],
+  },
+  {
+    id: "3",
+    name: "User Registration",
+    status: "fail",
+    duration: "1.2s",
+    steps: [
+      {
+        id: "3-1",
+        name: "Submit Registration",
+        method: "POST",
+        endpoint: "/auth/register",
+        status: "fail",
+        duration: "1.2s",
+        assertionsPassed: 0,
+        assertionsTotal: 2,
+      },
+      {
+        id: "3-2",
+        name: "Verify Email Sent",
+        method: "GET",
+        endpoint: "/auth/verify-email-status",
+        status: "pending",
+        assertionsPassed: 0,
+        assertionsTotal: 1,
+      },
+    ],
+  },
+  {
+    id: "4",
+    name: "Logout Flow",
+    status: "pending",
+    steps: [
+      {
+        id: "4-1",
+        name: "Submit Logout",
+        method: "POST",
+        endpoint: "/auth/logout",
+        status: "pending",
+        assertionsPassed: 0,
+        assertionsTotal: 2,
+      },
+      {
+        id: "4-2",
+        name: "Verify Session Invalidated",
+        method: "GET",
+        endpoint: "/auth/me",
+        status: "pending",
+        assertionsPassed: 0,
+        assertionsTotal: 1,
+      },
+    ],
+  },
 ];
 
 // Mock data linking runs to suites
@@ -39,15 +140,16 @@ interface RunViewProps {
 
 export function RunView({ runId, suiteId }: RunViewProps) {
   const navigate = useNavigate();
-  const firstFailedStep = mockSteps.find(s => s.status === "failure");
-  const [selectedStepId, setSelectedStepId] = useState<string | null>(
-    firstFailedStep?.id || mockSteps[0]?.id || null
+  const firstFailedCase = mockRunTestCases.find(tc => tc.status === "fail" || tc.status === "mixed");
+  const [selectedTestCaseId, setSelectedTestCaseId] = useState<string | null>(
+    firstFailedCase?.id || mockRunTestCases[0]?.id || null
   );
   const [showAIFix, setShowAIFix] = useState(false);
+  const [fixingStepId, setFixingStepId] = useState<string | null>(null);
   const [mobileListOpen, setMobileListOpen] = useState(false);
   const isMobile = useIsMobile();
   
-  const selectedStep = mockSteps.find(s => s.id === selectedStepId) || null;
+  const selectedTestCase = mockRunTestCases.find(tc => tc.id === selectedTestCaseId) || null;
   
   // Build breadcrumbs based on context
   const breadcrumbItems = suiteId
@@ -62,12 +164,14 @@ export function RunView({ runId, suiteId }: RunViewProps) {
         { label: runId || mockRunData.runId },
       ];
 
-  const handleFixWithAI = () => {
+  const handleFixWithAI = (stepId: string) => {
+    setFixingStepId(stepId);
     setShowAIFix(true);
   };
 
   const handleApplyFix = () => {
     setShowAIFix(false);
+    setFixingStepId(null);
     toast.success("Fix applied successfully", {
       description: "The proposed changes have been applied to your codebase.",
     });
@@ -75,6 +179,7 @@ export function RunView({ runId, suiteId }: RunViewProps) {
 
   const handleApplyAndRerun = () => {
     setShowAIFix(false);
+    setFixingStepId(null);
     toast.success("Fix applied, rerunning tests...", {
       description: "The changes have been applied. Running test suite.",
     });
@@ -82,13 +187,20 @@ export function RunView({ runId, suiteId }: RunViewProps) {
 
   const handleDismissFix = () => {
     setShowAIFix(false);
+    setFixingStepId(null);
   };
 
-  const handleSelectStep = (id: string) => {
-    setSelectedStepId(id);
+  const handleSelectTestCase = (id: string) => {
+    setSelectedTestCaseId(id);
     setShowAIFix(false);
+    setFixingStepId(null);
     setMobileListOpen(false);
   };
+
+  // Find the step name for the AI fix card
+  const fixingStep = fixingStepId 
+    ? selectedTestCase?.steps.find(s => s.id === fixingStepId) 
+    : null;
 
   // Mobile layout
   if (isMobile) {
@@ -105,27 +217,27 @@ export function RunView({ runId, suiteId }: RunViewProps) {
             <SheetTrigger asChild>
               <Button variant="outline" size="sm" className="gap-2">
                 <List className="w-4 h-4" />
-                Steps
+                Test Cases
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="w-80 p-0">
-              <StepTimeline
-                steps={mockSteps}
-                selectedId={selectedStepId}
-                onSelect={handleSelectStep}
+              <RunTestCaseList
+                testCases={mockRunTestCases}
+                selectedId={selectedTestCaseId}
+                onSelect={handleSelectTestCase}
               />
             </SheetContent>
           </Sheet>
           <span className="text-sm text-muted-foreground">
-            {selectedStep?.name || "Select a step"}
+            {selectedTestCase?.name || "Select a test case"}
           </span>
         </div>
 
         {/* AI Fix Card */}
-        {showAIFix && selectedStep && (
+        {showAIFix && fixingStep && (
           <div className="p-4 border-b border-border/50">
             <AIFixCard
-              stepName={selectedStep.name}
+              stepName={fixingStep.name}
               onApply={handleApplyFix}
               onApplyAndRerun={handleApplyAndRerun}
               onDismiss={handleDismissFix}
@@ -133,10 +245,10 @@ export function RunView({ runId, suiteId }: RunViewProps) {
           </div>
         )}
 
-        {/* Step Canvas */}
+        {/* Test Case Canvas */}
         <div className="flex-1">
-          <StepCanvas
-            step={selectedStep}
+          <RunTestCaseCanvas
+            testCase={selectedTestCase}
             onFixWithAI={handleFixWithAI}
           />
         </div>
@@ -156,19 +268,19 @@ export function RunView({ runId, suiteId }: RunViewProps) {
       <div className="flex-1">
         <ResizablePanelGroup direction="horizontal" className="h-full">
           <ResizablePanel defaultSize={25} minSize={20} maxSize={40}>
-            <StepTimeline
-              steps={mockSteps}
-              selectedId={selectedStepId}
-              onSelect={handleSelectStep}
+            <RunTestCaseList
+              testCases={mockRunTestCases}
+              selectedId={selectedTestCaseId}
+              onSelect={handleSelectTestCase}
             />
           </ResizablePanel>
           <ResizableHandle className="w-px bg-border/50 hover:bg-primary/30 transition-colors" />
           <ResizablePanel defaultSize={75} minSize={50}>
             <div className="h-full flex flex-col">
-              {showAIFix && selectedStep && (
+              {showAIFix && fixingStep && (
                 <div className="p-4 border-b border-border/50">
                   <AIFixCard
-                    stepName={selectedStep.name}
+                    stepName={fixingStep.name}
                     onApply={handleApplyFix}
                     onApplyAndRerun={handleApplyAndRerun}
                     onDismiss={handleDismissFix}
@@ -176,8 +288,8 @@ export function RunView({ runId, suiteId }: RunViewProps) {
                 </div>
               )}
               <div className="flex-1 overflow-hidden">
-                <StepCanvas
-                  step={selectedStep}
+                <RunTestCaseCanvas
+                  testCase={selectedTestCase}
                   onFixWithAI={handleFixWithAI}
                 />
               </div>
