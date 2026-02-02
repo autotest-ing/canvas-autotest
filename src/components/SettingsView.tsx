@@ -8,6 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { MobileBottomSpacer } from "./LeftRail";
 import { 
   Sun, 
   Moon, 
@@ -64,23 +65,23 @@ export function SettingsView() {
   };
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col">
       {/* Header */}
-      <div className="p-6 border-b border-border/50 flex items-center justify-between">
+      <div className="p-4 md:p-6 border-b border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
+          <h1 className="text-xl md:text-2xl font-semibold text-foreground">Settings</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Manage your account and preferences
           </p>
         </div>
-        <Button onClick={handleSave} disabled={!hasChanges} className="gap-2">
+        <Button onClick={handleSave} disabled={!hasChanges} className="gap-2 w-full sm:w-auto">
           <Save className="w-4 h-4" />
           Save Changes
         </Button>
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="p-6 max-w-3xl space-y-6">
+        <div className="p-4 md:p-6 max-w-3xl space-y-6">
           {/* Account */}
           <Card className="border-border/50 shadow-soft">
             <CardHeader className="pb-4">
@@ -365,6 +366,7 @@ export function SettingsView() {
               </div>
             </CardContent>
           </Card>
+          <MobileBottomSpacer />
         </div>
       </ScrollArea>
     </div>

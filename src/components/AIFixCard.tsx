@@ -149,7 +149,7 @@ export function AIFixCard({ stepName, onApply, onApplyAndRerun, onDismiss }: AIF
               </Badge>
             </div>
             
-            <div className="grid grid-cols-2 gap-3 pl-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-6">
               <div className="space-y-1.5">
                 <span className="text-[10px] font-medium text-muted-foreground uppercase">Before</span>
                 <pre className="p-3 rounded-xl bg-destructive/5 border border-destructive/20 text-xs font-mono text-foreground overflow-x-auto whitespace-pre-wrap">
@@ -184,8 +184,8 @@ export function AIFixCard({ stepName, onApply, onApplyAndRerun, onDismiss }: AIF
       </ScrollArea>
 
       {/* Actions */}
-      <div className="p-4 border-t border-border/30 flex items-center justify-end gap-2 bg-background/30">
-        <Button variant="outline" size="sm" onClick={onDismiss}>
+      <div className="p-4 border-t border-border/30 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 bg-background/30">
+        <Button variant="outline" size="sm" onClick={onDismiss} className="sm:order-1">
           Dismiss
         </Button>
         <Button 
@@ -193,7 +193,7 @@ export function AIFixCard({ stepName, onApply, onApplyAndRerun, onDismiss }: AIF
           size="sm" 
           onClick={handleApply}
           disabled={isApplying}
-          className="gap-2"
+          className="gap-2 sm:order-2"
         >
           {isApplying ? (
             <div className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
@@ -206,7 +206,7 @@ export function AIFixCard({ stepName, onApply, onApplyAndRerun, onDismiss }: AIF
           size="sm" 
           onClick={handleApplyAndRerun}
           disabled={isApplying}
-          className="gap-2"
+          className="gap-2 sm:order-3"
         >
           {isApplying ? (
             <div className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin" />

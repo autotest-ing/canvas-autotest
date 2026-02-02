@@ -41,9 +41,9 @@ export function SuiteCanvas({
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="p-6 border-b border-border/50 flex items-start justify-between gap-4">
+      <div className="p-4 md:p-6 border-b border-border/50 flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <h2 className="text-xl font-semibold text-foreground">{suiteName}</h2>
+          <h2 className="text-lg md:text-xl font-semibold text-foreground">{suiteName}</h2>
           {suiteDescription && (
             <p className="text-sm text-muted-foreground mt-1">{suiteDescription}</p>
           )}
