@@ -101,23 +101,23 @@ export function SourcesView() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Header */}
-      <div className="p-4 md:p-6 border-b border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl md:text-2xl font-semibold text-foreground">Sources</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Import and manage your API specifications
-          </p>
-        </div>
-        <Button onClick={() => setImportDialogOpen(true)} className="gap-2 w-full sm:w-auto">
-          <Plus className="w-4 h-4" />
-          Import Source
-        </Button>
-      </div>
-
-      {/* Content */}
       <ScrollArea className="flex-1">
-        <div className="p-4 md:p-6">
+        <div className="w-full max-w-3xl mx-auto px-4 md:px-6 py-4 md:py-6">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-6 border-b border-border/50 mb-6">
+            <div>
+              <h1 className="text-xl md:text-2xl font-semibold text-foreground">Sources</h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                Import and manage your API specifications
+              </p>
+            </div>
+            <Button onClick={() => setImportDialogOpen(true)} className="gap-2 w-full sm:w-auto">
+              <Plus className="w-4 h-4" />
+              Import Source
+            </Button>
+          </div>
+
+          {/* Content */}
           {sources.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="w-16 h-16 rounded-2xl bg-accent flex items-center justify-center mb-4">
@@ -147,8 +147,8 @@ export function SourcesView() {
               ))}
             </div>
           )}
+          <MobileBottomSpacer />
         </div>
-        <MobileBottomSpacer />
       </ScrollArea>
 
       {/* Import Dialog */}

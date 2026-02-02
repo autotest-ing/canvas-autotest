@@ -164,37 +164,37 @@ export function NotificationsView() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Header */}
-      <div className="p-4 md:p-6 border-b border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl md:text-2xl font-semibold text-foreground">Notifications</h1>
-          {unreadCount > 0 && (
-            <Badge className="bg-primary text-primary-foreground">
-              {unreadCount} new
-            </Badge>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {unreadCount > 0 && (
-            <Button variant="outline" size="sm" onClick={markAllAsRead} className="gap-2 flex-1 sm:flex-none">
-              <CheckCheck className="w-4 h-4" />
-              <span className="hidden sm:inline">Mark all read</span>
-              <span className="sm:hidden">Read all</span>
-            </Button>
-          )}
-          {notifications.length > 0 && (
-            <Button variant="outline" size="sm" onClick={clearAll} className="gap-2 flex-1 sm:flex-none">
-              <Trash2 className="w-4 h-4" />
-              <span className="hidden sm:inline">Clear all</span>
-              <span className="sm:hidden">Clear</span>
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Content */}
       <ScrollArea className="flex-1">
-        <div className="p-4 md:p-6">
+        <div className="w-full max-w-3xl mx-auto px-4 md:px-6 py-4 md:py-6">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-6 border-b border-border/50 mb-6">
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl md:text-2xl font-semibold text-foreground">Notifications</h1>
+              {unreadCount > 0 && (
+                <Badge className="bg-primary text-primary-foreground">
+                  {unreadCount} new
+                </Badge>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {unreadCount > 0 && (
+                <Button variant="outline" size="sm" onClick={markAllAsRead} className="gap-2 flex-1 sm:flex-none">
+                  <CheckCheck className="w-4 h-4" />
+                  <span className="hidden sm:inline">Mark all read</span>
+                  <span className="sm:hidden">Read all</span>
+                </Button>
+              )}
+              {notifications.length > 0 && (
+                <Button variant="outline" size="sm" onClick={clearAll} className="gap-2 flex-1 sm:flex-none">
+                  <Trash2 className="w-4 h-4" />
+                  <span className="hidden sm:inline">Clear all</span>
+                  <span className="sm:hidden">Clear</span>
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Content */}
           {notifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="w-16 h-16 rounded-2xl bg-accent flex items-center justify-center mb-4">
@@ -208,7 +208,7 @@ export function NotificationsView() {
               </p>
             </div>
           ) : (
-            <div className="space-y-3 max-w-3xl">
+            <div className="space-y-3">
               {notifications.map((notification) => {
                 const config = typeConfig[notification.type];
                 const Icon = config.icon;
