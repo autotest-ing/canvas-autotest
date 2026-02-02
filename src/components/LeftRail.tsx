@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { 
   Home, 
   Layers, 
@@ -20,36 +21,42 @@ interface NavItem {
   icon: React.ElementType;
   label: string;
   id: string;
+  path: string;
 }
 
 const topItems: NavItem[] = [
-  { icon: Home, label: "Home", id: "home" },
-  { icon: Layers, label: "Suites", id: "suites" },
-  { icon: Play, label: "Runs", id: "runs" },
-  { icon: Database, label: "Sources", id: "sources" },
-  { icon: Globe, label: "Environments", id: "environments" },
+  { icon: Home, label: "Home", id: "home", path: "/" },
+  { icon: Layers, label: "Suites", id: "suites", path: "/suites" },
+  { icon: Play, label: "Runs", id: "runs", path: "/runs" },
+  { icon: Database, label: "Sources", id: "sources", path: "/sources" },
+  { icon: Globe, label: "Environments", id: "environments", path: "/environments" },
 ];
 
 const bottomItems: NavItem[] = [
-  { icon: Bell, label: "Notifications", id: "notifications" },
-  { icon: Settings, label: "Settings", id: "settings" },
+  { icon: Bell, label: "Notifications", id: "notifications", path: "/notifications" },
+  { icon: Settings, label: "Settings", id: "settings", path: "/settings" },
 ];
 
 interface LeftRailProps {
-  activeItem: string;
-  onItemClick: (id: string) => void;
+  activeItem?: string;
+  onItemClick?: (id: string) => void;
 }
 
 export function LeftRail({ activeItem, onItemClick }: LeftRailProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const NavButton = ({ item }: { item: NavItem }) => {
-    const isActive = activeItem === item.id;
+    const isActive = activeItem === item.id || location.pathname === item.path;
     const Icon = item.icon;
 
     const button = (
       <button
-        onClick={() => onItemClick(item.id)}
+        onClick={() => {
+          navigate(item.path);
+          onItemClick?.(item.id);
+        }}
         className={cn(
           "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-all duration-200",
           "hover:bg-sidebar-accent",
