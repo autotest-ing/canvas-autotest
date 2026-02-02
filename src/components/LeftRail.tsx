@@ -81,7 +81,8 @@ export function LeftRail({ activeItem, onItemClick }: LeftRailProps) {
         onClick={() => handleNavClick(item)}
         className={cn(
           "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-all duration-200",
-          "hover:bg-sidebar-accent",
+          "hover:bg-sidebar-accent hover:animate-bounce-subtle",
+          "active:animate-bounce-click",
           isActive && "bg-sidebar-accent text-sidebar-primary"
         )}
       >
@@ -175,6 +176,7 @@ export function LeftRail({ activeItem, onItemClick }: LeftRailProps) {
                   onClick={() => handleNavClick(item)}
                   className={cn(
                     "flex flex-col items-center justify-center gap-1 flex-1 h-full transition-colors",
+                    "hover:animate-bounce-subtle active:animate-bounce-click",
                     isActive ? "text-primary" : "text-muted-foreground"
                   )}
                 >
@@ -192,7 +194,7 @@ export function LeftRail({ activeItem, onItemClick }: LeftRailProps) {
             })}
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="flex flex-col items-center justify-center gap-1 flex-1 h-full text-muted-foreground"
+              className="flex flex-col items-center justify-center gap-1 flex-1 h-full text-muted-foreground hover:animate-bounce-subtle active:animate-bounce-click"
             >
               <Menu className="w-5 h-5" />
               <span className="text-[10px] font-medium">More</span>
