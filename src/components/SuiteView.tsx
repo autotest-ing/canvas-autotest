@@ -1,12 +1,14 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { TestCaseList, type TestCase } from "./TestCaseList";
 import { SuiteCanvas } from "./SuiteCanvas";
+import { Breadcrumbs } from "./Breadcrumbs";
 import { MobileBottomSpacer } from "./LeftRail";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { List } from "lucide-react";
+import { List, History } from "lucide-react";
 
 // Mock data with proper hierarchy: Suite → Test Cases → Test Steps → Assertions
 const mockTestCases: TestCase[] = [
@@ -152,16 +154,30 @@ const mockSuggestions = [
   },
 ];
 
+// Mock suite metadata
+const mockSuiteData: Record<string, { name: string; description: string }> = {
+  "auth-suite": { name: "Auth Suite", description: "Authentication and authorization flow tests" },
+  "api-suite": { name: "API Suite", description: "Core API endpoint tests" },
+  "e2e-suite": { name: "E2E Suite", description: "End-to-end user journey tests" },
+};
+
 interface SuiteViewProps {
   suiteId?: string;
 }
 
-export function SuiteView({ suiteId }: SuiteViewProps) {
+export function SuiteView({ suiteId = "auth-suite" }: SuiteViewProps) {
+  const navigate = useNavigate();
   const [selectedTestCaseId, setSelectedTestCaseId] = useState<string | null>(mockTestCases[0]?.id || null);
   const [mobileListOpen, setMobileListOpen] = useState(false);
   const isMobile = useIsMobile();
   
   const selectedTestCase = mockTestCases.find(tc => tc.id === selectedTestCaseId) || null;
+  const suiteData = mockSuiteData[suiteId] || mockSuiteData["auth-suite"];
+
+  const breadcrumbItems = [
+    { label: "Suites", href: "/suites" },
+    { label: suiteData.name },
+  ];
 
   const handleRunSuite = () => {
     console.log("Running suite:", suiteId);
@@ -176,12 +192,25 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
     setMobileListOpen(false);
   };
 
+  const handleViewRuns = () => {
+    navigate(`/suites/${suiteId}/runs`);
+  };
+
   // Mobile layout
   if (isMobile) {
     return (
       <div className="min-h-screen flex flex-col animate-fade-in">
+        {/* Breadcrumb header */}
+        <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+          <Breadcrumbs items={breadcrumbItems} />
+          <Button variant="outline" size="sm" onClick={handleViewRuns} className="gap-2">
+            <History className="w-4 h-4" />
+            Runs
+          </Button>
+        </div>
+
         {/* Mobile header with list toggle */}
-        <div className="p-4 border-b border-border/50 flex items-center gap-2">
+        <div className="px-4 pb-4 border-b border-border/50 flex items-center gap-2">
           <Sheet open={mobileListOpen} onOpenChange={setMobileListOpen}>
             <SheetTrigger asChild>
               <Button variant="outline" size="sm" className="gap-2">
@@ -205,12 +234,13 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
         {/* Canvas content */}
         <div className="flex-1">
           <SuiteCanvas
-            suiteName="Auth Suite"
-            suiteDescription="Authentication and authorization flow tests"
+            suiteName={suiteData.name}
+            suiteDescription={suiteData.description}
             selectedTestCase={selectedTestCase}
             suggestions={mockSuggestions}
             onRunSuite={handleRunSuite}
             onAskAI={handleAskAI}
+            onViewRuns={handleViewRuns}
           />
         </div>
         <MobileBottomSpacer />
@@ -220,27 +250,39 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
 
   // Desktop layout
   return (
-    <div className="h-screen animate-fade-in">
-      <ResizablePanelGroup direction="horizontal" className="h-full">
-        <ResizablePanel defaultSize={30} minSize={20} maxSize={50}>
-          <TestCaseList
-            testCases={mockTestCases}
-            selectedId={selectedTestCaseId}
-            onSelect={setSelectedTestCaseId}
-          />
-        </ResizablePanel>
-        <ResizableHandle className="w-px bg-border/50 hover:bg-primary/30 transition-colors" />
-        <ResizablePanel defaultSize={70} minSize={50}>
-          <SuiteCanvas
-            suiteName="Auth Suite"
-            suiteDescription="Authentication and authorization flow tests"
-            selectedTestCase={selectedTestCase}
-            suggestions={mockSuggestions}
-            onRunSuite={handleRunSuite}
-            onAskAI={handleAskAI}
-          />
-        </ResizablePanel>
-      </ResizablePanelGroup>
+    <div className="h-screen animate-fade-in flex flex-col">
+      {/* Breadcrumb header */}
+      <div className="px-6 py-3 border-b border-border/50 flex items-center justify-between">
+        <Breadcrumbs items={breadcrumbItems} />
+        <Button variant="outline" size="sm" onClick={handleViewRuns} className="gap-2">
+          <History className="w-4 h-4" />
+          View Run History
+        </Button>
+      </div>
+
+      <div className="flex-1">
+        <ResizablePanelGroup direction="horizontal" className="h-full">
+          <ResizablePanel defaultSize={30} minSize={20} maxSize={50}>
+            <TestCaseList
+              testCases={mockTestCases}
+              selectedId={selectedTestCaseId}
+              onSelect={setSelectedTestCaseId}
+            />
+          </ResizablePanel>
+          <ResizableHandle className="w-px bg-border/50 hover:bg-primary/30 transition-colors" />
+          <ResizablePanel defaultSize={70} minSize={50}>
+            <SuiteCanvas
+              suiteName={suiteData.name}
+              suiteDescription={suiteData.description}
+              selectedTestCase={selectedTestCase}
+              suggestions={mockSuggestions}
+              onRunSuite={handleRunSuite}
+              onAskAI={handleAskAI}
+              onViewRuns={handleViewRuns}
+            />
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </div>
     </div>
   );
 }

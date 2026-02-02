@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Play, Sparkles, BookOpen } from "lucide-react";
+import { Play, Sparkles, BookOpen, History } from "lucide-react";
 import { TestStepCard } from "./TestStepCard";
 import type { TestCase } from "./TestCaseList";
 
@@ -19,6 +19,7 @@ interface SuiteCanvasProps {
   suggestions: AISuggestion[];
   onRunSuite: () => void;
   onAskAI: () => void;
+  onViewRuns?: () => void;
 }
 
 export function SuiteCanvas({
@@ -28,6 +29,7 @@ export function SuiteCanvas({
   suggestions,
   onRunSuite,
   onAskAI,
+  onViewRuns,
 }: SuiteCanvasProps) {
   return (
     <div className="h-full flex flex-col">
