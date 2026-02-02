@@ -37,7 +37,7 @@ const categories = [
 
 export function IntegrationsView() {
   return (
-    <div className="max-w-3xl mx-auto px-4 md:px-6 py-8">
+    <div className="max-w-3xl mx-auto px-4 md:px-6 py-8 animate-fade-in">
       {/* Header */}
       <div className="mb-8">
         <PageTitle>Integrations</PageTitle>
