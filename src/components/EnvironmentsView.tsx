@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MobileBottomSpacer } from "./LeftRail";
+import { PageTitle } from "./PageTitle";
 import { 
   Plus, 
   Trash2, 
@@ -146,7 +147,7 @@ export function EnvironmentsView() {
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-6 border-b border-border/50 mb-6">
             <div>
-              <h1 className="text-xl md:text-2xl font-semibold text-foreground">Environments</h1>
+              <PageTitle>Environments</PageTitle>
               <p className="text-sm text-muted-foreground mt-1">
                 Configure base URLs, variables, and secrets for your test runs
               </p>

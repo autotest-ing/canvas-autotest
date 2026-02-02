@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { MobileBottomSpacer } from "./LeftRail";
+import { PageTitle } from "./PageTitle";
 import { 
   Sun, 
   Moon, 
@@ -71,7 +72,7 @@ export function SettingsView() {
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-6 border-b border-border/50 mb-6">
             <div>
-              <h1 className="text-xl md:text-2xl font-semibold text-foreground">Settings</h1>
+              <PageTitle>Settings</PageTitle>
               <p className="text-sm text-muted-foreground mt-1">
                 Manage your account and preferences
               </p>

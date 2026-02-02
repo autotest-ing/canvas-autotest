@@ -4,6 +4,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { SourceCard, type Source } from "./SourceCard";
 import { ImportSourceDialog } from "./ImportSourceDialog";
 import { MobileBottomSpacer } from "./LeftRail";
+import { PageTitle } from "./PageTitle";
 import { Plus, Database } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -106,7 +107,7 @@ export function SourcesView() {
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-6 border-b border-border/50 mb-6">
             <div>
-              <h1 className="text-xl md:text-2xl font-semibold text-foreground">Sources</h1>
+              <PageTitle>Sources</PageTitle>
               <p className="text-sm text-muted-foreground mt-1">
                 Import and manage your API specifications
               </p>
