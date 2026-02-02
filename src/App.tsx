@@ -8,6 +8,7 @@ import Suites from "./pages/Suites";
 import Runs from "./pages/Runs";
 import Sources from "./pages/Sources";
 import Environments from "./pages/Environments";
+import Notifications from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/runs" element={<Runs />} />
           <Route path="/sources" element={<Sources />} />
           <Route path="/environments" element={<Environments />} />
+          <Route path="/notifications" element={<Notifications />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
