@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import { RequestList, type Request } from "./RequestList";
+import { TestCaseList, type TestCase } from "./TestCaseList";
 import { SuiteCanvas } from "./SuiteCanvas";
 import { MobileBottomSpacer } from "./LeftRail";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -8,34 +8,140 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { List } from "lucide-react";
 
-const mockRequests: Request[] = [
-  { id: "1", method: "POST", endpoint: "/auth/login", name: "Login", status: "success" },
-  { id: "2", method: "POST", endpoint: "/auth/refresh", name: "Refresh Token", status: "success" },
-  { id: "3", method: "GET", endpoint: "/auth/me", name: "Get Current User", status: "success" },
-  { id: "4", method: "POST", endpoint: "/auth/logout", name: "Logout", status: "pending" },
-  { id: "5", method: "POST", endpoint: "/auth/register", name: "Register", status: "failure" },
-  { id: "6", method: "POST", endpoint: "/auth/forgot-password", name: "Forgot Password", status: "pending" },
-];
-
-const mockAssertions = [
-  { id: "1", description: "Response status should be 200", type: "status" as const, status: "pass" as const },
-  { id: "2", description: "Response body should contain access_token", type: "body" as const, status: "pass" as const },
-  { id: "3", description: "Token should be valid JWT format", type: "body" as const, status: "pass" as const },
-  { id: "4", description: "Response time should be under 500ms", type: "timing" as const, status: "fail" as const },
-  { id: "5", description: "Content-Type header should be application/json", type: "header" as const, status: "pass" as const },
+// Mock data with proper hierarchy: Suite → Test Cases → Test Steps → Assertions
+const mockTestCases: TestCase[] = [
+  {
+    id: "1",
+    name: "User Login Flow",
+    description: "Validates complete login flow with valid credentials",
+    status: "pass",
+    steps: [
+      {
+        id: "1-1",
+        name: "Submit Login Request",
+        method: "POST",
+        endpoint: "/auth/login",
+        status: "pass",
+        assertions: [
+          { id: "1-1-1", description: "Response status should be 200", type: "status", status: "pass" },
+          { id: "1-1-2", description: "Response body should contain access_token", type: "body", status: "pass" },
+          { id: "1-1-3", description: "Token should be valid JWT format", type: "schema", status: "pass" },
+        ],
+      },
+      {
+        id: "1-2",
+        name: "Verify User Session",
+        method: "GET",
+        endpoint: "/auth/me",
+        status: "pass",
+        assertions: [
+          { id: "1-2-1", description: "Response status should be 200", type: "status", status: "pass" },
+          { id: "1-2-2", description: "User object should contain email", type: "body", status: "pass" },
+        ],
+      },
+    ],
+  },
+  {
+    id: "2",
+    name: "Token Refresh Flow",
+    description: "Tests token refresh mechanism before expiry",
+    status: "mixed",
+    steps: [
+      {
+        id: "2-1",
+        name: "Request Token Refresh",
+        method: "POST",
+        endpoint: "/auth/refresh",
+        status: "pass",
+        assertions: [
+          { id: "2-1-1", description: "Response status should be 200", type: "status", status: "pass" },
+          { id: "2-1-2", description: "New access_token should be returned", type: "body", status: "pass" },
+        ],
+      },
+      {
+        id: "2-2",
+        name: "Validate New Token",
+        method: "GET",
+        endpoint: "/auth/validate",
+        status: "fail",
+        assertions: [
+          { id: "2-2-1", description: "Response time should be under 500ms", type: "timing", status: "fail" },
+          { id: "2-2-2", description: "Token claims should match", type: "body", status: "pass" },
+        ],
+      },
+    ],
+  },
+  {
+    id: "3",
+    name: "User Registration",
+    description: "Complete new user registration flow",
+    status: "fail",
+    steps: [
+      {
+        id: "3-1",
+        name: "Submit Registration",
+        method: "POST",
+        endpoint: "/auth/register",
+        status: "fail",
+        assertions: [
+          { id: "3-1-1", description: "Response status should be 201", type: "status", status: "fail" },
+          { id: "3-1-2", description: "User ID should be returned", type: "body", status: "pending" },
+        ],
+      },
+      {
+        id: "3-2",
+        name: "Verify Email Sent",
+        method: "GET",
+        endpoint: "/auth/verify-email-status",
+        status: "pending",
+        assertions: [
+          { id: "3-2-1", description: "Email status should be 'sent'", type: "body", status: "pending" },
+        ],
+      },
+    ],
+  },
+  {
+    id: "4",
+    name: "Logout Flow",
+    description: "Tests user logout and session invalidation",
+    status: "pending",
+    steps: [
+      {
+        id: "4-1",
+        name: "Submit Logout",
+        method: "POST",
+        endpoint: "/auth/logout",
+        status: "pending",
+        assertions: [
+          { id: "4-1-1", description: "Response status should be 200", type: "status", status: "pending" },
+          { id: "4-1-2", description: "Session should be invalidated", type: "body", status: "pending" },
+        ],
+      },
+      {
+        id: "4-2",
+        name: "Verify Session Invalidated",
+        method: "GET",
+        endpoint: "/auth/me",
+        status: "pending",
+        assertions: [
+          { id: "4-2-1", description: "Response status should be 401", type: "status", status: "pending" },
+        ],
+      },
+    ],
+  },
 ];
 
 const mockSuggestions = [
   {
     id: "1",
     title: "Add rate limiting test",
-    description: "Consider adding a test for rate limiting behavior on the login endpoint to ensure security measures are working.",
+    description: "Consider adding a test case for rate limiting behavior on the login endpoint to ensure security measures are working.",
     type: "improvement" as const,
   },
   {
     id: "2",
     title: "Slow response detected",
-    description: "The /auth/login endpoint is responding slower than expected. Average response time is 650ms.",
+    description: "The /auth/validate endpoint is responding slower than expected. Average response time is 650ms.",
     type: "warning" as const,
   },
   {
@@ -51,11 +157,11 @@ interface SuiteViewProps {
 }
 
 export function SuiteView({ suiteId }: SuiteViewProps) {
-  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(mockRequests[0]?.id || null);
+  const [selectedTestCaseId, setSelectedTestCaseId] = useState<string | null>(mockTestCases[0]?.id || null);
   const [mobileListOpen, setMobileListOpen] = useState(false);
   const isMobile = useIsMobile();
   
-  const selectedRequest = mockRequests.find(r => r.id === selectedRequestId) || null;
+  const selectedTestCase = mockTestCases.find(tc => tc.id === selectedTestCaseId) || null;
 
   const handleRunSuite = () => {
     console.log("Running suite:", suiteId);
@@ -65,8 +171,8 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
     console.log("Ask AI about suite:", suiteId);
   };
 
-  const handleSelectRequest = (id: string) => {
-    setSelectedRequestId(id);
+  const handleSelectTestCase = (id: string) => {
+    setSelectedTestCaseId(id);
     setMobileListOpen(false);
   };
 
@@ -80,19 +186,19 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
             <SheetTrigger asChild>
               <Button variant="outline" size="sm" className="gap-2">
                 <List className="w-4 h-4" />
-                Requests
+                Test Cases
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="w-80 p-0">
-              <RequestList
-                requests={mockRequests}
-                selectedId={selectedRequestId}
-                onSelect={handleSelectRequest}
+              <TestCaseList
+                testCases={mockTestCases}
+                selectedId={selectedTestCaseId}
+                onSelect={handleSelectTestCase}
               />
             </SheetContent>
           </Sheet>
           <span className="text-sm text-muted-foreground">
-            {selectedRequest?.name || "Select a request"}
+            {selectedTestCase?.name || "Select a test case"}
           </span>
         </div>
 
@@ -101,8 +207,7 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
           <SuiteCanvas
             suiteName="Auth Suite"
             suiteDescription="Authentication and authorization flow tests"
-            selectedRequest={selectedRequest}
-            assertions={mockAssertions}
+            selectedTestCase={selectedTestCase}
             suggestions={mockSuggestions}
             onRunSuite={handleRunSuite}
             onAskAI={handleAskAI}
@@ -118,10 +223,10 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
     <div className="h-screen animate-fade-in">
       <ResizablePanelGroup direction="horizontal" className="h-full">
         <ResizablePanel defaultSize={30} minSize={20} maxSize={50}>
-          <RequestList
-            requests={mockRequests}
-            selectedId={selectedRequestId}
-            onSelect={setSelectedRequestId}
+          <TestCaseList
+            testCases={mockTestCases}
+            selectedId={selectedTestCaseId}
+            onSelect={setSelectedTestCaseId}
           />
         </ResizablePanel>
         <ResizableHandle className="w-px bg-border/50 hover:bg-primary/30 transition-colors" />
@@ -129,8 +234,7 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
           <SuiteCanvas
             suiteName="Auth Suite"
             suiteDescription="Authentication and authorization flow tests"
-            selectedRequest={selectedRequest}
-            assertions={mockAssertions}
+            selectedTestCase={selectedTestCase}
             suggestions={mockSuggestions}
             onRunSuite={handleRunSuite}
             onAskAI={handleAskAI}
