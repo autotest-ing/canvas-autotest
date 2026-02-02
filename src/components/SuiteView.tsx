@@ -73,7 +73,7 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
   // Mobile layout
   if (isMobile) {
     return (
-      <div className="min-h-screen flex flex-col">
+      <div className="min-h-screen flex flex-col animate-fade-in">
         {/* Mobile header with list toggle */}
         <div className="p-4 border-b border-border/50 flex items-center gap-2">
           <Sheet open={mobileListOpen} onOpenChange={setMobileListOpen}>
@@ -115,7 +115,7 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
 
   // Desktop layout
   return (
-    <div className="h-screen">
+    <div className="h-screen animate-fade-in">
       <ResizablePanelGroup direction="horizontal" className="h-full">
         <ResizablePanel defaultSize={30} minSize={20} maxSize={50}>
           <RequestList

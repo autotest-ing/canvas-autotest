@@ -101,7 +101,7 @@ export function SourcesView() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col animate-fade-in">
       <ScrollArea className="flex-1">
         <div className="w-full max-w-3xl mx-auto px-4 md:px-6 py-4 md:py-6">
           {/* Header */}

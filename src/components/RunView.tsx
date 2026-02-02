@@ -67,7 +67,7 @@ export function RunView({ runId }: RunViewProps) {
   // Mobile layout
   if (isMobile) {
     return (
-      <div className="min-h-screen flex flex-col">
+      <div className="min-h-screen flex flex-col animate-fade-in">
         {/* Mobile header with list toggle */}
         <div className="p-4 border-b border-border/50 flex items-center gap-2">
           <Sheet open={mobileListOpen} onOpenChange={setMobileListOpen}>
@@ -116,7 +116,7 @@ export function RunView({ runId }: RunViewProps) {
 
   // Desktop layout
   return (
-    <div className="h-screen">
+    <div className="h-screen animate-fade-in">
       <ResizablePanelGroup direction="horizontal" className="h-full">
         <ResizablePanel defaultSize={25} minSize={20} maxSize={40}>
           <StepTimeline
