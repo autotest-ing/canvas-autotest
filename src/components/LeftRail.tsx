@@ -22,6 +22,9 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 
+// Mock unread count - in a real app, this would come from a context/store
+const UNREAD_NOTIFICATION_COUNT = 3;
+
 interface NavItem {
   icon: React.ElementType;
   label: string;
@@ -71,6 +74,7 @@ export function LeftRail({ activeItem, onItemClick }: LeftRailProps) {
   const NavButton = ({ item, showLabel = false }: { item: NavItem; showLabel?: boolean }) => {
     const isActive = activeItem === item.id || location.pathname === item.path;
     const Icon = item.icon;
+    const showBadge = item.id === "notifications" && UNREAD_NOTIFICATION_COUNT > 0;
 
     const button = (
       <button
@@ -81,10 +85,17 @@ export function LeftRail({ activeItem, onItemClick }: LeftRailProps) {
           isActive && "bg-sidebar-accent text-sidebar-primary"
         )}
       >
-        <Icon className={cn(
-          "w-5 h-5 flex-shrink-0 transition-colors",
-          isActive ? "text-sidebar-primary" : "text-sidebar-foreground"
-        )} />
+        <div className="relative flex-shrink-0">
+          <Icon className={cn(
+            "w-5 h-5 transition-colors",
+            isActive ? "text-sidebar-primary" : "text-sidebar-foreground"
+          )} />
+          {showBadge && (
+            <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
+              {UNREAD_NOTIFICATION_COUNT > 9 ? "9+" : UNREAD_NOTIFICATION_COUNT}
+            </span>
+          )}
+        </div>
         {(isExpanded || showLabel) && (
           <span className={cn(
             "text-sm font-medium whitespace-nowrap",
@@ -156,6 +167,7 @@ export function LeftRail({ activeItem, onItemClick }: LeftRailProps) {
             {mobileNavItems.map((item) => {
               const isActive = activeItem === item.id || location.pathname === item.path;
               const Icon = item.icon;
+              const showBadge = item.id === "notifications" && UNREAD_NOTIFICATION_COUNT > 0;
               
               return (
                 <button
@@ -166,7 +178,14 @@ export function LeftRail({ activeItem, onItemClick }: LeftRailProps) {
                     isActive ? "text-primary" : "text-muted-foreground"
                   )}
                 >
-                  <Icon className="w-5 h-5" />
+                  <div className="relative">
+                    <Icon className="w-5 h-5" />
+                    {showBadge && (
+                      <span className="absolute -top-1 -right-1.5 min-w-[16px] h-[16px] px-0.5 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center">
+                        {UNREAD_NOTIFICATION_COUNT > 9 ? "9+" : UNREAD_NOTIFICATION_COUNT}
+                      </span>
+                    )}
+                  </div>
                   <span className="text-[10px] font-medium">{item.label}</span>
                 </button>
               );
