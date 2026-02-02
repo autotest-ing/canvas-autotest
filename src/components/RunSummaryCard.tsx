@@ -1,6 +1,8 @@
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckCircle2, XCircle, Clock, Timer, GitBranch, User, Calendar } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { CheckCircle2, XCircle, Clock, Timer, GitBranch, User, Play, RotateCcw, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { RunTestCase } from "./RunTestCaseList";
 
@@ -12,6 +14,8 @@ interface RunSummaryCardProps {
   startedAt: string;
   branch?: string;
   commit?: string;
+  onRerunAll: () => void;
+  onRerunFailed: () => void;
 }
 
 export function RunSummaryCard({
@@ -22,6 +26,8 @@ export function RunSummaryCard({
   startedAt,
   branch,
   commit,
+  onRerunAll,
+  onRerunFailed,
 }: RunSummaryCardProps) {
   const passedCases = testCases.filter(tc => tc.status === "pass").length;
   const failedCases = testCases.filter(tc => tc.status === "fail" || tc.status === "mixed").length;
@@ -44,6 +50,7 @@ export function RunSummaryCard({
   );
 
   const overallStatus = failedCases > 0 ? "failed" : pendingCases > 0 ? "running" : "passed";
+  const isRunning = overallStatus === "running";
 
   return (
     <Card className="border-border/50 bg-card">
@@ -138,6 +145,33 @@ export function RunSummaryCard({
                   <span className="font-mono text-xs">{branch}</span>
                 </div>
               )}
+            </div>
+
+            <div className="h-8 w-px bg-border/50 hidden lg:block" />
+
+            {/* Re-run Actions */}
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" disabled={isRunning} className="gap-2">
+                    <RotateCcw className="w-4 h-4" />
+                    Re-run
+                    <ChevronDown className="w-3 h-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={onRerunAll} className="gap-2">
+                    <Play className="w-4 h-4" />
+                    Re-run All Tests
+                  </DropdownMenuItem>
+                  {failedCases > 0 && (
+                    <DropdownMenuItem onClick={onRerunFailed} className="gap-2 text-destructive">
+                      <RotateCcw className="w-4 h-4" />
+                      Re-run Failed Only ({failedCases})
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
