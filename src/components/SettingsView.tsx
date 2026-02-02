@@ -66,22 +66,24 @@ export function SettingsView() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Header */}
-      <div className="p-4 md:p-6 border-b border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl md:text-2xl font-semibold text-foreground">Settings</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage your account and preferences
-          </p>
-        </div>
-        <Button onClick={handleSave} disabled={!hasChanges} className="gap-2 w-full sm:w-auto">
-          <Save className="w-4 h-4" />
-          Save Changes
-        </Button>
-      </div>
-
       <ScrollArea className="flex-1">
-        <div className="p-4 md:p-6 max-w-3xl space-y-6">
+        <div className="w-full max-w-3xl mx-auto px-4 md:px-6 py-4 md:py-6">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-6 border-b border-border/50 mb-6">
+            <div>
+              <h1 className="text-xl md:text-2xl font-semibold text-foreground">Settings</h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                Manage your account and preferences
+              </p>
+            </div>
+            <Button onClick={handleSave} disabled={!hasChanges} className="gap-2 w-full sm:w-auto">
+              <Save className="w-4 h-4" />
+              Save Changes
+            </Button>
+          </div>
+
+          {/* Content */}
+          <div className="space-y-6">
           {/* Account */}
           <Card className="border-border/50 shadow-soft">
             <CardHeader className="pb-4">
@@ -367,6 +369,7 @@ export function SettingsView() {
             </CardContent>
           </Card>
           <MobileBottomSpacer />
+          </div>
         </div>
       </ScrollArea>
     </div>
