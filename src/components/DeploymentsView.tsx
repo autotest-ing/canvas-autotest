@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search } from "lucide-react";
+import { Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { PageTitle } from "@/components/PageTitle";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -163,6 +163,9 @@ function DeploymentCard({ deployment, onClick }: { deployment: Deployment; onCli
   );
 }
 
+type SortKey = "deployId" | "repo" | "branch" | "env" | "risk" | "result" | "duration" | "tests";
+type SortDirection = "asc" | "desc";
+
 export function DeploymentsView() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -170,6 +173,8 @@ export function DeploymentsView() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [envFilter, setEnvFilter] = useState<string>("all");
   const [branchFilter, setBranchFilter] = useState<string>("all");
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
   const branches = useMemo(
     () => [...new Set(mockDeployments.map((d) => d.branch))],
@@ -193,6 +198,82 @@ export function DeploymentsView() {
       return matchesSearch && matchesStatus && matchesEnv && matchesBranch;
     });
   }, [search, statusFilter, envFilter, branchFilter]);
+
+  const sortedDeployments = useMemo(() => {
+    if (!sortKey) return filteredDeployments;
+
+    return [...filteredDeployments].sort((a, b) => {
+      let aVal: string | number;
+      let bVal: string | number;
+
+      switch (sortKey) {
+        case "deployId":
+          aVal = a.deployId;
+          bVal = b.deployId;
+          break;
+        case "repo":
+          aVal = a.repo;
+          bVal = b.repo;
+          break;
+        case "branch":
+          aVal = a.branch;
+          bVal = b.branch;
+          break;
+        case "env":
+          aVal = a.env;
+          bVal = b.env;
+          break;
+        case "risk":
+          aVal = a.risk.score;
+          bVal = b.risk.score;
+          break;
+        case "result":
+          aVal = a.result;
+          bVal = b.result;
+          break;
+        case "duration":
+          aVal = a.duration;
+          bVal = b.duration;
+          break;
+        case "tests":
+          aVal = a.tests.passed / a.tests.total;
+          bVal = b.tests.passed / b.tests.total;
+          break;
+        default:
+          return 0;
+      }
+
+      if (typeof aVal === "string" && typeof bVal === "string") {
+        return sortDirection === "asc"
+          ? aVal.localeCompare(bVal)
+          : bVal.localeCompare(aVal);
+      }
+
+      return sortDirection === "asc"
+        ? (aVal as number) - (bVal as number)
+        : (bVal as number) - (aVal as number);
+    });
+  }, [filteredDeployments, sortKey, sortDirection]);
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDirection("asc");
+    }
+  };
+
+  const SortIcon = ({ columnKey }: { columnKey: SortKey }) => {
+    if (sortKey !== columnKey) {
+      return <ArrowUpDown className="w-3 h-3 ml-1 opacity-50" />;
+    }
+    return sortDirection === "asc" ? (
+      <ArrowUp className="w-3 h-3 ml-1" />
+    ) : (
+      <ArrowDown className="w-3 h-3 ml-1" />
+    );
+  };
 
   return (
     <div className="flex-1 p-4 md:p-6 overflow-auto animate-fade-in">
@@ -258,38 +339,54 @@ export function DeploymentsView() {
         {/* Content */}
         {isMobile ? (
           <div className="space-y-3">
-            {filteredDeployments.map((deployment) => (
+            {sortedDeployments.map((deployment) => (
               <DeploymentCard
                 key={deployment.id}
                 deployment={deployment}
                 onClick={() => navigate(`/deployments/${deployment.deployId}`)}
               />
             ))}
-            {filteredDeployments.length === 0 && (
+            {sortedDeployments.length === 0 && (
               <p className="text-center text-muted-foreground py-8">
                 No deployments found
               </p>
             )}
           </div>
         ) : (
-          <div className="border rounded-xl overflow-hidden">
+          <div className="border rounded-xl overflow-hidden bg-white dark:bg-card">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Deploy ID</TableHead>
-                  <TableHead>Repo</TableHead>
-                  <TableHead>Branch</TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => handleSort("deployId")}>
+                    <div className="flex items-center">Deploy ID <SortIcon columnKey="deployId" /></div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => handleSort("repo")}>
+                    <div className="flex items-center">Repo <SortIcon columnKey="repo" /></div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => handleSort("branch")}>
+                    <div className="flex items-center">Branch <SortIcon columnKey="branch" /></div>
+                  </TableHead>
                   <TableHead>Commit</TableHead>
-                  <TableHead>Env</TableHead>
-                  <TableHead>Risk</TableHead>
-                  <TableHead>Result</TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => handleSort("env")}>
+                    <div className="flex items-center">Env <SortIcon columnKey="env" /></div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => handleSort("risk")}>
+                    <div className="flex items-center">Risk <SortIcon columnKey="risk" /></div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => handleSort("result")}>
+                    <div className="flex items-center">Result <SortIcon columnKey="result" /></div>
+                  </TableHead>
                   <TableHead>Started</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Tests</TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => handleSort("duration")}>
+                    <div className="flex items-center">Duration <SortIcon columnKey="duration" /></div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => handleSort("tests")}>
+                    <div className="flex items-center">Tests <SortIcon columnKey="tests" /></div>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredDeployments.map((deployment) => (
+                {sortedDeployments.map((deployment) => (
                   <TableRow
                     key={deployment.id}
                     className="cursor-pointer hover:bg-muted/50"
@@ -336,7 +433,7 @@ export function DeploymentsView() {
                     </TableCell>
                   </TableRow>
                 ))}
-                {filteredDeployments.length === 0 && (
+                {sortedDeployments.length === 0 && (
                   <TableRow>
                     <TableCell
                       colSpan={10}
