@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { RunTestCaseList, type RunTestCase } from "./RunTestCaseList";
 import { RunTestCaseCanvas } from "./RunTestCaseCanvas";
+import { RunSummaryCard } from "./RunSummaryCard";
 import { AIFixCard } from "./AIFixCard";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { MobileBottomSpacer } from "./LeftRail";
@@ -129,8 +130,11 @@ const mockRunData = {
   runId: "run-42",
   suiteName: "Auth Suite",
   suiteId: "auth-suite",
-  startedAt: "2024-01-15T10:30:00Z",
+  startedAt: "15 min ago",
   duration: "2.1s",
+  triggeredBy: "CI/CD",
+  branch: "main",
+  commit: "a1b2c3d",
 };
 
 interface RunViewProps {
@@ -211,6 +215,18 @@ export function RunView({ runId, suiteId }: RunViewProps) {
           <Breadcrumbs items={breadcrumbItems} />
         </div>
 
+        {/* Summary Card */}
+        <div className="px-4 pb-4">
+          <RunSummaryCard
+            runId={runId || mockRunData.runId}
+            testCases={mockRunTestCases}
+            duration={mockRunData.duration}
+            triggeredBy={mockRunData.triggeredBy}
+            startedAt={mockRunData.startedAt}
+            branch={mockRunData.branch}
+          />
+        </div>
+
         {/* Mobile header with list toggle */}
         <div className="px-4 pb-4 border-b border-border/50 flex items-center gap-2">
           <Sheet open={mobileListOpen} onOpenChange={setMobileListOpen}>
@@ -265,7 +281,19 @@ export function RunView({ runId, suiteId }: RunViewProps) {
         <Breadcrumbs items={breadcrumbItems} />
       </div>
 
-      <div className="flex-1">
+      {/* Summary Card */}
+      <div className="px-6 py-4 border-b border-border/50">
+        <RunSummaryCard
+          runId={runId || mockRunData.runId}
+          testCases={mockRunTestCases}
+          duration={mockRunData.duration}
+          triggeredBy={mockRunData.triggeredBy}
+          startedAt={mockRunData.startedAt}
+          branch={mockRunData.branch}
+        />
+      </div>
+
+      <div className="flex-1 min-h-0">
         <ResizablePanelGroup direction="horizontal" className="h-full">
           <ResizablePanel defaultSize={25} minSize={20} maxSize={40}>
             <RunTestCaseList
