@@ -201,6 +201,28 @@ export function RunView({ runId, suiteId }: RunViewProps) {
     setMobileListOpen(false);
   };
 
+  const handleRerunAll = () => {
+    toast.success("Re-running all tests...", {
+      description: "Starting a new run for all test cases in this suite.",
+    });
+  };
+
+  const handleRerunFailed = () => {
+    const failedCount = mockRunTestCases.filter(
+      tc => tc.status === "fail" || tc.status === "mixed"
+    ).length;
+    toast.success(`Re-running ${failedCount} failed test case(s)...`, {
+      description: "Starting a new run for failed test cases only.",
+    });
+  };
+
+  const handleRerunTestCase = (testCaseId: string) => {
+    const testCase = mockRunTestCases.find(tc => tc.id === testCaseId);
+    toast.success(`Re-running "${testCase?.name}"...`, {
+      description: "Starting a new run for this test case.",
+    });
+  };
+
   // Find the step name for the AI fix card
   const fixingStep = fixingStepId 
     ? selectedTestCase?.steps.find(s => s.id === fixingStepId) 
@@ -224,6 +246,8 @@ export function RunView({ runId, suiteId }: RunViewProps) {
             triggeredBy={mockRunData.triggeredBy}
             startedAt={mockRunData.startedAt}
             branch={mockRunData.branch}
+            onRerunAll={handleRerunAll}
+            onRerunFailed={handleRerunFailed}
           />
         </div>
 
@@ -266,6 +290,7 @@ export function RunView({ runId, suiteId }: RunViewProps) {
           <RunTestCaseCanvas
             testCase={selectedTestCase}
             onFixWithAI={handleFixWithAI}
+            onRerunTestCase={handleRerunTestCase}
           />
         </div>
         <MobileBottomSpacer />
@@ -290,6 +315,8 @@ export function RunView({ runId, suiteId }: RunViewProps) {
           triggeredBy={mockRunData.triggeredBy}
           startedAt={mockRunData.startedAt}
           branch={mockRunData.branch}
+          onRerunAll={handleRerunAll}
+          onRerunFailed={handleRerunFailed}
         />
       </div>
 
@@ -319,6 +346,7 @@ export function RunView({ runId, suiteId }: RunViewProps) {
                 <RunTestCaseCanvas
                   testCase={selectedTestCase}
                   onFixWithAI={handleFixWithAI}
+                  onRerunTestCase={handleRerunTestCase}
                 />
               </div>
             </div>

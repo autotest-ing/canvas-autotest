@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChevronDown, CheckCircle2, XCircle, Clock, Copy, Check, Sparkles } from "lucide-react";
+import { ChevronDown, CheckCircle2, XCircle, Clock, Copy, Check, Sparkles, RotateCcw } from "lucide-react";
 import type { RunTestStep, RunTestCase } from "./RunTestCaseList";
 
 interface RunTestCaseCanvasProps {
   testCase: RunTestCase | null;
   onFixWithAI: (stepId: string) => void;
+  onRerunTestCase?: (testCaseId: string) => void;
 }
 
 const methodColors: Record<RunTestStep["method"], string> = {
@@ -244,7 +245,7 @@ function RunStepCard({ step, stepNumber, isExpanded = false, onFixWithAI }: {
   );
 }
 
-export function RunTestCaseCanvas({ testCase, onFixWithAI }: RunTestCaseCanvasProps) {
+export function RunTestCaseCanvas({ testCase, onFixWithAI, onRerunTestCase }: RunTestCaseCanvasProps) {
   if (!testCase) {
     return (
       <div className="h-full flex items-center justify-center text-muted-foreground">
@@ -255,6 +256,8 @@ export function RunTestCaseCanvas({ testCase, onFixWithAI }: RunTestCaseCanvasPr
 
   const passedSteps = testCase.steps.filter(s => s.status === "pass").length;
   const failedSteps = testCase.steps.filter(s => s.status === "fail").length;
+  const isFailed = testCase.status === "fail" || testCase.status === "mixed";
+  const isRunning = testCase.status === "running";
 
   return (
     <div className="h-full flex flex-col">
@@ -281,6 +284,18 @@ export function RunTestCaseCanvas({ testCase, onFixWithAI }: RunTestCaseCanvasPr
               </div>
             </div>
           </div>
+          {isFailed && onRerunTestCase && (
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={() => onRerunTestCase(testCase.id)}
+              disabled={isRunning}
+              className="gap-2 shrink-0"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Re-run Test Case
+            </Button>
+          )}
         </div>
       </div>
 
