@@ -210,7 +210,7 @@ export function NotificationsView() {
             </div>
           ) : (
             <div className="space-y-3">
-              {notifications.map((notification, index) => {
+              {notifications.map((notification) => {
                 const config = typeConfig[notification.type];
                 const Icon = config.icon;
 
@@ -218,12 +218,11 @@ export function NotificationsView() {
                   <div
                     key={notification.id}
                     className={cn(
-                      "p-4 rounded-2xl border transition-all duration-200 animate-fade-in",
+                      "p-4 rounded-2xl border transition-all duration-200",
                       notification.isRead
                         ? "bg-card/50 border-border/30"
                         : "bg-card border-border/50 shadow-soft"
                     )}
-                    style={{ animationDelay: `${index * 60}ms`, animationFillMode: 'backwards' }}
                   >
                     <div className="flex items-start gap-4">
                       {/* Icon */}

@@ -102,11 +102,7 @@ export function HomeCanvas() {
           <div className="space-y-3">
             <h2 className="text-sm font-medium text-muted-foreground px-1">Generated artifacts</h2>
             {mockArtifacts.map((artifact, i) => (
-              <div 
-                key={artifact.id} 
-                className="animate-fade-in"
-                style={{ animationDelay: `${i * 100}ms`, animationFillMode: 'backwards' }}
-              >
+              <div key={artifact.id} style={{ animationDelay: `${i * 100}ms` }}>
                 <ArtifactCard {...artifact} />
               </div>
             ))}

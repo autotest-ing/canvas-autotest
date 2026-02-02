@@ -86,7 +86,7 @@ export function SettingsView() {
           {/* Content */}
           <div className="space-y-6">
           {/* Account */}
-          <Card className="border-border/50 shadow-soft animate-fade-in" style={{ animationDelay: '0ms', animationFillMode: 'backwards' }}>
+          <Card className="border-border/50 shadow-soft">
             <CardHeader className="pb-4">
               <div className="flex items-center gap-2">
                 <User className="w-5 h-5 text-muted-foreground" />
@@ -161,7 +161,7 @@ export function SettingsView() {
           </Card>
 
           {/* Theme */}
-          <Card className="border-border/50 shadow-soft animate-fade-in" style={{ animationDelay: '80ms', animationFillMode: 'backwards' }}>
+          <Card className="border-border/50 shadow-soft">
             <CardHeader className="pb-4">
               <div className="flex items-center gap-2">
                 <Palette className="w-5 h-5 text-muted-foreground" />
@@ -211,7 +211,7 @@ export function SettingsView() {
           </Card>
 
           {/* Notifications */}
-          <Card className="border-border/50 shadow-soft animate-fade-in" style={{ animationDelay: '160ms', animationFillMode: 'backwards' }}>
+          <Card className="border-border/50 shadow-soft">
             <CardHeader className="pb-4">
               <div className="flex items-center gap-2">
                 <Bell className="w-5 h-5 text-muted-foreground" />
@@ -294,7 +294,7 @@ export function SettingsView() {
           </Card>
 
           {/* Security */}
-          <Card className="border-border/50 shadow-soft animate-fade-in" style={{ animationDelay: '240ms', animationFillMode: 'backwards' }}>
+          <Card className="border-border/50 shadow-soft">
             <CardHeader className="pb-4">
               <div className="flex items-center gap-2">
                 <Shield className="w-5 h-5 text-muted-foreground" />
@@ -348,7 +348,7 @@ export function SettingsView() {
           </Card>
 
           {/* Danger Zone */}
-          <Card className="border-destructive/30 shadow-soft animate-fade-in" style={{ animationDelay: '320ms', animationFillMode: 'backwards' }}>
+          <Card className="border-destructive/30 shadow-soft">
             <CardHeader className="pb-4">
               <CardTitle className="text-base text-destructive">Danger Zone</CardTitle>
               <CardDescription>

@@ -137,19 +137,14 @@ export function SourcesView() {
             </div>
           ) : (
             <div className="space-y-4">
-              {sources.map((source, index) => (
-                <div
+              {sources.map((source) => (
+                <SourceCard
                   key={source.id}
-                  className="animate-fade-in"
-                  style={{ animationDelay: `${index * 80}ms`, animationFillMode: 'backwards' }}
-                >
-                  <SourceCard
-                    source={source}
-                    onCreateSuite={handleCreateSuite}
-                    onResync={handleResync}
-                    onDelete={handleDelete}
-                  />
-                </div>
+                  source={source}
+                  onCreateSuite={handleCreateSuite}
+                  onResync={handleResync}
+                  onDelete={handleDelete}
+                />
               ))}
             </div>
           )}

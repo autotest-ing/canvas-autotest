@@ -163,16 +163,15 @@ export function EnvironmentsView() {
           {/* AI Suggestions */}
           {suggestions.length > 0 && (
             <div className="space-y-3">
-              {suggestions.map((suggestion, index) => (
+              {suggestions.map((suggestion) => (
                 <div
                   key={suggestion.id}
                   className={cn(
-                    "p-4 rounded-xl border flex items-start gap-3 animate-fade-in",
+                    "p-4 rounded-xl border flex items-start gap-3",
                     suggestion.type === "missing"
                       ? "bg-amber-500/5 border-amber-500/20"
                       : "bg-primary/5 border-primary/20"
                   )}
-                  style={{ animationDelay: `${index * 80}ms`, animationFillMode: 'backwards' }}
                 >
                   <div className={cn(
                     "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
@@ -205,7 +204,7 @@ export function EnvironmentsView() {
           )}
 
           {/* Base URL */}
-          <Card className="border-border/50 shadow-soft animate-fade-in" style={{ animationDelay: '100ms', animationFillMode: 'backwards' }}>
+          <Card className="border-border/50 shadow-soft">
             <CardHeader className="pb-4">
               <div className="flex items-center gap-2">
                 <Globe className="w-5 h-5 text-muted-foreground" />
@@ -226,7 +225,7 @@ export function EnvironmentsView() {
           </Card>
 
           {/* Variables */}
-          <Card className="border-border/50 shadow-soft animate-fade-in" style={{ animationDelay: '180ms', animationFillMode: 'backwards' }}>
+          <Card className="border-border/50 shadow-soft">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -288,7 +287,7 @@ export function EnvironmentsView() {
           </Card>
 
           {/* Secrets */}
-          <Card className="border-border/50 shadow-soft animate-fade-in" style={{ animationDelay: '260ms', animationFillMode: 'backwards' }}>
+          <Card className="border-border/50 shadow-soft">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
