@@ -11,6 +11,7 @@ import Runs from "./pages/Runs";
 import Sources from "./pages/Sources";
 import Environments from "./pages/Environments";
 import Integrations from "./pages/Integrations";
+import Deployments from "./pages/Deployments";
 import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -32,6 +33,7 @@ const App = () => (
               <Route path="/sources" element={<Sources />} />
               <Route path="/environments" element={<Environments />} />
               <Route path="/integrations" element={<Integrations />} />
+              <Route path="/deployments" element={<Deployments />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/settings" element={<Settings />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

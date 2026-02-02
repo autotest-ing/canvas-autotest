@@ -7,6 +7,7 @@ import {
   Database, 
   Globe, 
   Plug,
+  Rocket,
   Bell, 
   Settings,
   ChevronRight,
@@ -40,6 +41,7 @@ const topItems: NavItem[] = [
   { icon: Database, label: "Sources", id: "sources", path: "/sources" },
   { icon: Globe, label: "Environments", id: "environments", path: "/environments" },
   { icon: Plug, label: "Integrations", id: "integrations", path: "/integrations" },
+  { icon: Rocket, label: "Deployments", id: "deployments", path: "/deployments" },
 ];
 
 const bottomItems: NavItem[] = [
