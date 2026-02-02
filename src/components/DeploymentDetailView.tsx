@@ -264,9 +264,9 @@ function TimelineNode({
   );
 }
 
-function RunCard({ run }: { run: DeploymentDetail["runs"][0] }) {
+function RunCard({ run, onClick }: { run: DeploymentDetail["runs"][0]; onClick: () => void }) {
   return (
-    <Card className="p-4">
+    <Card className="p-4 cursor-pointer hover:bg-muted/50 transition-colors" onClick={onClick}>
       <div className="flex justify-between items-start mb-2">
         <span className="font-mono text-sm font-medium">{run.runId}</span>
         <StatusBadge status={run.status} />
@@ -450,7 +450,11 @@ export function DeploymentDetailView() {
           {isMobile ? (
             <div className="space-y-3">
               {deployment.runs.map((run) => (
-                <RunCard key={run.id} run={run} />
+                <RunCard
+                  key={run.id}
+                  run={run}
+                  onClick={() => navigate(`/runs/${run.runId}`)}
+                />
               ))}
             </div>
           ) : (
@@ -468,7 +472,11 @@ export function DeploymentDetailView() {
                 </TableHeader>
                 <TableBody>
                   {deployment.runs.map((run) => (
-                    <TableRow key={run.id}>
+                    <TableRow
+                      key={run.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => navigate(`/runs/${run.runId}`)}
+                    >
                       <TableCell className="font-mono text-sm">
                         {run.runId}
                       </TableCell>
