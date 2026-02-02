@@ -48,25 +48,34 @@ export function IntegrationsView() {
 
       {/* Category sections */}
       <div className="space-y-8">
-        {categories.map((category) => {
+        {categories.map((category, categoryIndex) => {
           const categoryIntegrations = integrations.filter(
             (i) => i.category === category.id
           );
 
           return (
-            <section key={category.id}>
+            <section 
+              key={category.id}
+              className="animate-fade-in"
+              style={{ animationDelay: `${categoryIndex * 100}ms`, animationFillMode: 'backwards' }}
+            >
               <h2 className="text-sm font-semibold text-foreground mb-4">
                 {category.label}
               </h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                {categoryIntegrations.map((integration) => (
-                  <IntegrationCard
+                {categoryIntegrations.map((integration, index) => (
+                  <div
                     key={integration.id}
-                    id={integration.id}
-                    name={integration.name}
-                    icon={integration.icon}
-                    isConnected={integration.isConnected}
-                  />
+                    className="animate-fade-in"
+                    style={{ animationDelay: `${(categoryIndex * 100) + (index * 50)}ms`, animationFillMode: 'backwards' }}
+                  >
+                    <IntegrationCard
+                      id={integration.id}
+                      name={integration.name}
+                      icon={integration.icon}
+                      isConnected={integration.isConnected}
+                    />
+                  </div>
                 ))}
               </div>
             </section>
