@@ -1,9 +1,11 @@
 import { Layers, FileCode, Play, Check, X, Clock, ChevronRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
-type ArtifactType = "suite" | "request" | "run";
+export type ArtifactType = "suite" | "request" | "run";
 
-interface ArtifactCardProps {
+export interface ArtifactCardProps {
+  id?: string;
   type: ArtifactType;
   title: string;
   subtitle?: string;
@@ -53,14 +55,34 @@ const statusConfig = {
   },
 };
 
-export function ArtifactCard({ type, title, subtitle, status, meta, onClick }: ArtifactCardProps) {
+export function ArtifactCard({ id, type, title, subtitle, status, meta, onClick }: ArtifactCardProps) {
+  const navigate = useNavigate();
   const { icon: TypeIcon, cta } = typeConfig[type];
   const statusInfo = status ? statusConfig[status] : null;
   const StatusIcon = statusInfo?.icon;
 
+  const handleClick = () => {
+    if (onClick) {
+      onClick();
+    } else {
+      // Navigate based on artifact type
+      switch (type) {
+        case "suite":
+          navigate(`/suites${id ? `?id=${id}` : ""}`);
+          break;
+        case "run":
+          navigate(`/runs${id ? `?id=${id}` : ""}`);
+          break;
+        case "request":
+          navigate(`/suites${id ? `?request=${id}` : ""}`);
+          break;
+      }
+    }
+  };
+
   return (
     <div
-      onClick={onClick}
+      onClick={handleClick}
       className={cn(
         "group bg-card rounded-xl p-4 shadow-soft transition-all duration-200 cursor-pointer",
         "hover:shadow-hover hover:scale-[1.01]",

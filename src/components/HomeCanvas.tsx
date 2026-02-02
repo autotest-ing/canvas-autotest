@@ -15,10 +15,10 @@ const mockPlanSteps = [
 ];
 
 const mockArtifacts = [
-  { type: "suite" as const, title: "Auth Suite", subtitle: "5 requests", status: "success" as const, meta: "Last run 2m ago" },
-  { type: "suite" as const, title: "Users API", subtitle: "12 requests", status: "success" as const, meta: "Last run 2m ago" },
-  { type: "suite" as const, title: "Orders API", subtitle: "8 requests", status: "failure" as const, meta: "2 failures" },
-  { type: "run" as const, title: "Regression Run #42", subtitle: "25 tests", status: "failure" as const, meta: "Duration: 1m 23s" },
+  { id: "auth-suite", type: "suite" as const, title: "Auth Suite", subtitle: "5 requests", status: "success" as const, meta: "Last run 2m ago" },
+  { id: "users-suite", type: "suite" as const, title: "Users API", subtitle: "12 requests", status: "success" as const, meta: "Last run 2m ago" },
+  { id: "orders-suite", type: "suite" as const, title: "Orders API", subtitle: "8 requests", status: "failure" as const, meta: "2 failures" },
+  { id: "run-42", type: "run" as const, title: "Regression Run #42", subtitle: "25 tests", status: "failure" as const, meta: "Duration: 1m 23s" },
 ];
 
 export function HomeCanvas() {
@@ -101,8 +101,8 @@ export function HomeCanvas() {
           <div className="space-y-3">
             <h2 className="text-sm font-medium text-muted-foreground px-1">Generated artifacts</h2>
             {mockArtifacts.map((artifact, i) => (
-              <div key={i} style={{ animationDelay: `${i * 100}ms` }}>
-                <ArtifactCard {...artifact} onClick={() => {}} />
+              <div key={artifact.id} style={{ animationDelay: `${i * 100}ms` }}>
+                <ArtifactCard {...artifact} />
               </div>
             ))}
           </div>
