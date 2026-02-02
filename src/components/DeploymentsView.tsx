@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Search } from "lucide-react";
 import { PageTitle } from "@/components/PageTitle";
 import { Input } from "@/components/ui/input";
@@ -137,9 +138,9 @@ function RiskBadge({ risk }: { risk: Deployment["risk"] }) {
   );
 }
 
-function DeploymentCard({ deployment }: { deployment: Deployment }) {
+function DeploymentCard({ deployment, onClick }: { deployment: Deployment; onClick: () => void }) {
   return (
-    <Card className="p-4">
+    <Card className="p-4 cursor-pointer hover:bg-muted/50 transition-colors" onClick={onClick}>
       <div className="flex justify-between items-start mb-2">
         <span className="font-mono text-sm font-medium">{deployment.deployId}</span>
         <ResultBadge result={deployment.result} />
@@ -163,6 +164,7 @@ function DeploymentCard({ deployment }: { deployment: Deployment }) {
 }
 
 export function DeploymentsView() {
+  const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -257,7 +259,11 @@ export function DeploymentsView() {
         {isMobile ? (
           <div className="space-y-3">
             {filteredDeployments.map((deployment) => (
-              <DeploymentCard key={deployment.id} deployment={deployment} />
+              <DeploymentCard
+                key={deployment.id}
+                deployment={deployment}
+                onClick={() => navigate(`/deployments/${deployment.deployId}`)}
+              />
             ))}
             {filteredDeployments.length === 0 && (
               <p className="text-center text-muted-foreground py-8">
@@ -284,7 +290,11 @@ export function DeploymentsView() {
               </TableHeader>
               <TableBody>
                 {filteredDeployments.map((deployment) => (
-                  <TableRow key={deployment.id}>
+                  <TableRow
+                    key={deployment.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => navigate(`/deployments/${deployment.deployId}`)}
+                  >
                     <TableCell className="font-mono text-sm">
                       {deployment.deployId}
                     </TableCell>
