@@ -1,157 +1,221 @@
 
 
-# Deployments Page Implementation Plan
+# Deployment Detail Page Implementation Plan
 
 ## Overview
-Create a new dedicated Deployments page that displays all deployments and their test results in a data table format. The page will include search functionality, filter dropdowns, and a mobile-optimized layout that transforms the table into cards on small screens.
+Add click functionality to deployment rows/cards that navigates to a dedicated detail page. The detail page displays comprehensive deployment information with a header, metadata cards, timeline visualization, and runs table - matching the provided reference design.
 
 ## Visual Design (based on reference)
-- Page header with "Deployments" title (with green dot) and subtitle "All deployments and their test results"
-- Search input on the left with filter dropdowns on the right (Status, Envs, Branches)
-- Data table with columns: Deploy ID, Repo, Branch, Commit, Env, Risk, Result, Started, Duration, Tests
-- Result badges: Passed (green), Failed (red), Partial (amber)
-- Risk badges: Low (green), Medium (amber), High (red) with numeric score
-- Mobile optimization: Transform table rows into stacked cards
+- **Header**: Back arrow, Deploy ID with result badge, commit message subtitle, action buttons (Rerun affected, Rerun full, Create issue)
+- **Metadata cards row**: Branch, Commit hash, Author, Started date - each in a bordered card with icon and label
+- **Stats card**: Risk Score badge, Environment, Duration, Tests (executed and skipped)
+- **Timeline section**: Horizontal timeline showing Build, Deploy, Tests phases with durations
+- **Runs table**: Table of test runs associated with this deployment (Run ID, Suite, Env, Status, Duration, Results)
 
 ## Files to Create
 
-### 1. `src/components/DeploymentsView.tsx`
-Main view component containing:
-- Page header with PageTitle and subtitle
-- Search input and filter dropdowns (All Status, All Envs, All Branches)
-- Data table with mock deployment data
-- Mobile-responsive card layout
+### 1. `src/components/DeploymentDetailView.tsx`
+Main detail view component containing:
+- Back button navigation to `/deployments`
+- Header with Deploy ID, result badge, and action buttons
+- Commit message subtitle
+- Four metadata cards in a responsive grid (Branch, Commit, Author, Started)
+- Stats card with Risk Score, Environment, Duration, Tests
+- Timeline visualization with three phases
+- Runs in this deployment table
+- Mobile-responsive layouts
 - Entrance animation (animate-fade-in)
 
-### 2. `src/pages/Deployments.tsx`
-Page wrapper with LeftRail and DeploymentsView
+### 2. `src/pages/DeploymentDetail.tsx`
+Page wrapper with LeftRail and DeploymentDetailView
 
 ## Files to Modify
 
 ### 3. `src/App.tsx`
-- Import Deployments page
-- Add route: `/deployments`
+- Add dynamic route: `/deployments/:deployId`
+- Import DeploymentDetail page
 
-### 4. `src/components/LeftRail.tsx`
-- Add Deployments nav item to topItems (using Rocket or Ship icon from lucide-react)
-- Position after Integrations
+### 4. `src/components/DeploymentsView.tsx`
+- Add `useNavigate` hook
+- Add `onClick` handler to table rows
+- Add `onClick` handler to mobile cards
+- Add cursor pointer styling for clickable rows/cards
 
-## Deployment Data Structure
+## Extended Data Structure
 
 ```text
-interface Deployment {
-  id: string
-  deployId: string
-  repo: string
-  branch: string
-  commit: {
-    hash: string
-    message: string
+// Extended deployment data for detail page
+interface DeploymentDetail extends Deployment {
+  author: string
+  startedDate: string  // Full date for display
+  timeline: {
+    build: { duration: string; status: 'success' | 'failure' }
+    deploy: { duration: string; status: 'success' | 'failure' }
+    tests: { duration: string; status: 'success' | 'failure' }
   }
-  env: 'Production' | 'Staging' | 'Development'
-  risk: {
-    score: number
-    level: 'Low' | 'Medium' | 'High'
-  }
-  result: 'Passed' | 'Failed' | 'Partial'
-  started: string
-  duration: string
-  tests: {
-    passed: number
-    total: number
-  }
+  runs: Array<{
+    id: string
+    runId: string
+    suite: string
+    env: string
+    status: 'Passed' | 'Failed'
+    duration: string
+    results: number
+  }>
 }
 ```
 
-## Mock Deployments Data
-- dep-001: autotest/webapp, main, a1b2c3d, Production, 23 Low, Passed, 5m 42s, 156/160
-- dep-002: autotest/webapp, feature/payments, e4f5g6h, Staging, 67 High, Failed, 7m 8s, 189/191
-- dep-003: autotest/api, main, i7j8k9l, Production, 45 Medium, Partial, 9m 27s, 234/246
-- dep-004: autotest/webapp, hotfix/login, m0n1o2p, Production, 12 Low, Passed, 3m 18s, 89/89
+## Mock Data for Detail Page
+For dep-001:
+- Author: Sarah Chen
+- Started: 14/01/2024
+- Timeline: Build 45s, Deploy 1m 12s, Tests 3m 45s
+- Runs: run-001, Auth E2E Suite, Production, Passed, 1m 29s, 24
 
 ---
 
 ## Technical Details
 
-### Layout Specifications
-- Centered container: `max-w-6xl mx-auto px-4 md:px-6`
-- Search/filter row: `flex flex-col md:flex-row gap-4 items-stretch md:items-center`
-- Table container: `border rounded-xl overflow-hidden`
+### Layout Structure
 
-### Desktop Table Structure
+```text
+<div className="flex-1 p-4 md:p-6 overflow-auto animate-fade-in">
+  <div className="max-w-5xl mx-auto space-y-6">
+    
+    <!-- Header -->
+    <div className="flex items-start justify-between">
+      <div className="flex items-center gap-4">
+        <BackButton />
+        <div>
+          <h1>dep-001 <ResultBadge /></h1>
+          <p>feat: add user authentication flow</p>
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <Button>Rerun affected</Button>
+        <Button>Rerun full</Button>
+        <Button>Create issue</Button>
+      </div>
+    </div>
+    
+    <!-- Metadata Cards -->
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <MetadataCard icon={GitBranch} label="Branch" value="main" />
+      <MetadataCard icon={GitCommit} label="Commit" value="a1b2c3d" />
+      <MetadataCard icon={User} label="Author" value="Sarah Chen" />
+      <MetadataCard icon={Clock} label="Started" value="14/01/2024" />
+    </div>
+    
+    <!-- Stats Card -->
+    <Card>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Stat label="Risk Score" value={<RiskBadge />} />
+        <Stat label="Environment" value="Production" />
+        <Stat label="Duration" value="5m 42s" />
+        <Stat label="Tests" value="156 executed, 4 skipped" />
+      </div>
+    </Card>
+    
+    <!-- Timeline -->
+    <Card>
+      <h2>Timeline</h2>
+      <TimelineVisualization />
+    </Card>
+    
+    <!-- Runs Table -->
+    <Card>
+      <h2>Runs in this deployment</h2>
+      <Table>...</Table>
+    </Card>
+    
+  </div>
+</div>
+```
+
+### Navigation Click Handler (DeploymentsView)
+```text
+const navigate = useNavigate();
+
+// For table rows:
+<TableRow 
+  key={deployment.id}
+  className="cursor-pointer hover:bg-muted/50"
+  onClick={() => navigate(`/deployments/${deployment.deployId}`)}
+>
+
+// For mobile cards:
+<Card 
+  className="p-4 cursor-pointer hover:bg-muted/50"
+  onClick={() => navigate(`/deployments/${deployment.deployId}`)}
+>
+```
+
+### Route Configuration
+```text
+<Route path="/deployments/:deployId" element={<DeploymentDetail />} />
+```
+
+### Back Button Component
+```text
+<button onClick={() => navigate('/deployments')} className="...">
+  <ArrowLeft className="w-5 h-5" />
+</button>
+```
+
+### Timeline Visualization
+Three connected nodes with lines:
+- Each node: colored circle (green for success) + label + duration
+- Horizontal connecting lines between nodes
+- Responsive: stack vertically on mobile
+
+```text
+<div className="flex items-center justify-between">
+  <TimelineNode label="Build" duration="45s" status="success" />
+  <div className="flex-1 h-0.5 bg-green-500/30 mx-2" />
+  <TimelineNode label="Deploy" duration="1m 12s" status="success" />
+  <div className="flex-1 h-0.5 bg-green-500/30 mx-2" />
+  <TimelineNode label="Tests" duration="3m 45s" status="success" />
+</div>
+```
+
+### Runs Table Structure
 ```text
 <Table>
   <TableHeader>
-    <TableRow>
-      <TableHead>Deploy ID</TableHead>
-      <TableHead>Repo</TableHead>
-      <TableHead>Branch</TableHead>
-      <TableHead>Commit</TableHead>
-      <TableHead>Env</TableHead>
-      <TableHead>Risk</TableHead>
-      <TableHead>Result</TableHead>
-      <TableHead>Started</TableHead>
-      <TableHead>Duration</TableHead>
-      <TableHead>Tests</TableHead>
-    </TableRow>
+    <TableHead>Run ID</TableHead>
+    <TableHead>Suite</TableHead>
+    <TableHead>Env</TableHead>
+    <TableHead>Status</TableHead>
+    <TableHead>Duration</TableHead>
+    <TableHead>Results</TableHead>
   </TableHeader>
   <TableBody>
-    {deployments.map(d => <TableRow>...</TableRow>)}
+    {runs.map(run => <TableRow>...</TableRow>)}
   </TableBody>
 </Table>
 ```
 
-### Mobile Optimization Strategy
-The table is too wide for mobile screens. Implementation approach:
-1. Use `useIsMobile()` hook to detect screen size
-2. On mobile: Render deployments as stacked cards instead of table rows
-3. Each card shows key info in a structured layout:
-   - Header: Deploy ID + Result badge
-   - Body: Repo, Branch, Commit (truncated)
-   - Footer: Env, Risk, Duration, Tests
+### Action Buttons
+- Rerun affected: Outline button with RefreshCw icon
+- Rerun full: Outline button with Play icon
+- Create issue: Outline button with ExternalLink icon
+- Toast notification on click
 
-### Mobile Card Layout
-```text
-<Card>
-  <div className="flex justify-between items-start mb-2">
-    <span className="font-mono text-sm">{deployId}</span>
-    <Badge>{result}</Badge>
-  </div>
-  <div className="text-sm text-muted-foreground space-y-1">
-    <div>{repo} / {branch}</div>
-    <div className="truncate">{commit.message}</div>
-  </div>
-  <div className="flex items-center gap-3 mt-3 text-xs">
-    <span>{env}</span>
-    <RiskBadge />
-    <span>{duration}</span>
-    <span>{tests.passed}/{tests.total}</span>
-  </div>
-</Card>
-```
+### Mobile Responsiveness
+- Header: Stack title and buttons vertically
+- Metadata cards: 2 columns on mobile, 4 on desktop
+- Stats: 2 columns on mobile, 4 on desktop
+- Timeline: Horizontal with smaller font sizes
+- Runs table: Convert to cards (similar to deployments list)
 
-### Badge Styling
-- Result Passed: `bg-green-500/10 text-green-600 border-green-500/20`
-- Result Failed: `bg-red-500/10 text-red-600 border-red-500/20`
-- Result Partial: `bg-amber-500/10 text-amber-600 border-amber-500/20`
-- Risk Low: `bg-green-500/15 text-green-600`
-- Risk Medium: `bg-amber-500/15 text-amber-600`
-- Risk High: `bg-red-500/15 text-red-600`
-
-### Filter Dropdowns
-Using Select component from shadcn/ui:
-- All Status: Shows all, Passed, Failed, Partial
-- All Envs: Shows all, Production, Staging, Development
-- All Branches: Shows all branches from data
-
-### Search Functionality
-- Input with Search icon (lucide-react)
-- Filters deployments by deployId, repo, branch, or commit message
-- Client-side filtering on mock data
-
-### Navigation Addition
-- Icon: `Rocket` from lucide-react
-- Label: "Deployments"
-- Path: `/deployments`
-- Position: After Integrations in topItems
+### Icons to Use (from lucide-react)
+- ArrowLeft (back button)
+- GitBranch (branch card)
+- GitCommit (commit card)
+- User (author card)
+- Clock (started card)
+- RefreshCw (rerun affected)
+- Play (rerun full)
+- ExternalLink (create issue)
+- Check (passed status)
 
