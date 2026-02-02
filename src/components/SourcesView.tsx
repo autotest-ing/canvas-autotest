@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SourceCard, type Source } from "./SourceCard";
 import { ImportSourceDialog } from "./ImportSourceDialog";
+import { MobileBottomSpacer } from "./LeftRail";
 import { Plus, Database } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -99,16 +100,16 @@ export function SourcesView() {
   };
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col">
       {/* Header */}
-      <div className="p-6 border-b border-border/50 flex items-center justify-between">
+      <div className="p-4 md:p-6 border-b border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Sources</h1>
+          <h1 className="text-xl md:text-2xl font-semibold text-foreground">Sources</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Import and manage your API specifications
           </p>
         </div>
-        <Button onClick={() => setImportDialogOpen(true)} className="gap-2">
+        <Button onClick={() => setImportDialogOpen(true)} className="gap-2 w-full sm:w-auto">
           <Plus className="w-4 h-4" />
           Import Source
         </Button>
@@ -116,7 +117,7 @@ export function SourcesView() {
 
       {/* Content */}
       <ScrollArea className="flex-1">
-        <div className="p-6">
+        <div className="p-4 md:p-6">
           {sources.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="w-16 h-16 rounded-2xl bg-accent flex items-center justify-center mb-4">
@@ -147,6 +148,7 @@ export function SourcesView() {
             </div>
           )}
         </div>
+        <MobileBottomSpacer />
       </ScrollArea>
 
       {/* Import Dialog */}

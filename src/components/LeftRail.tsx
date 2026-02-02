@@ -8,7 +8,9 @@ import {
   Globe, 
   Bell, 
   Settings,
-  ChevronRight
+  ChevronRight,
+  Menu,
+  X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -16,6 +18,9 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface NavItem {
   icon: React.ElementType;
@@ -37,6 +42,14 @@ const bottomItems: NavItem[] = [
   { icon: Settings, label: "Settings", id: "settings", path: "/settings" },
 ];
 
+// Mobile bottom nav - show most important items
+const mobileNavItems: NavItem[] = [
+  { icon: Home, label: "Home", id: "home", path: "/" },
+  { icon: Layers, label: "Suites", id: "suites", path: "/suites" },
+  { icon: Play, label: "Runs", id: "runs", path: "/runs" },
+  { icon: Bell, label: "Alerts", id: "notifications", path: "/notifications" },
+];
+
 interface LeftRailProps {
   activeItem?: string;
   onItemClick?: (id: string) => void;
@@ -44,19 +57,24 @@ interface LeftRailProps {
 
 export function LeftRail({ activeItem, onItemClick }: LeftRailProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const isMobile = useIsMobile();
 
-  const NavButton = ({ item }: { item: NavItem }) => {
+  const handleNavClick = (item: NavItem) => {
+    navigate(item.path);
+    onItemClick?.(item.id);
+    setMobileMenuOpen(false);
+  };
+
+  const NavButton = ({ item, showLabel = false }: { item: NavItem; showLabel?: boolean }) => {
     const isActive = activeItem === item.id || location.pathname === item.path;
     const Icon = item.icon;
 
     const button = (
       <button
-        onClick={() => {
-          navigate(item.path);
-          onItemClick?.(item.id);
-        }}
+        onClick={() => handleNavClick(item)}
         className={cn(
           "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-all duration-200",
           "hover:bg-sidebar-accent",
@@ -67,9 +85,9 @@ export function LeftRail({ activeItem, onItemClick }: LeftRailProps) {
           "w-5 h-5 flex-shrink-0 transition-colors",
           isActive ? "text-sidebar-primary" : "text-sidebar-foreground"
         )} />
-        {isExpanded && (
+        {(isExpanded || showLabel) && (
           <span className={cn(
-            "text-sm font-medium whitespace-nowrap animate-fade-in",
+            "text-sm font-medium whitespace-nowrap",
             isActive ? "text-sidebar-primary" : "text-sidebar-foreground"
           )}>
             {item.label}
@@ -78,7 +96,7 @@ export function LeftRail({ activeItem, onItemClick }: LeftRailProps) {
       </button>
     );
 
-    if (isExpanded) return button;
+    if (isExpanded || showLabel) return button;
 
     return (
       <Tooltip delayDuration={0}>
@@ -90,10 +108,90 @@ export function LeftRail({ activeItem, onItemClick }: LeftRailProps) {
     );
   };
 
+  // Mobile Bottom Navigation
+  if (isMobile) {
+    return (
+      <>
+        {/* Mobile Header */}
+        <header className="fixed top-0 left-0 right-0 z-50 h-14 bg-sidebar border-b border-sidebar-border flex items-center justify-between px-4">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+              <span className="text-primary-foreground font-bold text-sm">A</span>
+            </div>
+            <span className="font-semibold text-foreground">Autotest</span>
+          </div>
+          
+          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-9 w-9">
+                <Menu className="w-5 h-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-72 p-0">
+              <div className="p-4 border-b border-border">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                    <span className="text-primary-foreground font-bold text-sm">A</span>
+                  </div>
+                  <span className="font-semibold text-foreground">Autotest</span>
+                </div>
+              </div>
+              <nav className="p-2 space-y-1">
+                {topItems.map((item) => (
+                  <NavButton key={item.id} item={item} showLabel />
+                ))}
+              </nav>
+              <nav className="p-2 space-y-1 border-t border-border">
+                {bottomItems.map((item) => (
+                  <NavButton key={item.id} item={item} showLabel />
+                ))}
+              </nav>
+            </SheetContent>
+          </Sheet>
+        </header>
+
+        {/* Mobile Bottom Navigation */}
+        <nav className="fixed bottom-0 left-0 right-0 z-50 h-16 bg-sidebar border-t border-sidebar-border">
+          <div className="flex items-center justify-around h-full px-2">
+            {mobileNavItems.map((item) => {
+              const isActive = activeItem === item.id || location.pathname === item.path;
+              const Icon = item.icon;
+              
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => handleNavClick(item)}
+                  className={cn(
+                    "flex flex-col items-center justify-center gap-1 flex-1 h-full transition-colors",
+                    isActive ? "text-primary" : "text-muted-foreground"
+                  )}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span className="text-[10px] font-medium">{item.label}</span>
+                </button>
+              );
+            })}
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="flex flex-col items-center justify-center gap-1 flex-1 h-full text-muted-foreground"
+            >
+              <Menu className="w-5 h-5" />
+              <span className="text-[10px] font-medium">More</span>
+            </button>
+          </div>
+        </nav>
+
+        {/* Spacers for fixed header/footer */}
+        <div className="h-14" /> {/* Top spacer */}
+      </>
+    );
+  }
+
+  // Desktop Sidebar
   return (
     <aside
       className={cn(
-        "h-screen flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 ease-out",
+        "h-screen flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 ease-out sticky top-0",
         isExpanded ? "w-52" : "w-16"
       )}
     >
@@ -139,4 +237,11 @@ export function LeftRail({ activeItem, onItemClick }: LeftRailProps) {
       </button>
     </aside>
   );
+}
+
+// Bottom spacer component for mobile pages
+export function MobileBottomSpacer() {
+  const isMobile = useIsMobile();
+  if (!isMobile) return null;
+  return <div className="h-20" />;
 }

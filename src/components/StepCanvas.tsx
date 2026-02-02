@@ -87,10 +87,10 @@ export function StepCanvas({ step, onFixWithAI }: StepCanvasProps) {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="p-6 border-b border-border/50 flex items-start justify-between gap-4">
+      <div className="p-4 md:p-6 border-b border-border/50 flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3">
-            <h2 className="text-xl font-semibold text-foreground">{step.name}</h2>
+          <div className="flex flex-wrap items-center gap-2 md:gap-3">
+            <h2 className="text-lg md:text-xl font-semibold text-foreground">{step.name}</h2>
             <Badge 
               variant={isFailed ? "destructive" : "secondary"}
               className="text-xs"
@@ -105,7 +105,7 @@ export function StepCanvas({ step, onFixWithAI }: StepCanvasProps) {
           )}
         </div>
         {isFailed && (
-          <Button size="sm" onClick={onFixWithAI} className="gap-2 shrink-0">
+          <Button size="sm" onClick={onFixWithAI} className="gap-2 shrink-0 w-full sm:w-auto">
             <Sparkles className="w-4 h-4" />
             Fix with AI
           </Button>
@@ -114,20 +114,20 @@ export function StepCanvas({ step, onFixWithAI }: StepCanvasProps) {
 
       {/* Tabs */}
       <Tabs defaultValue={isFailed ? "diff" : "request"} className="flex-1 flex flex-col">
-        <div className="px-6 pt-4 border-b border-border/50">
+        <div className="px-4 md:px-6 pt-4 border-b border-border/50 overflow-x-auto">
           <TabsList className="bg-muted/50">
             <TabsTrigger value="diff" className="text-xs">Diff</TabsTrigger>
             <TabsTrigger value="request" className="text-xs">Request</TabsTrigger>
             <TabsTrigger value="response" className="text-xs">Response</TabsTrigger>
-            <TabsTrigger value="ai" className="text-xs">AI Explanation</TabsTrigger>
+            <TabsTrigger value="ai" className="text-xs">AI</TabsTrigger>
           </TabsList>
         </div>
 
         <ScrollArea className="flex-1">
-          <div className="p-6">
+          <div className="p-4 md:p-6">
             {/* Diff Tab */}
             <TabsContent value="diff" className="mt-0 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-medium text-muted-foreground uppercase">Expected</span>

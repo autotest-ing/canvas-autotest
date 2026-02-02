@@ -2,6 +2,11 @@ import { useState } from "react";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { RequestList, type Request } from "./RequestList";
 import { SuiteCanvas } from "./SuiteCanvas";
+import { MobileBottomSpacer } from "./LeftRail";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { List } from "lucide-react";
 
 const mockRequests: Request[] = [
   { id: "1", method: "POST", endpoint: "/auth/login", name: "Login", status: "success" },
@@ -47,6 +52,8 @@ interface SuiteViewProps {
 
 export function SuiteView({ suiteId }: SuiteViewProps) {
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(mockRequests[0]?.id || null);
+  const [mobileListOpen, setMobileListOpen] = useState(false);
+  const isMobile = useIsMobile();
   
   const selectedRequest = mockRequests.find(r => r.id === selectedRequestId) || null;
 
@@ -58,6 +65,55 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
     console.log("Ask AI about suite:", suiteId);
   };
 
+  const handleSelectRequest = (id: string) => {
+    setSelectedRequestId(id);
+    setMobileListOpen(false);
+  };
+
+  // Mobile layout
+  if (isMobile) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        {/* Mobile header with list toggle */}
+        <div className="p-4 border-b border-border/50 flex items-center gap-2">
+          <Sheet open={mobileListOpen} onOpenChange={setMobileListOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <List className="w-4 h-4" />
+                Requests
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-80 p-0">
+              <RequestList
+                requests={mockRequests}
+                selectedId={selectedRequestId}
+                onSelect={handleSelectRequest}
+              />
+            </SheetContent>
+          </Sheet>
+          <span className="text-sm text-muted-foreground">
+            {selectedRequest?.name || "Select a request"}
+          </span>
+        </div>
+
+        {/* Canvas content */}
+        <div className="flex-1">
+          <SuiteCanvas
+            suiteName="Auth Suite"
+            suiteDescription="Authentication and authorization flow tests"
+            selectedRequest={selectedRequest}
+            assertions={mockAssertions}
+            suggestions={mockSuggestions}
+            onRunSuite={handleRunSuite}
+            onAskAI={handleAskAI}
+          />
+        </div>
+        <MobileBottomSpacer />
+      </div>
+    );
+  }
+
+  // Desktop layout
   return (
     <div className="h-screen">
       <ResizablePanelGroup direction="horizontal" className="h-full">

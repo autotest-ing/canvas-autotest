@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { MobileBottomSpacer } from "./LeftRail";
 import { 
   Bell, 
   XCircle, 
@@ -162,11 +163,11 @@ export function NotificationsView() {
   };
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col">
       {/* Header */}
-      <div className="p-6 border-b border-border/50 flex items-center justify-between">
+      <div className="p-4 md:p-6 border-b border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold text-foreground">Notifications</h1>
+          <h1 className="text-xl md:text-2xl font-semibold text-foreground">Notifications</h1>
           {unreadCount > 0 && (
             <Badge className="bg-primary text-primary-foreground">
               {unreadCount} new
@@ -175,15 +176,17 @@ export function NotificationsView() {
         </div>
         <div className="flex items-center gap-2">
           {unreadCount > 0 && (
-            <Button variant="outline" size="sm" onClick={markAllAsRead} className="gap-2">
+            <Button variant="outline" size="sm" onClick={markAllAsRead} className="gap-2 flex-1 sm:flex-none">
               <CheckCheck className="w-4 h-4" />
-              Mark all read
+              <span className="hidden sm:inline">Mark all read</span>
+              <span className="sm:hidden">Read all</span>
             </Button>
           )}
           {notifications.length > 0 && (
-            <Button variant="outline" size="sm" onClick={clearAll} className="gap-2">
+            <Button variant="outline" size="sm" onClick={clearAll} className="gap-2 flex-1 sm:flex-none">
               <Trash2 className="w-4 h-4" />
-              Clear all
+              <span className="hidden sm:inline">Clear all</span>
+              <span className="sm:hidden">Clear</span>
             </Button>
           )}
         </div>
@@ -191,7 +194,7 @@ export function NotificationsView() {
 
       {/* Content */}
       <ScrollArea className="flex-1">
-        <div className="p-6">
+        <div className="p-4 md:p-6">
           {notifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="w-16 h-16 rounded-2xl bg-accent flex items-center justify-center mb-4">
@@ -296,6 +299,7 @@ export function NotificationsView() {
               })}
             </div>
           )}
+          <MobileBottomSpacer />
         </div>
       </ScrollArea>
     </div>

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { PromptInput } from "./PromptInput";
 import { PlanCard } from "./PlanCard";
 import { ArtifactCard } from "./ArtifactCard";
+import { MobileBottomSpacer } from "./LeftRail";
 import { Sparkles } from "lucide-react";
 
 type ViewState = "empty" | "planning" | "executing" | "complete";
@@ -37,7 +38,7 @@ export function HomeCanvas() {
   };
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-8 min-h-screen">
+    <div className="flex-1 flex flex-col items-center justify-center p-4 md:p-8 min-h-screen">
       {/* Empty state - Hero prompt */}
       {viewState === "empty" && (
         <div className="w-full max-w-2xl animate-fade-up">
@@ -124,8 +125,12 @@ export function HomeCanvas() {
               </button>
             </div>
           </div>
+          <MobileBottomSpacer />
         </div>
       )}
+      
+      {/* Mobile bottom spacer for other states */}
+      {viewState !== "complete" && <MobileBottomSpacer />}
     </div>
   );
 }

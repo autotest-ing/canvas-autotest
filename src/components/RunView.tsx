@@ -3,6 +3,11 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/componen
 import { StepTimeline, type Step } from "./StepTimeline";
 import { StepCanvas } from "./StepCanvas";
 import { AIFixCard } from "./AIFixCard";
+import { MobileBottomSpacer } from "./LeftRail";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { List } from "lucide-react";
 import { toast } from "sonner";
 
 const mockSteps: Step[] = [
@@ -21,12 +26,13 @@ interface RunViewProps {
 }
 
 export function RunView({ runId }: RunViewProps) {
-  // Default to first failed step, or first step
   const firstFailedStep = mockSteps.find(s => s.status === "failure");
   const [selectedStepId, setSelectedStepId] = useState<string | null>(
     firstFailedStep?.id || mockSteps[0]?.id || null
   );
   const [showAIFix, setShowAIFix] = useState(false);
+  const [mobileListOpen, setMobileListOpen] = useState(false);
+  const isMobile = useIsMobile();
   
   const selectedStep = mockSteps.find(s => s.id === selectedStepId) || null;
 
@@ -52,6 +58,63 @@ export function RunView({ runId }: RunViewProps) {
     setShowAIFix(false);
   };
 
+  const handleSelectStep = (id: string) => {
+    setSelectedStepId(id);
+    setShowAIFix(false);
+    setMobileListOpen(false);
+  };
+
+  // Mobile layout
+  if (isMobile) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        {/* Mobile header with list toggle */}
+        <div className="p-4 border-b border-border/50 flex items-center gap-2">
+          <Sheet open={mobileListOpen} onOpenChange={setMobileListOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <List className="w-4 h-4" />
+                Steps
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-80 p-0">
+              <StepTimeline
+                steps={mockSteps}
+                selectedId={selectedStepId}
+                onSelect={handleSelectStep}
+              />
+            </SheetContent>
+          </Sheet>
+          <span className="text-sm text-muted-foreground">
+            {selectedStep?.name || "Select a step"}
+          </span>
+        </div>
+
+        {/* AI Fix Card */}
+        {showAIFix && selectedStep && (
+          <div className="p-4 border-b border-border/50">
+            <AIFixCard
+              stepName={selectedStep.name}
+              onApply={handleApplyFix}
+              onApplyAndRerun={handleApplyAndRerun}
+              onDismiss={handleDismissFix}
+            />
+          </div>
+        )}
+
+        {/* Step Canvas */}
+        <div className="flex-1">
+          <StepCanvas
+            step={selectedStep}
+            onFixWithAI={handleFixWithAI}
+          />
+        </div>
+        <MobileBottomSpacer />
+      </div>
+    );
+  }
+
+  // Desktop layout
   return (
     <div className="h-screen">
       <ResizablePanelGroup direction="horizontal" className="h-full">
@@ -59,16 +122,12 @@ export function RunView({ runId }: RunViewProps) {
           <StepTimeline
             steps={mockSteps}
             selectedId={selectedStepId}
-            onSelect={(id) => {
-              setSelectedStepId(id);
-              setShowAIFix(false);
-            }}
+            onSelect={handleSelectStep}
           />
         </ResizablePanel>
         <ResizableHandle className="w-px bg-border/50 hover:bg-primary/30 transition-colors" />
         <ResizablePanel defaultSize={75} minSize={50}>
           <div className="h-full flex flex-col">
-            {/* AI Fix Card - shown inline when triggered */}
             {showAIFix && selectedStep && (
               <div className="p-4 border-b border-border/50">
                 <AIFixCard
@@ -79,8 +138,6 @@ export function RunView({ runId }: RunViewProps) {
                 />
               </div>
             )}
-            
-            {/* Step Canvas */}
             <div className="flex-1 overflow-hidden">
               <StepCanvas
                 step={selectedStep}
