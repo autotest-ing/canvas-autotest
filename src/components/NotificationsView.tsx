@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { MobileBottomSpacer } from "./LeftRail";
+import { PageTitle } from "./PageTitle";
 import { 
   Bell, 
   XCircle, 
@@ -169,7 +170,7 @@ export function NotificationsView() {
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-6 border-b border-border/50 mb-6">
             <div className="flex items-center gap-3">
-              <h1 className="text-xl md:text-2xl font-semibold text-foreground">Notifications</h1>
+              <PageTitle>Notifications</PageTitle>
               {unreadCount > 0 && (
                 <Badge className="bg-primary text-primary-foreground">
                   {unreadCount} new
