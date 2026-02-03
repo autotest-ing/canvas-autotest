@@ -312,7 +312,6 @@ export function EnvironmentsView() {
         {
           name: currentEnv.name,
           is_default: currentEnv.isDefault,
-          base_url: baseUrlVariable?.value ?? currentEnv.baseUrl,
           variables: currentEnv.variables.map(variable => ({
             id: variable.id,
             key: variable.key,
@@ -522,7 +521,6 @@ export function EnvironmentsView() {
         {
           name: currentEnv.name,
           is_default: currentEnv.isDefault,
-          base_url: baseUrlVariable?.value ?? currentEnv.baseUrl,
           variables: currentEnv.variables.map(variable => ({
             id: variable.id,
             key: variable.key,
