@@ -897,6 +897,30 @@ export function EnvironmentsView() {
                   )}
                 </CardContent>
               </Card>
+
+              {isEditing && (
+                <Card className="border-destructive/30 shadow-soft">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-base text-destructive">Danger Zone</CardTitle>
+                    <CardDescription>
+                      Irreversible actions for this environment
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label>Delete environment</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Permanently delete this environment
+                        </p>
+                      </div>
+                      <Button variant="destructive" size="sm">
+                        Delete environment
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </>
           )}
           <MobileBottomSpacer />
