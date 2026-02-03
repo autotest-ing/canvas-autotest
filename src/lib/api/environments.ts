@@ -83,7 +83,16 @@ export async function updateEnvironment(
   });
 
   if (!response.ok) {
-    throw new Error("Failed to update environment");
+    let message = "Failed to update environment";
+    try {
+      const data = (await response.json()) as { message?: string };
+      if (data?.message) {
+        message = `${message}: ${data.message}`;
+      }
+    } catch {
+      // ignore parse errors and keep default message
+    }
+    throw new Error(message);
   }
 
   return (await response.json()) as EnvironmentDetailResponse;
