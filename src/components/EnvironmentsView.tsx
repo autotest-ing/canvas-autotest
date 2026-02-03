@@ -42,6 +42,7 @@ interface KeyValuePair {
   id: string;
   key: string;
   value: string;
+  isOverridable: boolean;
 }
 
 interface SecretPair {
@@ -201,6 +202,7 @@ export function EnvironmentsView() {
           id: String(variable.id ?? `${envId}-variable-${index}`),
           key: variable.key ?? "",
           value: variable.value ?? "",
+          isOverridable: variable.is_overridable ?? variable.isOverridable ?? false,
         })),
         secrets: (detail.secrets ?? []).map((secret, index) => ({
           id: String(secret.id ?? `${envId}-secret-${index}`),
@@ -360,10 +362,15 @@ export function EnvironmentsView() {
   };
 
   const addVariable = () => {
-    updateCurrentEnv({ variables: [...variables, { id: String(Date.now()), key: "", value: "" }] });
+    updateCurrentEnv({
+      variables: [
+        ...variables,
+        { id: String(Date.now()), key: "", value: "", isOverridable: false },
+      ],
+    });
   };
 
-  const updateVariable = (id: string, field: "key" | "value", value: string) => {
+  const updateVariable = (id: string, field: "key" | "value" | "isOverridable", value: string | boolean) => {
     updateCurrentEnv({ variables: variables.map(v => v.id === id ? { ...v, [field]: value } : v) });
   };
 
@@ -388,7 +395,12 @@ export function EnvironmentsView() {
   };
 
   const addSuggestedVariable = (variable: string) => {
-    updateCurrentEnv({ variables: [...variables, { id: String(Date.now()), key: variable, value: "" }] });
+    updateCurrentEnv({
+      variables: [
+        ...variables,
+        { id: String(Date.now()), key: variable, value: "", isOverridable: false },
+      ],
+    });
     toast.success("Variable added", {
       description: `${variable} has been added. Don't forget to set its value.`,
     });
@@ -427,7 +439,10 @@ export function EnvironmentsView() {
   const handleAddBaseUrlVariable = () => {
     if (baseUrlVariable) return;
     updateCurrentEnv({
-      variables: [...variables, { id: String(Date.now()), key: "BASE_URL", value: "" }],
+      variables: [
+        ...variables,
+        { id: String(Date.now()), key: "BASE_URL", value: "", isOverridable: false },
+      ],
     });
   };
 
@@ -686,7 +701,7 @@ export function EnvironmentsView() {
                   ) : (
                     visibleVariables.map((variable) => (
                       <div key={variable.id} className="flex items-center gap-3">
-                        <div className="flex-1 grid grid-cols-2 gap-3">
+                        <div className="flex-1 grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
                           <div className="space-y-1">
                             <Label className="text-xs text-muted-foreground">Key</Label>
                             <Input
@@ -704,6 +719,14 @@ export function EnvironmentsView() {
                               onChange={(e) => updateVariable(variable.id, "value", e.target.value)}
                               placeholder="value"
                               className="font-mono text-sm"
+                              disabled={!isEditing}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between gap-2 rounded-lg border border-border/60 px-3 py-2">
+                            <Label className="text-xs text-muted-foreground">Overridable</Label>
+                            <Switch
+                              checked={variable.isOverridable}
+                              onCheckedChange={(checked) => updateVariable(variable.id, "isOverridable", checked)}
                               disabled={!isEditing}
                             />
                           </div>
