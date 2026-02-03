@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import { useBlocker } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -130,12 +129,6 @@ export function EnvironmentsView() {
   const currentEnv = environments[activeEnvironment];
   const { baseUrl, variables, secrets, hasChanges } = currentEnv;
 
-  // Block navigation when there are unsaved changes
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) =>
-      hasChanges && currentLocation.pathname !== nextLocation.pathname
-  );
-
   // Handle browser refresh/close
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -147,14 +140,6 @@ export function EnvironmentsView() {
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasChanges]);
-
-  // Show dialog when blocker is active
-  useEffect(() => {
-    if (blocker.state === "blocked") {
-      setShowUnsavedDialog(true);
-      setPendingEnvironment(null);
-    }
-  }, [blocker.state]);
 
   const handleTabChange = (value: string) => {
     const newEnv = value as EnvironmentName;
@@ -179,11 +164,9 @@ export function EnvironmentsView() {
     if (pendingEnvironment) {
       setActiveEnvironment(pendingEnvironment);
       setPendingEnvironment(null);
-    } else if (blocker.state === "blocked") {
-      blocker.proceed();
     }
     setShowUnsavedDialog(false);
-  }, [activeEnvironment, pendingEnvironment, blocker]);
+  }, [activeEnvironment, pendingEnvironment]);
 
   const handleSaveAndProceed = useCallback(() => {
     // Validate before saving
@@ -211,19 +194,14 @@ export function EnvironmentsView() {
     if (pendingEnvironment) {
       setActiveEnvironment(pendingEnvironment);
       setPendingEnvironment(null);
-    } else if (blocker.state === "blocked") {
-      blocker.proceed();
     }
     setShowUnsavedDialog(false);
-  }, [activeEnvironment, pendingEnvironment, blocker, variables, secrets]);
+  }, [activeEnvironment, pendingEnvironment, variables, secrets]);
 
   const handleCancelDialog = useCallback(() => {
     setShowUnsavedDialog(false);
     setPendingEnvironment(null);
-    if (blocker.state === "blocked") {
-      blocker.reset();
-    }
-  }, [blocker]);
+  }, []);
 
   const handleCancelChanges = () => {
     setEnvironments(prev => ({
