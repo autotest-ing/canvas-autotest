@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { LeftRail } from "@/components/LeftRail";
+import { AuthGate } from "@/components/AuthGate";
 import { SourcesView } from "@/components/SourcesView";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -8,12 +9,14 @@ const Sources = () => {
 
   return (
     <TooltipProvider>
-      <div className="flex min-h-screen w-full">
-        <LeftRail activeItem={activeItem} onItemClick={setActiveItem} />
-        <main className="flex-1 canvas-bg">
-          <SourcesView />
-        </main>
-      </div>
+      <AuthGate>
+        <div className="flex min-h-screen w-full">
+          <LeftRail activeItem={activeItem} onItemClick={setActiveItem} />
+          <main className="flex-1 canvas-bg">
+            <SourcesView />
+          </main>
+        </div>
+      </AuthGate>
     </TooltipProvider>
   );
 };
