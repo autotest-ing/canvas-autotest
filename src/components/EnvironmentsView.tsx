@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useBlocker } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,6 +7,16 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { MobileBottomSpacer } from "./LeftRail";
 import { PageTitle } from "./PageTitle";
 import { 
@@ -18,7 +29,8 @@ import {
   Variable, 
   Lock,
   Sparkles,
-  AlertTriangle
+  AlertTriangle,
+  X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -112,9 +124,116 @@ export function EnvironmentsView() {
   const [activeEnvironment, setActiveEnvironment] = useState<EnvironmentName>("development");
   const [environments, setEnvironments] = useState<Record<EnvironmentName, Environment>>(initialEnvironments);
   const [suggestions] = useState<AISuggestion[]>(mockSuggestions);
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
+  const [pendingEnvironment, setPendingEnvironment] = useState<EnvironmentName | null>(null);
 
   const currentEnv = environments[activeEnvironment];
   const { baseUrl, variables, secrets, hasChanges } = currentEnv;
+
+  // Block navigation when there are unsaved changes
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      hasChanges && currentLocation.pathname !== nextLocation.pathname
+  );
+
+  // Handle browser refresh/close
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasChanges) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasChanges]);
+
+  // Show dialog when blocker is active
+  useEffect(() => {
+    if (blocker.state === "blocked") {
+      setShowUnsavedDialog(true);
+      setPendingEnvironment(null);
+    }
+  }, [blocker.state]);
+
+  const handleTabChange = (value: string) => {
+    const newEnv = value as EnvironmentName;
+    if (newEnv === activeEnvironment) return;
+    
+    if (hasChanges) {
+      setPendingEnvironment(newEnv);
+      setShowUnsavedDialog(true);
+    } else {
+      setActiveEnvironment(newEnv);
+    }
+  };
+
+  const handleDiscard = useCallback(() => {
+    // Reset current environment to initial state
+    setEnvironments(prev => ({
+      ...prev,
+      [activeEnvironment]: initialEnvironments[activeEnvironment],
+    }));
+    
+    // Proceed with pending action
+    if (pendingEnvironment) {
+      setActiveEnvironment(pendingEnvironment);
+      setPendingEnvironment(null);
+    } else if (blocker.state === "blocked") {
+      blocker.proceed();
+    }
+    setShowUnsavedDialog(false);
+  }, [activeEnvironment, pendingEnvironment, blocker]);
+
+  const handleSaveAndProceed = useCallback(() => {
+    // Validate before saving
+    const emptyVars = variables.filter(v => v.key && !v.value);
+    const emptySecrets = secrets.filter(s => s.key && !s.value);
+    
+    if (emptyVars.length > 0 || emptySecrets.length > 0) {
+      toast.error("Missing values", {
+        description: "Some variables or secrets are missing values.",
+      });
+      setShowUnsavedDialog(false);
+      return;
+    }
+
+    toast.success("Environment saved", {
+      description: `Your ${activeEnvironment} environment configuration has been updated.`,
+    });
+    
+    setEnvironments(prev => ({
+      ...prev,
+      [activeEnvironment]: { ...prev[activeEnvironment], hasChanges: false },
+    }));
+
+    // Proceed with pending action
+    if (pendingEnvironment) {
+      setActiveEnvironment(pendingEnvironment);
+      setPendingEnvironment(null);
+    } else if (blocker.state === "blocked") {
+      blocker.proceed();
+    }
+    setShowUnsavedDialog(false);
+  }, [activeEnvironment, pendingEnvironment, blocker, variables, secrets]);
+
+  const handleCancelDialog = useCallback(() => {
+    setShowUnsavedDialog(false);
+    setPendingEnvironment(null);
+    if (blocker.state === "blocked") {
+      blocker.reset();
+    }
+  }, [blocker]);
+
+  const handleCancelChanges = () => {
+    setEnvironments(prev => ({
+      ...prev,
+      [activeEnvironment]: initialEnvironments[activeEnvironment],
+    }));
+    toast.info("Changes discarded", {
+      description: `Your ${activeEnvironment} environment has been reset.`,
+    });
+  };
 
   const updateCurrentEnv = (updates: Partial<Environment>) => {
     setEnvironments(prev => ({
@@ -195,14 +314,22 @@ export function EnvironmentsView() {
                 Configure base URLs, variables, and secrets for your test runs
               </p>
             </div>
-            <Button onClick={handleSave} disabled={!hasChanges} className="gap-2 w-full sm:w-auto">
-              <Save className="w-4 h-4" />
-              Save Changes
-            </Button>
+            <div className="flex gap-2 w-full sm:w-auto">
+              {hasChanges && (
+                <Button variant="outline" onClick={handleCancelChanges} className="gap-2 flex-1 sm:flex-none">
+                  <X className="w-4 h-4" />
+                  Cancel
+                </Button>
+              )}
+              <Button onClick={handleSave} disabled={!hasChanges} className="gap-2 flex-1 sm:flex-none">
+                <Save className="w-4 h-4" />
+                Save Changes
+              </Button>
+            </div>
           </div>
 
           {/* Environment Tabs */}
-          <Tabs value={activeEnvironment} onValueChange={(v) => setActiveEnvironment(v as EnvironmentName)} className="w-full">
+          <Tabs value={activeEnvironment} onValueChange={handleTabChange} className="w-full">
             <TabsList className="w-full sm:w-auto">
               <TabsTrigger value="production" className="flex-1 sm:flex-none">Production</TabsTrigger>
               <TabsTrigger value="development" className="flex-1 sm:flex-none">Development</TabsTrigger>
@@ -418,6 +545,24 @@ export function EnvironmentsView() {
           </div>
         </div>
       </ScrollArea>
+
+      {/* Unsaved Changes Dialog */}
+      <AlertDialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Save or discard changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes to the {activeEnvironment.charAt(0).toUpperCase() + activeEnvironment.slice(1)} environment. 
+              Would you like to save them before leaving?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelDialog}>Cancel</AlertDialogCancel>
+            <Button variant="outline" onClick={handleDiscard}>Discard</Button>
+            <AlertDialogAction onClick={handleSaveAndProceed}>Save</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
