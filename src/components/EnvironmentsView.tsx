@@ -98,6 +98,7 @@ export function EnvironmentsView() {
   const [pendingEnvironment, setPendingEnvironment] = useState<string | null>(null);
   const [isListLoading, setIsListLoading] = useState(true);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   const activeEnvironmentName = useMemo(() => {
     if (!activeEnvironmentId) return "environment";
@@ -210,6 +211,10 @@ export function EnvironmentsView() {
     fetchEnvironmentInfo(activeEnvironmentId);
   }, [activeEnvironmentId, fetchEnvironmentInfo]);
 
+  useEffect(() => {
+    setIsEditing(false);
+  }, [activeEnvironmentId]);
+
   const handleTabChange = (value: string) => {
     const newEnv = value;
     if (newEnv === activeEnvironmentId) return;
@@ -287,15 +292,16 @@ export function EnvironmentsView() {
     if (!snapshot) return;
     setEnvironments(prev => ({
       ...prev,
-      [activeEnvironmentId]: snapshot,
+      [activeEnvironmentId]: { ...snapshot, hasChanges: false },
     }));
+    setIsEditing(false);
     toast.info("Changes discarded", {
       description: `Your ${activeEnvironmentName} environment has been reset.`,
     });
   };
 
   const updateCurrentEnv = (updates: Partial<Environment>) => {
-    if (!activeEnvironmentId) return;
+    if (!activeEnvironmentId || !isEditing) return;
     setEnvironments(prev => ({
       ...prev,
       [activeEnvironmentId]: { ...prev[activeEnvironmentId], ...updates, hasChanges: true },
@@ -399,16 +405,24 @@ export function EnvironmentsView() {
               </p>
             </div>
             <div className="flex gap-2 w-full sm:w-auto">
-              {hasChanges && (
-                <Button variant="outline" onClick={handleCancelChanges} className="gap-2 flex-1 sm:flex-none">
-                  <X className="w-4 h-4" />
-                  Cancel
+              {!isEditing && (
+                <Button onClick={() => setIsEditing(true)} className="gap-2 flex-1 sm:flex-none">
+                  <Save className="w-4 h-4" />
+                  Edit
                 </Button>
               )}
-              <Button onClick={handleSave} disabled={!hasChanges} className="gap-2 flex-1 sm:flex-none">
-                <Save className="w-4 h-4" />
-                Save Changes
-              </Button>
+              {isEditing && (
+                <>
+                  <Button variant="outline" onClick={handleCancelChanges} className="gap-2 flex-1 sm:flex-none">
+                    <X className="w-4 h-4" />
+                    Cancel
+                  </Button>
+                  <Button onClick={handleSave} disabled={!hasChanges} className="gap-2 flex-1 sm:flex-none">
+                    <Save className="w-4 h-4" />
+                    Save Changes
+                  </Button>
+                </>
+              )}
             </div>
           </div>
 
@@ -477,6 +491,7 @@ export function EnvironmentsView() {
                       size="sm"
                       onClick={() => addSuggestedVariable(suggestion.variable!)}
                       className="shrink-0"
+                      disabled={!isEditing}
                     >
                       Add {suggestion.variable}
                     </Button>
@@ -538,7 +553,12 @@ export function EnvironmentsView() {
                     <div className="rounded-lg border border-dashed border-border/80 bg-muted/30 p-3 text-sm text-muted-foreground">
                       Set a <span className="font-semibold text-foreground">BASE_URL</span> variable to define the base URL for this
                       environment.
-                      <Button variant="link" className="px-2" onClick={handleAddBaseUrlVariable}>
+                      <Button
+                        variant="link"
+                        className="px-2"
+                        onClick={handleAddBaseUrlVariable}
+                        disabled={!isEditing}
+                      >
                         Add BASE_URL
                       </Button>
                     </div>
@@ -548,6 +568,7 @@ export function EnvironmentsView() {
                     onChange={(e) => handleBaseUrlChange(e.target.value)}
                     placeholder="https://api.example.com"
                     className="font-mono"
+                    disabled={!isEditing}
                   />
                 </CardContent>
               </Card>
@@ -563,10 +584,12 @@ export function EnvironmentsView() {
                         {visibleVariables.length}
                       </Badge>
                     </div>
-                    <Button variant="outline" size="sm" onClick={addVariable} className="gap-1.5">
-                      <Plus className="w-3.5 h-3.5" />
-                      Add Variable
-                    </Button>
+                    {isEditing && (
+                      <Button variant="outline" size="sm" onClick={addVariable} className="gap-1.5">
+                        <Plus className="w-3.5 h-3.5" />
+                        Add Variable
+                      </Button>
+                    )}
                   </div>
                   <CardDescription>
                     Environment variables available in your test requests
@@ -588,6 +611,7 @@ export function EnvironmentsView() {
                               onChange={(e) => updateVariable(variable.id, "key", e.target.value)}
                               placeholder="VARIABLE_NAME"
                               className="font-mono text-sm"
+                              disabled={!isEditing}
                             />
                           </div>
                           <div className="space-y-1">
@@ -597,17 +621,20 @@ export function EnvironmentsView() {
                               onChange={(e) => updateVariable(variable.id, "value", e.target.value)}
                               placeholder="value"
                               className="font-mono text-sm"
+                              disabled={!isEditing}
                             />
                           </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeVariable(variable.id)}
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive mt-5"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        {isEditing && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeVariable(variable.id)}
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive mt-5"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
                       </div>
                     ))
                   )}
@@ -625,10 +652,12 @@ export function EnvironmentsView() {
                         {secrets.length}
                       </Badge>
                     </div>
-                    <Button variant="outline" size="sm" onClick={addSecret} className="gap-1.5">
-                      <Plus className="w-3.5 h-3.5" />
-                      Add Secret
-                    </Button>
+                    {isEditing && (
+                      <Button variant="outline" size="sm" onClick={addSecret} className="gap-1.5">
+                        <Plus className="w-3.5 h-3.5" />
+                        Add Secret
+                      </Button>
+                    )}
                   </div>
                   <CardDescription>
                     Sensitive values like API keys and tokens (stored encrypted)
@@ -650,6 +679,7 @@ export function EnvironmentsView() {
                               onChange={(e) => updateSecret(secret.id, "key", e.target.value)}
                               placeholder="SECRET_NAME"
                               className="font-mono text-sm"
+                              disabled={!isEditing}
                             />
                           </div>
                           <div className="space-y-1">
@@ -661,12 +691,14 @@ export function EnvironmentsView() {
                                 onChange={(e) => updateSecret(secret.id, "value", e.target.value)}
                                 placeholder="••••••••"
                                 className="font-mono text-sm pr-10"
+                                disabled={!isEditing}
                               />
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => toggleSecretVisibility(secret.id)}
                                 className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                                disabled={!isEditing}
                               >
                                 {secret.isRevealed ? (
                                   <EyeOff className="w-3.5 h-3.5" />
@@ -677,14 +709,16 @@ export function EnvironmentsView() {
                             </div>
                           </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeSecret(secret.id)}
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive mt-5"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        {isEditing && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeSecret(secret.id)}
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive mt-5"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
                       </div>
                     ))
                   )}
