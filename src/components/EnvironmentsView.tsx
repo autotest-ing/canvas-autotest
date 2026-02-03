@@ -619,9 +619,9 @@ export function EnvironmentsView() {
             </div>
           ) : (
             <Tabs value={activeEnvironmentId ?? ""} onValueChange={handleTabChange} className="w-full">
-              <TabsList className="w-full sm:w-auto flex flex-wrap">
+              <TabsList className="w-fit flex flex-wrap justify-start">
                 {environmentList.map((env) => (
-                  <TabsTrigger key={env.id} value={env.id} className="flex-1 sm:flex-none">
+                  <TabsTrigger key={env.id} value={env.id}>
                     <span className="flex items-center gap-2">
                       <span>{env.name}</span>
                     </span>
