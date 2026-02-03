@@ -1,9 +1,13 @@
+import { useState } from "react";
 import { Loader2, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
 
 export function LoginScreen() {
   const { loginWithMagicLink, isLoading } = useAuth();
+  const [email, setEmail] = useState("");
+  const isEmailEmpty = email.trim().length === 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-muted/60 backdrop-blur-sm">
@@ -45,12 +49,21 @@ export function LoginScreen() {
             <div className="h-px flex-1 bg-border" />
           </div>
 
+          <Input
+            type="email"
+            autoComplete="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            className="h-14 w-full rounded-full border-border bg-background px-5 text-base"
+          />
+
           {/* Email Button */}
           <Button
             type="button"
-            onClick={loginWithMagicLink}
+            onClick={() => loginWithMagicLink(email)}
             className="h-14 w-full rounded-full bg-foreground text-base font-medium text-background hover:bg-foreground/90"
-            disabled={isLoading}
+            disabled={isLoading || isEmailEmpty}
           >
             {isLoading ? (
               <Loader2 className="mr-3 h-5 w-5 animate-spin" />
