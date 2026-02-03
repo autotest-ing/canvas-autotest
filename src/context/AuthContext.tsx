@@ -13,7 +13,7 @@ type AuthContextValue = {
   expiresAt: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  loginWithMagicLink: (email: string) => Promise<void>;
+  loginWithMagicLink: (email: string) => Promise<{ ok: boolean; message: string }>;
   logout: () => void;
 };
 
@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loginWithMagicLink = useCallback(async (email: string) => {
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
-      return;
+      return { ok: false, message: "Email is required." };
     }
     setIsLoading(true);
     try {
@@ -80,16 +80,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error("Login failed");
       }
 
-      const data = (await response.json()) as {
-        token: string;
-        expires_at: string;
+      await response.json();
+      return {
+        ok: true,
+        message: "Please check your email, and follow link to signin.",
       };
-
-      persistState({ token: data.token, expiresAt: data.expires_at });
     } finally {
       setIsLoading(false);
     }
-  }, [persistState]);
+  }, []);
 
   const logout = useCallback(() => {
     persistState({ token: null, expiresAt: null });

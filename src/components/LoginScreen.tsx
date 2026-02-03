@@ -5,12 +5,22 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
 
 export function LoginScreen() {
-  const { loginWithMagicLink, isLoading } = useAuth();
+  const { loginWithMagicLink, isLoading, logout } = useAuth();
   const [email, setEmail] = useState("");
+  const [confirmationMessage, setConfirmationMessage] = useState<string | null>(null);
   const trimmedEmail = email.trim();
   const isEmailEmpty = trimmedEmail.length === 0;
   const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail);
   const showEmailError = !isEmailEmpty && !isEmailValid;
+  const isConfirmationVisible = Boolean(confirmationMessage);
+
+  const handleMagicLinkLogin = async () => {
+    const result = await loginWithMagicLink(email);
+    if (result.ok) {
+      logout();
+      setConfirmationMessage(result.message);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-muted/60 backdrop-blur-sm">
@@ -58,6 +68,7 @@ export function LoginScreen() {
             placeholder="you@example.com"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
+            disabled={isConfirmationVisible}
             className="h-14 w-full rounded-full border-border bg-background px-5 text-base"
           />
           {showEmailError ? (
@@ -65,13 +76,16 @@ export function LoginScreen() {
               Please enter a valid email address.
             </p>
           ) : null}
+          {isConfirmationVisible ? (
+            <p className="text-left text-sm text-muted-foreground">{confirmationMessage}</p>
+          ) : null}
 
           {/* Email Button */}
           <Button
             type="button"
-            onClick={() => loginWithMagicLink(email)}
+            onClick={handleMagicLinkLogin}
             className="h-14 w-full rounded-full bg-foreground text-base font-medium text-background hover:bg-foreground/90"
-            disabled={isLoading || !isEmailValid}
+            disabled={isLoading || !isEmailValid || isConfirmationVisible}
           >
             {isLoading ? (
               <Loader2 className="mr-3 h-5 w-5 animate-spin" />
