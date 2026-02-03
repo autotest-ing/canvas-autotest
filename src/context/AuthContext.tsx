@@ -2,6 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 
 const AUTH_STORAGE_KEY = "autotest.auth";
 const DEFAULT_ACCOUNT_STORAGE_KEY = "autotest.default_account_id";
+const GOOGLE_OAUTH_STATE_KEY = "autotest.google_oauth_state";
+const GOOGLE_REDIRECT_PATH = "/auth/callback";
 const BASE_API_URL = "https://internal-api.autotest.ing";
 
 type AuthState = {
@@ -22,6 +24,11 @@ export type MagicLinkRequestResult = {
   status: "sent" | "error";
 };
 
+export type GoogleSSOResult = {
+  ok: boolean;
+  message: string;
+};
+
 type AuthContextValue = {
   token: string | null;
   expiresAt: string | null;
@@ -32,6 +39,8 @@ type AuthContextValue = {
   currentUserError: string | null;
   loginWithMagicLink: (email: string) => Promise<MagicLinkRequestResult>;
   confirmMagicLink: (email: string, token: string) => Promise<MagicLinkRequestResult>;
+  initiateGoogleSSO: () => Promise<GoogleSSOResult>;
+  completeGoogleSSO: (code: string, state: string) => Promise<GoogleSSOResult>;
   setAuthFromToken: (token: string, expiresAt?: string | null) => void;
   logout: () => void;
 };
@@ -83,6 +92,11 @@ const getExpiresAtFromToken = (token: string) => {
   } catch {
     return null;
   }
+};
+
+const getGoogleRedirectUri = () => {
+  if (typeof window === "undefined") return "";
+  return `${window.location.origin}${GOOGLE_REDIRECT_PATH}`;
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -236,6 +250,109 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [setAuthFromToken]
   );
 
+  const initiateGoogleSSO = useCallback(async (): Promise<GoogleSSOResult> => {
+    if (typeof window === "undefined") {
+      return { ok: false, message: "Google SSO is not available." };
+    }
+    const state = window.crypto?.randomUUID
+      ? window.crypto.randomUUID()
+      : `${Date.now()}-${Math.random()}`;
+    window.sessionStorage.setItem(GOOGLE_OAUTH_STATE_KEY, state);
+    try {
+      const params = new URLSearchParams({
+        redirect_uri: getGoogleRedirectUri(),
+        state,
+      });
+      const response = await fetch(`${BASE_API_URL}/v1.0/auth/google?${params}`);
+
+      if (!response.ok) {
+        let errorDetail = "Failed to initiate Google SSO.";
+        try {
+          const error = (await response.json()) as { detail?: string };
+          errorDetail = error.detail ?? errorDetail;
+        } catch {
+          // Ignore JSON parse errors, fall back to default message.
+        }
+        return { ok: false, message: errorDetail };
+      }
+
+      const data = (await response.json()) as { auth_url?: string };
+      if (!data?.auth_url) {
+        return { ok: false, message: "Missing Google authorization URL." };
+      }
+
+      window.location.href = data.auth_url;
+      return { ok: true, message: "Redirecting to Google..." };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to initiate Google SSO.";
+      return { ok: false, message };
+    }
+  }, []);
+
+  const completeGoogleSSO = useCallback(
+    async (code: string, state: string): Promise<GoogleSSOResult> => {
+      if (typeof window === "undefined") {
+        return { ok: false, message: "Google SSO is not available." };
+      }
+
+      const savedState = window.sessionStorage.getItem(GOOGLE_OAUTH_STATE_KEY);
+      if (!savedState || savedState !== state) {
+        window.sessionStorage.removeItem(GOOGLE_OAUTH_STATE_KEY);
+        return { ok: false, message: "Invalid state parameter." };
+      }
+      window.sessionStorage.removeItem(GOOGLE_OAUTH_STATE_KEY);
+
+      try {
+        const response = await fetch(`${BASE_API_URL}/v1.0/auth/google/callback`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            code,
+            redirect_uri: getGoogleRedirectUri(),
+            state,
+          }),
+        });
+
+        if (!response.ok) {
+          let errorDetail = "Authentication failed.";
+          try {
+            const error = (await response.json()) as { detail?: string };
+            errorDetail = error.detail ?? errorDetail;
+          } catch {
+            // Ignore JSON parse errors, fall back to default message.
+          }
+          return { ok: false, message: errorDetail };
+        }
+
+        const data = (await response.json()) as {
+          access_token?: string;
+          expiresAt?: string | null;
+          expires_at?: string | null;
+          user?: { team_member_status?: string | null };
+        };
+
+        if (!data?.access_token) {
+          return { ok: false, message: "Missing access token." };
+        }
+
+        if (data.user?.team_member_status === "rejected") {
+          return {
+            ok: false,
+            message: "Your invitation was rejected. Please contact support.",
+          };
+        }
+
+        const expiresAt = data.expiresAt ?? data.expires_at ?? null;
+        setAuthFromToken(data.access_token, expiresAt);
+        return { ok: true, message: "Signed in successfully." };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Authentication failed.";
+        return { ok: false, message };
+      }
+    },
+    [setAuthFromToken]
+  );
+
   useEffect(() => {
     if (authState.token && isTokenValid(authState.expiresAt)) {
       void fetchCurrentUser(authState.token);
@@ -255,6 +372,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       currentUserError,
       loginWithMagicLink,
       confirmMagicLink,
+      initiateGoogleSSO,
+      completeGoogleSSO,
       setAuthFromToken,
       logout,
     }),
@@ -266,6 +385,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       currentUserError,
       loginWithMagicLink,
       confirmMagicLink,
+      initiateGoogleSSO,
+      completeGoogleSSO,
       setAuthFromToken,
       logout,
     ]

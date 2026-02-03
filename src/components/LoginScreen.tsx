@@ -5,12 +5,14 @@ import { Input } from "@/components/ui/input";
 import { useAuth, type MagicLinkRequestResult } from "@/context/AuthContext";
 
 export function LoginScreen() {
-  const { loginWithMagicLink, isLoading } = useAuth();
+  const { loginWithMagicLink, initiateGoogleSSO, isLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [confirmationMessage, setConfirmationMessage] = useState<string | null>(null);
   const [messageStatus, setMessageStatus] = useState<MagicLinkRequestResult["status"] | null>(
     null
   );
+  const [googleError, setGoogleError] = useState<string | null>(null);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const trimmedEmail = email.trim();
   const isEmailEmpty = trimmedEmail.length === 0;
   const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail);
@@ -24,6 +26,16 @@ export function LoginScreen() {
     setMessageStatus(result.status);
   };
 
+  const handleGoogleLogin = async () => {
+    setGoogleError(null);
+    setIsGoogleLoading(true);
+    const result = await initiateGoogleSSO();
+    if (!result.ok) {
+      setGoogleError(result.message);
+      setIsGoogleLoading(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-muted/60 backdrop-blur-sm">
       <div className="w-full max-w-lg rounded-2xl bg-background p-10 text-center shadow-2xl">
@@ -35,6 +47,8 @@ export function LoginScreen() {
             type="button"
             variant="outline"
             className="h-14 w-full rounded-full border-border bg-background text-base font-medium text-foreground hover:bg-accent"
+            onClick={handleGoogleLogin}
+            disabled={isGoogleLoading}
           >
             <svg className="mr-3 h-5 w-5" viewBox="0 0 24 24">
               <path
@@ -54,8 +68,11 @@ export function LoginScreen() {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               />
             </svg>
-            Continue with Google
+            {isGoogleLoading ? "Redirecting..." : "Continue with Google"}
           </Button>
+          {googleError ? (
+            <p className="text-left text-sm text-destructive">{googleError}</p>
+          ) : null}
 
           {/* OR Divider */}
           <div className="flex items-center gap-4">
@@ -93,7 +110,7 @@ export function LoginScreen() {
             type="button"
             onClick={handleMagicLinkLogin}
             className="h-14 w-full rounded-full bg-foreground text-base font-medium text-background hover:bg-foreground/90"
-            disabled={isLoading || !isEmailValid || isConfirmationVisible}
+            disabled={isLoading || isGoogleLoading || !isEmailValid || isConfirmationVisible}
           >
             {isLoading ? (
               <Loader2 className="mr-3 h-5 w-5 animate-spin" />
