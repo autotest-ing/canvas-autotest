@@ -1,11 +1,19 @@
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 const AUTH_STORAGE_KEY = "autotest.auth";
+const DEFAULT_ACCOUNT_STORAGE_KEY = "autotest.default_account_id";
 const BASE_API_URL = "https://internal-api.autotest.ing";
 
 type AuthState = {
   token: string | null;
   expiresAt: string | null;
+};
+
+type CurrentUser = {
+  email: string;
+  first_name: string;
+  last_name: string;
+  default_account_id: string;
 };
 
 export type MagicLinkRequestResult = {
@@ -19,6 +27,9 @@ type AuthContextValue = {
   expiresAt: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  currentUser: CurrentUser | null;
+  isCurrentUserLoading: boolean;
+  currentUserError: string | null;
   loginWithMagicLink: (email: string) => Promise<MagicLinkRequestResult>;
   confirmMagicLink: (email: string, token: string) => Promise<MagicLinkRequestResult>;
   setAuthFromToken: (token: string, expiresAt?: string | null) => void;
@@ -77,6 +88,9 @@ const getExpiresAtFromToken = (token: string) => {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>(getInitialAuthState);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [isCurrentUserLoading, setIsCurrentUserLoading] = useState(false);
+  const [currentUserError, setCurrentUserError] = useState<string | null>(null);
 
   const persistState = useCallback((state: AuthState) => {
     setAuthState(state);
@@ -88,6 +102,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(state));
   }, []);
 
+  const logout = useCallback(() => {
+    persistState({ token: null, expiresAt: null });
+    setCurrentUser(null);
+    setCurrentUserError(null);
+    setIsCurrentUserLoading(false);
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(DEFAULT_ACCOUNT_STORAGE_KEY);
+    }
+  }, [persistState]);
+
+  const fetchCurrentUser = useCallback(
+    async (token: string) => {
+      if (!token) return;
+      setIsCurrentUserLoading(true);
+      setCurrentUserError(null);
+      try {
+        const response = await fetch(`${BASE_API_URL}/v1.0/users/me`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (response.status === 401 || response.status === 403) {
+          logout();
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error("Failed to load user profile.");
+        }
+
+        const data = (await response.json()) as CurrentUser;
+        setCurrentUser(data);
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(DEFAULT_ACCOUNT_STORAGE_KEY, data.default_account_id);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to load user profile.";
+        setCurrentUserError(message);
+      } finally {
+        setIsCurrentUserLoading(false);
+      }
+    },
+    [logout]
+  );
+
   const setAuthFromToken = useCallback(
     (token: string, expiresAt?: string | null) => {
       const derivedExpiresAt = expiresAt ?? getExpiresAtFromToken(token);
@@ -95,8 +156,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         token,
         expiresAt: derivedExpiresAt ?? null,
       });
+      void fetchCurrentUser(token);
     },
-    [persistState]
+    [fetchCurrentUser, persistState]
   );
 
   const loginWithMagicLink = useCallback(async (email: string): Promise<MagicLinkRequestResult> => {
@@ -174,9 +236,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [setAuthFromToken]
   );
 
-  const logout = useCallback(() => {
-    persistState({ token: null, expiresAt: null });
-  }, [persistState]);
+  useEffect(() => {
+    if (authState.token && isTokenValid(authState.expiresAt)) {
+      void fetchCurrentUser(authState.token);
+      return;
+    }
+    setCurrentUser(null);
+  }, [authState.expiresAt, authState.token, fetchCurrentUser]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -184,12 +250,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       expiresAt: authState.expiresAt,
       isAuthenticated: Boolean(authState.token && isTokenValid(authState.expiresAt)),
       isLoading,
+      currentUser,
+      isCurrentUserLoading,
+      currentUserError,
       loginWithMagicLink,
       confirmMagicLink,
       setAuthFromToken,
       logout,
     }),
-    [authState, isLoading, loginWithMagicLink, confirmMagicLink, setAuthFromToken, logout]
+    [
+      authState,
+      isLoading,
+      currentUser,
+      isCurrentUserLoading,
+      currentUserError,
+      loginWithMagicLink,
+      confirmMagicLink,
+      setAuthFromToken,
+      logout,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
