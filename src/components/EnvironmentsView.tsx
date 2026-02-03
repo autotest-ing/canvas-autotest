@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MobileBottomSpacer } from "./LeftRail";
 import { PageTitle } from "./PageTitle";
 import { 
@@ -42,16 +43,55 @@ interface AISuggestion {
   variable?: string;
 }
 
-const mockVariables: KeyValuePair[] = [
-  { id: "1", key: "API_VERSION", value: "v2" },
-  { id: "2", key: "TIMEOUT_MS", value: "5000" },
-  { id: "3", key: "MAX_RETRIES", value: "3" },
-];
+interface Environment {
+  baseUrl: string;
+  variables: KeyValuePair[];
+  secrets: SecretPair[];
+  hasChanges: boolean;
+}
 
-const mockSecrets: SecretPair[] = [
-  { id: "1", key: "API_KEY", value: "sk-xxxx-xxxx-xxxx", isRevealed: false },
-  { id: "2", key: "AUTH_TOKEN", value: "Bearer eyJhbGc...", isRevealed: false },
-];
+type EnvironmentName = "production" | "development" | "staging";
+
+const initialEnvironments: Record<EnvironmentName, Environment> = {
+  production: {
+    baseUrl: "https://api.example.com",
+    variables: [
+      { id: "p1", key: "API_VERSION", value: "v1" },
+      { id: "p2", key: "TIMEOUT_MS", value: "10000" },
+      { id: "p3", key: "MAX_RETRIES", value: "5" },
+    ],
+    secrets: [
+      { id: "p1", key: "API_KEY", value: "sk-prod-xxxx-xxxx", isRevealed: false },
+      { id: "p2", key: "AUTH_TOKEN", value: "Bearer prod-eyJhbGc...", isRevealed: false },
+    ],
+    hasChanges: false,
+  },
+  development: {
+    baseUrl: "https://api.dev.example.com",
+    variables: [
+      { id: "d1", key: "API_VERSION", value: "v2" },
+      { id: "d2", key: "TIMEOUT_MS", value: "3000" },
+      { id: "d3", key: "DEBUG_MODE", value: "true" },
+    ],
+    secrets: [
+      { id: "d1", key: "API_KEY", value: "sk-dev-xxxx-xxxx", isRevealed: false },
+    ],
+    hasChanges: false,
+  },
+  staging: {
+    baseUrl: "https://api.staging.example.com",
+    variables: [
+      { id: "s1", key: "API_VERSION", value: "v2" },
+      { id: "s2", key: "TIMEOUT_MS", value: "5000" },
+      { id: "s3", key: "MAX_RETRIES", value: "3" },
+    ],
+    secrets: [
+      { id: "s1", key: "API_KEY", value: "sk-staging-xxxx-xxxx", isRevealed: false },
+      { id: "s2", key: "AUTH_TOKEN", value: "Bearer staging-eyJhbGc...", isRevealed: false },
+    ],
+    hasChanges: false,
+  },
+};
 
 const mockSuggestions: AISuggestion[] = [
   { 
@@ -69,54 +109,54 @@ const mockSuggestions: AISuggestion[] = [
 ];
 
 export function EnvironmentsView() {
-  const [baseUrl, setBaseUrl] = useState("https://api.staging.example.com");
-  const [variables, setVariables] = useState<KeyValuePair[]>(mockVariables);
-  const [secrets, setSecrets] = useState<SecretPair[]>(mockSecrets);
+  const [activeEnvironment, setActiveEnvironment] = useState<EnvironmentName>("development");
+  const [environments, setEnvironments] = useState<Record<EnvironmentName, Environment>>(initialEnvironments);
   const [suggestions] = useState<AISuggestion[]>(mockSuggestions);
-  const [hasChanges, setHasChanges] = useState(false);
+
+  const currentEnv = environments[activeEnvironment];
+  const { baseUrl, variables, secrets, hasChanges } = currentEnv;
+
+  const updateCurrentEnv = (updates: Partial<Environment>) => {
+    setEnvironments(prev => ({
+      ...prev,
+      [activeEnvironment]: { ...prev[activeEnvironment], ...updates, hasChanges: true },
+    }));
+  };
 
   const handleBaseUrlChange = (value: string) => {
-    setBaseUrl(value);
-    setHasChanges(true);
+    updateCurrentEnv({ baseUrl: value });
   };
 
   const addVariable = () => {
-    setVariables([...variables, { id: String(Date.now()), key: "", value: "" }]);
-    setHasChanges(true);
+    updateCurrentEnv({ variables: [...variables, { id: String(Date.now()), key: "", value: "" }] });
   };
 
   const updateVariable = (id: string, field: "key" | "value", value: string) => {
-    setVariables(variables.map(v => v.id === id ? { ...v, [field]: value } : v));
-    setHasChanges(true);
+    updateCurrentEnv({ variables: variables.map(v => v.id === id ? { ...v, [field]: value } : v) });
   };
 
   const removeVariable = (id: string) => {
-    setVariables(variables.filter(v => v.id !== id));
-    setHasChanges(true);
+    updateCurrentEnv({ variables: variables.filter(v => v.id !== id) });
   };
 
   const addSecret = () => {
-    setSecrets([...secrets, { id: String(Date.now()), key: "", value: "", isRevealed: true }]);
-    setHasChanges(true);
+    updateCurrentEnv({ secrets: [...secrets, { id: String(Date.now()), key: "", value: "", isRevealed: true }] });
   };
 
   const updateSecret = (id: string, field: "key" | "value", value: string) => {
-    setSecrets(secrets.map(s => s.id === id ? { ...s, [field]: value } : s));
-    setHasChanges(true);
+    updateCurrentEnv({ secrets: secrets.map(s => s.id === id ? { ...s, [field]: value } : s) });
   };
 
   const removeSecret = (id: string) => {
-    setSecrets(secrets.filter(s => s.id !== id));
-    setHasChanges(true);
+    updateCurrentEnv({ secrets: secrets.filter(s => s.id !== id) });
   };
 
   const toggleSecretVisibility = (id: string) => {
-    setSecrets(secrets.map(s => s.id === id ? { ...s, isRevealed: !s.isRevealed } : s));
+    updateCurrentEnv({ secrets: secrets.map(s => s.id === id ? { ...s, isRevealed: !s.isRevealed } : s) });
   };
 
   const addSuggestedVariable = (variable: string) => {
-    setVariables([...variables, { id: String(Date.now()), key: variable, value: "" }]);
-    setHasChanges(true);
+    updateCurrentEnv({ variables: [...variables, { id: String(Date.now()), key: variable, value: "" }] });
     toast.success("Variable added", {
       description: `${variable} has been added. Don't forget to set its value.`,
     });
@@ -135,9 +175,12 @@ export function EnvironmentsView() {
     }
 
     toast.success("Environment saved", {
-      description: "Your environment configuration has been updated.",
+      description: `Your ${activeEnvironment} environment configuration has been updated.`,
     });
-    setHasChanges(false);
+    setEnvironments(prev => ({
+      ...prev,
+      [activeEnvironment]: { ...prev[activeEnvironment], hasChanges: false },
+    }));
   };
 
   return (
@@ -157,6 +200,15 @@ export function EnvironmentsView() {
               Save Changes
             </Button>
           </div>
+
+          {/* Environment Tabs */}
+          <Tabs value={activeEnvironment} onValueChange={(v) => setActiveEnvironment(v as EnvironmentName)} className="w-full">
+            <TabsList className="w-full sm:w-auto">
+              <TabsTrigger value="production" className="flex-1 sm:flex-none">Production</TabsTrigger>
+              <TabsTrigger value="development" className="flex-1 sm:flex-none">Development</TabsTrigger>
+              <TabsTrigger value="staging" className="flex-1 sm:flex-none">Staging</TabsTrigger>
+            </TabsList>
+          </Tabs>
 
           {/* Content */}
           <div className="space-y-6">
