@@ -7,32 +7,32 @@ export function LoginScreen() {
   const { loginWithMagicLink, isLoading } = useAuth();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl border border-muted/80 bg-background/95 p-8 text-center shadow-xl ring-1 ring-muted/60">
-        <h1 className="text-2xl font-semibold text-foreground">Welcome back</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-muted/60 backdrop-blur-sm">
+      <div className="w-full max-w-lg rounded-2xl bg-background p-10 text-center shadow-2xl">
+        <h1 className="text-3xl font-bold text-foreground">Welcome back</h1>
+        <p className="mt-3 text-base text-muted-foreground">
           Sign in with your magic link to continue.
         </p>
 
-        <div className="mt-8">
+        <div className="mt-10">
           <Button
             type="button"
             onClick={loginWithMagicLink}
             className={cn(
-              "w-full rounded-full text-base",
+              "h-14 w-full rounded-full bg-[hsl(175,35%,50%)] text-base font-medium text-white hover:bg-[hsl(175,35%,45%)]",
               isLoading && "pointer-events-none"
             )}
           >
             {isLoading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-3 h-5 w-5 animate-spin" />
             ) : (
-              <Mail className="mr-2 h-4 w-4" />
+              <Mail className="mr-3 h-5 w-5" />
             )}
             {isLoading ? "Sending magic link..." : "Login with magic link"}
           </Button>
         </div>
 
-        <p className="mt-6 text-xs text-muted-foreground">
+        <p className="mt-8 text-sm text-muted-foreground">
           By proceeding, you agree to the Terms and CSA.
         </p>
       </div>
