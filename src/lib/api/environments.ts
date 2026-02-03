@@ -97,3 +97,29 @@ export async function updateEnvironment(
 
   return (await response.json()) as EnvironmentDetailResponse;
 }
+
+export async function deleteEnvironment(envId: string, token: string) {
+  const response = await fetch(`${BASE_API_URL}/v1.0/environments/${envId}`, {
+    method: "DELETE",
+    headers: {
+      ...getAuthHeaders(token),
+    },
+  });
+
+  if (response.status === 204) {
+    return;
+  }
+
+  if (!response.ok) {
+    let message = "Failed to delete environment";
+    try {
+      const data = (await response.json()) as { message?: string };
+      if (data?.message) {
+        message = `${message}: ${data.message}`;
+      }
+    } catch {
+      // ignore parse errors and keep default message
+    }
+    throw new Error(message);
+  }
+}
