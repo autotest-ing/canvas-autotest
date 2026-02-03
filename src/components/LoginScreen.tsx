@@ -7,7 +7,10 @@ import { useAuth } from "@/context/AuthContext";
 export function LoginScreen() {
   const { loginWithMagicLink, isLoading } = useAuth();
   const [email, setEmail] = useState("");
-  const isEmailEmpty = email.trim().length === 0;
+  const trimmedEmail = email.trim();
+  const isEmailEmpty = trimmedEmail.length === 0;
+  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail);
+  const showEmailError = !isEmailEmpty && !isEmailValid;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-muted/60 backdrop-blur-sm">
@@ -57,13 +60,18 @@ export function LoginScreen() {
             onChange={(event) => setEmail(event.target.value)}
             className="h-14 w-full rounded-full border-border bg-background px-5 text-base"
           />
+          {showEmailError ? (
+            <p className="text-left text-sm text-destructive">
+              Please enter a valid email address.
+            </p>
+          ) : null}
 
           {/* Email Button */}
           <Button
             type="button"
             onClick={() => loginWithMagicLink(email)}
             className="h-14 w-full rounded-full bg-foreground text-base font-medium text-background hover:bg-foreground/90"
-            disabled={isLoading || isEmailEmpty}
+            disabled={isLoading || !isEmailValid}
           >
             {isLoading ? (
               <Loader2 className="mr-3 h-5 w-5 animate-spin" />
