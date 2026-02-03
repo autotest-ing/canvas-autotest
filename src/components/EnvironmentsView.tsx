@@ -118,7 +118,6 @@ export function EnvironmentsView() {
   const currentEnv = activeEnvironmentId ? environments[activeEnvironmentId] : null;
   const baseUrl = currentEnv?.baseUrl ?? "";
   const environmentName = currentEnv?.name ?? "";
-  const isDefault = currentEnv?.isDefault ?? false;
   const variables = currentEnv?.variables ?? [];
   const secrets = currentEnv?.secrets ?? [];
   const hasChanges = currentEnv?.hasChanges ?? false;
@@ -583,11 +582,6 @@ export function EnvironmentsView() {
                   <TabsTrigger key={env.id} value={env.id} className="flex-1 sm:flex-none">
                     <span className="flex items-center gap-2">
                       <span>{env.name}</span>
-                      {env.isDefault && (
-                        <Badge variant="secondary" className="text-[0.65rem] px-1.5">
-                          Default
-                        </Badge>
-                      )}
                     </span>
                   </TabsTrigger>
                 ))}
@@ -692,7 +686,7 @@ export function EnvironmentsView() {
                 <CardHeader className="pb-4">
                   <CardTitle className="text-base">Environment details</CardTitle>
                   <CardDescription>
-                    Name and default settings for this environment
+                    Name settings for this environment
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -702,19 +696,6 @@ export function EnvironmentsView() {
                       value={environmentName}
                       onChange={(e) => updateCurrentEnv({ name: e.target.value })}
                       placeholder="Environment name"
-                      disabled={!isEditing}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between rounded-lg border border-border/60 p-3">
-                    <div>
-                      <Label className="text-sm">Default environment</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Use this environment as the default for new runs
-                      </p>
-                    </div>
-                    <Switch
-                      checked={isDefault}
-                      onCheckedChange={(checked) => updateCurrentEnv({ isDefault: checked })}
                       disabled={!isEditing}
                     />
                   </div>
