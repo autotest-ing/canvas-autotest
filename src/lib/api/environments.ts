@@ -30,7 +30,6 @@ export type EnvironmentDetailResponse = {
 export type EnvironmentUpdatePayload = {
   name: string;
   is_default: boolean;
-  base_url?: string;
   variables: Array<EnvironmentVariable & { is_overridable?: boolean }>;
   secrets: EnvironmentSecret[];
 };
