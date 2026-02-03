@@ -2,24 +2,26 @@ import { useState } from "react";
 import { Loader2, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth, type MagicLinkRequestResult } from "@/context/AuthContext";
 
 export function LoginScreen() {
-  const { loginWithMagicLink, isLoading, logout } = useAuth();
+  const { loginWithMagicLink, isLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [confirmationMessage, setConfirmationMessage] = useState<string | null>(null);
+  const [messageStatus, setMessageStatus] = useState<MagicLinkRequestResult["status"] | null>(
+    null
+  );
   const trimmedEmail = email.trim();
   const isEmailEmpty = trimmedEmail.length === 0;
   const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail);
   const showEmailError = !isEmailEmpty && !isEmailValid;
   const isConfirmationVisible = Boolean(confirmationMessage);
+  const isConfirmationError = messageStatus === "error";
 
   const handleMagicLinkLogin = async () => {
     const result = await loginWithMagicLink(email);
-    if (result.ok) {
-      logout();
-      setConfirmationMessage(result.message);
-    }
+    setConfirmationMessage(result.message);
+    setMessageStatus(result.status);
   };
 
   return (
@@ -77,7 +79,13 @@ export function LoginScreen() {
             </p>
           ) : null}
           {isConfirmationVisible ? (
-            <p className="text-left text-sm text-muted-foreground">{confirmationMessage}</p>
+            <p
+              className={`text-left text-sm ${
+                isConfirmationError ? "text-destructive" : "text-muted-foreground"
+              }`}
+            >
+              {confirmationMessage}
+            </p>
           ) : null}
 
           {/* Email Button */}
