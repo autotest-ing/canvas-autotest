@@ -35,7 +35,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
-import { fetchEnvironmentDetail, fetchEnvironments } from "@/lib/api/environments";
+import { fetchEnvironmentDetail, fetchEnvironments, updateEnvironment } from "@/lib/api/environments";
 import { toast } from "sonner";
 
 interface KeyValuePair {
@@ -274,7 +274,7 @@ export function EnvironmentsView() {
     setShowUnsavedDialog(false);
   }, [activeEnvironmentId, environmentSnapshots, pendingEnvironment, updateEnvironmentSummary]);
 
-  const handleSaveAndProceed = useCallback(() => {
+  const handleSaveAndProceed = useCallback(async () => {
     // Validate before saving
     const emptyVars = variables.filter(v => v.key && !v.value);
     const emptySecrets = secrets.filter(s => s.key && !s.value);
@@ -287,23 +287,56 @@ export function EnvironmentsView() {
       return;
     }
 
-    toast.success("Environment saved", {
-      description: `Your ${activeEnvironmentName} environment configuration has been updated.`,
-    });
-    
-    if (activeEnvironmentId) {
-      setEnvironments(prev => ({
-        ...prev,
-        [activeEnvironmentId]: { ...prev[activeEnvironmentId], hasChanges: false },
-      }));
-      setEnvironmentSnapshots(prev => ({
-        ...prev,
-        [activeEnvironmentId]: { ...prev[activeEnvironmentId], hasChanges: false },
-      }));
-      if (currentEnv) {
-        updateEnvironmentSummary(activeEnvironmentId, currentEnv);
-      }
+    if (!token || !activeEnvironmentId || !currentEnv) {
+      toast.error("Unable to save environment", {
+        description: "Missing environment details. Please reload and try again.",
+      });
+      setShowUnsavedDialog(false);
+      return;
     }
+
+    try {
+      await updateEnvironment(
+        activeEnvironmentId,
+        {
+          name: currentEnv.name,
+          is_default: currentEnv.isDefault,
+          base_url: baseUrlVariable?.value ?? currentEnv.baseUrl,
+          variables: currentEnv.variables.map(variable => ({
+            id: variable.id,
+            key: variable.key,
+            value: variable.value,
+            is_overridable: variable.isOverridable,
+          })),
+          secrets: currentEnv.secrets.map(secret => ({
+            id: secret.id,
+            key: secret.key,
+            value: secret.value,
+          })),
+        },
+        token
+      );
+
+      toast.success("Environment saved", {
+        description: `Your ${activeEnvironmentName} environment configuration has been updated.`,
+      });
+    } catch (error) {
+      toast.error("Failed to save environment", {
+        description: error instanceof Error ? error.message : "Please try again later.",
+      });
+      setShowUnsavedDialog(false);
+      return;
+    }
+    
+    setEnvironments(prev => ({
+      ...prev,
+      [activeEnvironmentId]: { ...prev[activeEnvironmentId], hasChanges: false },
+    }));
+    setEnvironmentSnapshots(prev => ({
+      ...prev,
+      [activeEnvironmentId]: { ...prev[activeEnvironmentId], hasChanges: false },
+    }));
+    updateEnvironmentSummary(activeEnvironmentId, currentEnv);
 
     // Proceed with pending action
     if (pendingEnvironment) {
@@ -312,13 +345,15 @@ export function EnvironmentsView() {
     }
     setShowUnsavedDialog(false);
   }, [
-    activeEnvironmentId,
     activeEnvironmentName,
+    activeEnvironmentId,
+    baseUrlVariable?.value,
     currentEnv,
     pendingEnvironment,
+    secrets,
+    token,
     updateEnvironmentSummary,
     variables,
-    secrets,
   ]);
 
   const handleCancelDialog = useCallback(() => {
@@ -406,7 +441,7 @@ export function EnvironmentsView() {
     });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Validate
     const emptyVars = variables.filter(v => v.key && !v.value);
     const emptySecrets = secrets.filter(s => s.key && !s.value);
@@ -418,22 +453,54 @@ export function EnvironmentsView() {
       return;
     }
 
-    toast.success("Environment saved", {
-      description: `Your ${activeEnvironmentName} environment configuration has been updated.`,
-    });
-    if (activeEnvironmentId) {
-      setEnvironments(prev => ({
-        ...prev,
-        [activeEnvironmentId]: { ...prev[activeEnvironmentId], hasChanges: false },
-      }));
-      setEnvironmentSnapshots(prev => ({
-        ...prev,
-        [activeEnvironmentId]: { ...prev[activeEnvironmentId], hasChanges: false },
-      }));
-      if (currentEnv) {
-        updateEnvironmentSummary(activeEnvironmentId, currentEnv);
-      }
+    if (!token || !activeEnvironmentId || !currentEnv) {
+      toast.error("Unable to save environment", {
+        description: "Missing environment details. Please reload and try again.",
+      });
+      return;
     }
+
+    try {
+      await updateEnvironment(
+        activeEnvironmentId,
+        {
+          name: currentEnv.name,
+          is_default: currentEnv.isDefault,
+          base_url: baseUrlVariable?.value ?? currentEnv.baseUrl,
+          variables: currentEnv.variables.map(variable => ({
+            id: variable.id,
+            key: variable.key,
+            value: variable.value,
+            is_overridable: variable.isOverridable,
+          })),
+          secrets: currentEnv.secrets.map(secret => ({
+            id: secret.id,
+            key: secret.key,
+            value: secret.value,
+          })),
+        },
+        token
+      );
+
+      toast.success("Environment saved", {
+        description: `Your ${activeEnvironmentName} environment configuration has been updated.`,
+      });
+    } catch (error) {
+      toast.error("Failed to save environment", {
+        description: error instanceof Error ? error.message : "Please try again later.",
+      });
+      return;
+    }
+
+    setEnvironments(prev => ({
+      ...prev,
+      [activeEnvironmentId]: { ...prev[activeEnvironmentId], hasChanges: false },
+    }));
+    setEnvironmentSnapshots(prev => ({
+      ...prev,
+      [activeEnvironmentId]: { ...prev[activeEnvironmentId], hasChanges: false },
+    }));
+    updateEnvironmentSummary(activeEnvironmentId, currentEnv);
   };
 
   const handleAddBaseUrlVariable = () => {

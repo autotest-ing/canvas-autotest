@@ -27,6 +27,14 @@ export type EnvironmentDetailResponse = {
   secrets?: EnvironmentSecret[];
 };
 
+export type EnvironmentUpdatePayload = {
+  name: string;
+  is_default: boolean;
+  base_url?: string;
+  variables: Array<EnvironmentVariable & { is_overridable?: boolean }>;
+  secrets: EnvironmentSecret[];
+};
+
 const getAuthHeaders = (token: string) => ({
   Authorization: `Bearer ${token}`,
 });
@@ -55,6 +63,27 @@ export async function fetchEnvironmentDetail(envId: string, token: string) {
 
   if (!response.ok) {
     throw new Error("Failed to load environment details");
+  }
+
+  return (await response.json()) as EnvironmentDetailResponse;
+}
+
+export async function updateEnvironment(
+  envId: string,
+  payload: EnvironmentUpdatePayload,
+  token: string
+) {
+  const response = await fetch(`${BASE_API_URL}/v1.0/environments/${envId}`, {
+    method: "PATCH",
+    headers: {
+      ...getAuthHeaders(token),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to update environment");
   }
 
   return (await response.json()) as EnvironmentDetailResponse;
