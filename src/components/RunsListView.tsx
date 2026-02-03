@@ -3,7 +3,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Breadcrumbs } from "./Breadcrumbs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MobileBottomSpacer } from "./LeftRail";
@@ -65,14 +64,6 @@ export function RunsListView({ suiteId }: RunsListViewProps) {
   const isMobile = useIsMobile();
   const suiteData = suiteId ? mockSuiteData[suiteId] : null;
 
-  const breadcrumbItems = suiteId && suiteData
-    ? [
-        { label: "Suites", href: "/suites" },
-        { label: suiteData.name, href: `/suites/${suiteId}` },
-        { label: "Runs" },
-      ]
-    : [{ label: "Runs" }];
-
   const handleRunClick = (runId: string) => {
     if (suiteId) {
       navigate(`/suites/${suiteId}/runs/${runId}`);
@@ -89,24 +80,21 @@ export function RunsListView({ suiteId }: RunsListViewProps) {
     <div className="h-full flex flex-col animate-fade-in">
       {/* Header */}
       <div className="p-4 md:p-6 border-b border-border/50">
-        <div className="flex flex-col gap-3">
-          <Breadcrumbs items={breadcrumbItems} />
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-semibold text-foreground">
-                {suiteData ? `${suiteData.name} - Run History` : "All Runs"}
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                {mockRuns.length} runs total
-              </p>
-            </div>
-            {suiteId && (
-              <Button size="sm" onClick={handleRunSuite} className="gap-2">
-                <Play className="w-4 h-4" />
-                Run Suite
-              </Button>
-            )}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold text-foreground">
+              {suiteData ? `${suiteData.name} - Run History` : "All Runs"}
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {mockRuns.length} runs total
+            </p>
           </div>
+          {suiteId && (
+            <Button size="sm" onClick={handleRunSuite} className="gap-2">
+              <Play className="w-4 h-4" />
+              Run Suite
+            </Button>
+          )}
         </div>
       </div>
 

@@ -3,12 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { TestCaseList, type TestCase } from "./TestCaseList";
 import { SuiteCanvas } from "./SuiteCanvas";
-import { Breadcrumbs } from "./Breadcrumbs";
 import { MobileBottomSpacer } from "./LeftRail";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { List, History } from "lucide-react";
+import { List } from "lucide-react";
 
 // Mock data with proper hierarchy: Suite → Test Cases → Test Steps → Assertions
 const mockTestCases: TestCase[] = [
@@ -174,11 +173,6 @@ export function SuiteView({ suiteId = "auth-suite" }: SuiteViewProps) {
   const selectedTestCase = mockTestCases.find(tc => tc.id === selectedTestCaseId) || null;
   const suiteData = mockSuiteData[suiteId] || mockSuiteData["auth-suite"];
 
-  const breadcrumbItems = [
-    { label: "Suites", href: "/suites" },
-    { label: suiteData.name },
-  ];
-
   const handleRunSuite = () => {
     console.log("Running suite:", suiteId);
   };
@@ -200,15 +194,6 @@ export function SuiteView({ suiteId = "auth-suite" }: SuiteViewProps) {
   if (isMobile) {
     return (
       <div className="min-h-screen flex flex-col animate-fade-in">
-        {/* Breadcrumb header */}
-        <div className="px-4 pt-4 pb-2 flex items-center justify-between">
-          <Breadcrumbs items={breadcrumbItems} />
-          <Button variant="outline" size="sm" onClick={handleViewRuns} className="gap-2">
-            <History className="w-4 h-4" />
-            Runs
-          </Button>
-        </div>
-
         {/* Mobile header with list toggle */}
         <div className="px-4 pb-4 border-b border-border/50 flex items-center gap-2">
           <Sheet open={mobileListOpen} onOpenChange={setMobileListOpen}>
@@ -251,15 +236,6 @@ export function SuiteView({ suiteId = "auth-suite" }: SuiteViewProps) {
   // Desktop layout
   return (
     <div className="h-screen animate-fade-in flex flex-col">
-      {/* Breadcrumb header */}
-      <div className="px-6 py-3 border-b border-border/50 flex items-center justify-between">
-        <Breadcrumbs items={breadcrumbItems} />
-        <Button variant="outline" size="sm" onClick={handleViewRuns} className="gap-2">
-          <History className="w-4 h-4" />
-          View Run History
-        </Button>
-      </div>
-
       <div className="flex-1">
         <ResizablePanelGroup direction="horizontal" className="h-full">
           <ResizablePanel defaultSize={30} minSize={20} maxSize={50}>
