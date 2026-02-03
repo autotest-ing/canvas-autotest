@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 
 const AUTH_STORAGE_KEY = "autotest.auth";
-const MAGIC_LINK_EMAIL = "microsaas.farm@gmail.com";
 const BASE_API_URL = "https://internal-api.autotest.ing";
 
 type AuthState = {
@@ -14,7 +13,7 @@ type AuthContextValue = {
   expiresAt: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  loginWithMagicLink: () => Promise<void>;
+  loginWithMagicLink: (email: string) => Promise<void>;
   logout: () => void;
 };
 
@@ -62,7 +61,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(state));
   }, []);
 
-  const loginWithMagicLink = useCallback(async () => {
+  const loginWithMagicLink = useCallback(async (email: string) => {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      return;
+    }
     setIsLoading(true);
     try {
       const response = await fetch(`${BASE_API_URL}/v1.0/signin`, {
@@ -70,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email: MAGIC_LINK_EMAIL }),
+        body: JSON.stringify({ email: trimmedEmail }),
       });
 
       if (!response.ok) {
