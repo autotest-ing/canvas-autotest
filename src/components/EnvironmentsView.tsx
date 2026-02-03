@@ -35,7 +35,12 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
-import { fetchEnvironmentDetail, fetchEnvironments, updateEnvironment } from "@/lib/api/environments";
+import {
+  deleteEnvironment,
+  fetchEnvironmentDetail,
+  fetchEnvironments,
+  updateEnvironment,
+} from "@/lib/api/environments";
 import { toast } from "sonner";
 
 interface KeyValuePair {
@@ -370,9 +375,40 @@ export function EnvironmentsView() {
     setPendingEnvironment(null);
   }, []);
 
-  const handleDeleteEnvironment = () => {
+  const handleDeleteEnvironment = useCallback(async () => {
+    if (!token || !activeEnvironmentId) {
+      toast.error("Unable to delete environment", {
+        description: "Missing environment details. Please reload and try again.",
+      });
+      setShowDeleteDialog(false);
+      return;
+    }
+
     setShowDeleteDialog(false);
-  };
+
+    try {
+      await deleteEnvironment(activeEnvironmentId, token);
+      setEnvironments(prev => {
+        const { [activeEnvironmentId]: _, ...rest } = prev;
+        return rest;
+      });
+      setEnvironmentSnapshots(prev => {
+        const { [activeEnvironmentId]: _, ...rest } = prev;
+        return rest;
+      });
+      setEnvironmentList(prev => prev.filter(env => env.id !== activeEnvironmentId));
+      setActiveEnvironmentId(null);
+      setIsEditing(false);
+      await fetchEnvironmentList();
+      toast.success("Environment deleted", {
+        description: `Your ${activeEnvironmentName} environment has been removed.`,
+      });
+    } catch (error) {
+      toast.error("Failed to delete environment", {
+        description: error instanceof Error ? error.message : "Please try again later.",
+      });
+    }
+  }, [activeEnvironmentId, activeEnvironmentName, fetchEnvironmentList, token]);
 
   const handleCancelChanges = () => {
     if (!activeEnvironmentId) return;
