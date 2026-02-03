@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -58,6 +59,8 @@ interface AISuggestion {
 }
 
 interface Environment {
+  name: string;
+  isDefault: boolean;
   baseUrl: string;
   variables: KeyValuePair[];
   secrets: SecretPair[];
@@ -102,11 +105,15 @@ export function EnvironmentsView() {
 
   const activeEnvironmentName = useMemo(() => {
     if (!activeEnvironmentId) return "environment";
+    const localName = environments[activeEnvironmentId]?.name;
+    if (localName) return localName;
     return environmentList.find(env => env.id === activeEnvironmentId)?.name ?? "environment";
-  }, [activeEnvironmentId, environmentList]);
+  }, [activeEnvironmentId, environmentList, environments]);
 
   const currentEnv = activeEnvironmentId ? environments[activeEnvironmentId] : null;
   const baseUrl = currentEnv?.baseUrl ?? "";
+  const environmentName = currentEnv?.name ?? "";
+  const isDefault = currentEnv?.isDefault ?? false;
   const variables = currentEnv?.variables ?? [];
   const secrets = currentEnv?.secrets ?? [];
   const hasChanges = currentEnv?.hasChanges ?? false;
@@ -126,6 +133,26 @@ export function EnvironmentsView() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasChanges]);
 
+  const sortEnvironmentSummaries = useCallback((items: EnvironmentSummary[]) => {
+    return [...items].sort((a, b) => {
+      if (a.isDefault === b.isDefault) {
+        return a.name.localeCompare(b.name);
+      }
+      return a.isDefault ? -1 : 1;
+    });
+  }, []);
+
+  const updateEnvironmentSummary = useCallback((envId: string, env: Environment) => {
+    setEnvironmentList(prev => {
+      const updated = prev.map(item => item.id === envId ? {
+        ...item,
+        name: env.name || item.name,
+        isDefault: env.isDefault,
+      } : item);
+      return sortEnvironmentSummaries(updated);
+    });
+  }, [sortEnvironmentSummaries]);
+
   const fetchEnvironmentList = useCallback(async () => {
     if (!token) {
       setIsListLoading(false);
@@ -144,17 +171,14 @@ export function EnvironmentsView() {
     setIsListLoading(true);
     try {
       const items = await fetchEnvironments(accountId, token);
-      const sorted = [...items].sort((a, b) => {
-        if (a.is_default === b.is_default) return 0;
-        return a.is_default ? -1 : 1;
-      });
-      const summaries = sorted.map(item => ({
+      const summaries = items.map(item => ({
         id: item.id,
         name: item.name,
         isDefault: item.is_default,
       }));
-      setEnvironmentList(summaries);
-      setActiveEnvironmentId(summaries[0]?.id ?? null);
+      const sorted = sortEnvironmentSummaries(summaries);
+      setEnvironmentList(sorted);
+      setActiveEnvironmentId(sorted[0]?.id ?? null);
     } catch (error) {
       toast.error("Failed to load environments", {
         description: error instanceof Error ? error.message : "Please try again later.",
@@ -162,7 +186,7 @@ export function EnvironmentsView() {
     } finally {
       setIsListLoading(false);
     }
-  }, [token]);
+  }, [sortEnvironmentSummaries, token]);
 
   const fetchEnvironmentInfo = useCallback(async (envId: string) => {
     if (!token) return;
@@ -170,6 +194,8 @@ export function EnvironmentsView() {
     try {
       const detail = await fetchEnvironmentDetail(envId, token);
       const mapped: Environment = {
+        name: detail.name ?? "",
+        isDefault: detail.is_default ?? detail.isDefault ?? false,
         baseUrl: detail.base_url ?? detail.baseUrl ?? "",
         variables: (detail.variables ?? []).map((variable, index) => ({
           id: String(variable.id ?? `${envId}-variable-${index}`),
@@ -235,6 +261,7 @@ export function EnvironmentsView() {
         ...prev,
         [activeEnvironmentId]: snapshot,
       }));
+      updateEnvironmentSummary(activeEnvironmentId, snapshot);
     }
     
     // Proceed with pending action
@@ -243,7 +270,7 @@ export function EnvironmentsView() {
       setPendingEnvironment(null);
     }
     setShowUnsavedDialog(false);
-  }, [activeEnvironmentId, environmentSnapshots, pendingEnvironment]);
+  }, [activeEnvironmentId, environmentSnapshots, pendingEnvironment, updateEnvironmentSummary]);
 
   const handleSaveAndProceed = useCallback(() => {
     // Validate before saving
@@ -271,6 +298,9 @@ export function EnvironmentsView() {
         ...prev,
         [activeEnvironmentId]: { ...prev[activeEnvironmentId], hasChanges: false },
       }));
+      if (currentEnv) {
+        updateEnvironmentSummary(activeEnvironmentId, currentEnv);
+      }
     }
 
     // Proceed with pending action
@@ -279,7 +309,15 @@ export function EnvironmentsView() {
       setPendingEnvironment(null);
     }
     setShowUnsavedDialog(false);
-  }, [activeEnvironmentId, activeEnvironmentName, pendingEnvironment, variables, secrets]);
+  }, [
+    activeEnvironmentId,
+    activeEnvironmentName,
+    currentEnv,
+    pendingEnvironment,
+    updateEnvironmentSummary,
+    variables,
+    secrets,
+  ]);
 
   const handleCancelDialog = useCallback(() => {
     setShowUnsavedDialog(false);
@@ -294,6 +332,7 @@ export function EnvironmentsView() {
       ...prev,
       [activeEnvironmentId]: { ...snapshot, hasChanges: false },
     }));
+    updateEnvironmentSummary(activeEnvironmentId, snapshot);
     setIsEditing(false);
     toast.info("Changes discarded", {
       description: `Your ${activeEnvironmentName} environment has been reset.`,
@@ -379,6 +418,9 @@ export function EnvironmentsView() {
         ...prev,
         [activeEnvironmentId]: { ...prev[activeEnvironmentId], hasChanges: false },
       }));
+      if (currentEnv) {
+        updateEnvironmentSummary(activeEnvironmentId, currentEnv);
+      }
     }
   };
 
@@ -438,7 +480,14 @@ export function EnvironmentsView() {
               <TabsList className="w-full sm:w-auto flex flex-wrap">
                 {environmentList.map((env) => (
                   <TabsTrigger key={env.id} value={env.id} className="flex-1 sm:flex-none">
-                    {env.name}
+                    <span className="flex items-center gap-2">
+                      <span>{env.name}</span>
+                      {env.isDefault && (
+                        <Badge variant="secondary" className="text-[0.65rem] px-1.5">
+                          Default
+                        </Badge>
+                      )}
+                    </span>
                   </TabsTrigger>
                 ))}
               </TabsList>
@@ -537,6 +586,40 @@ export function EnvironmentsView() {
 
           {!isDetailLoading && hasEnvironment && (
             <>
+              {/* Environment Details */}
+              <Card className="border-border/50 shadow-soft">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-base">Environment details</CardTitle>
+                  <CardDescription>
+                    Name and default settings for this environment
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Environment name</Label>
+                    <Input
+                      value={environmentName}
+                      onChange={(e) => updateCurrentEnv({ name: e.target.value })}
+                      placeholder="Environment name"
+                      disabled={!isEditing}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg border border-border/60 p-3">
+                    <div>
+                      <Label className="text-sm">Default environment</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Use this environment as the default for new runs
+                      </p>
+                    </div>
+                    <Switch
+                      checked={isDefault}
+                      onCheckedChange={(checked) => updateCurrentEnv({ isDefault: checked })}
+                      disabled={!isEditing}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Base URL */}
               <Card className="border-border/50 shadow-soft">
                 <CardHeader className="pb-4">
