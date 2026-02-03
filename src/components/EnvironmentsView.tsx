@@ -26,6 +26,7 @@ import {
   Eye, 
   EyeOff, 
   Save, 
+  Pencil,
   Globe, 
   Variable, 
   Lock,
@@ -590,7 +591,7 @@ export function EnvironmentsView() {
             <div className="flex gap-2 w-full sm:w-auto">
               {!isEditing && (
                 <Button onClick={() => setIsEditing(true)} className="gap-2 flex-1 sm:flex-none">
-                  <Save className="w-4 h-4" />
+                  <Pencil className="w-4 h-4" />
                   Edit
                 </Button>
               )}
