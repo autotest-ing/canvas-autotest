@@ -8,12 +8,18 @@ type AuthState = {
   expiresAt: string | null;
 };
 
+export type MagicLinkRequestResult = {
+  ok: boolean;
+  message: string;
+  status: "sent" | "error";
+};
+
 type AuthContextValue = {
   token: string | null;
   expiresAt: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  loginWithMagicLink: (email: string) => Promise<{ ok: boolean; message: string }>;
+  loginWithMagicLink: (email: string) => Promise<MagicLinkRequestResult>;
   logout: () => void;
 };
 
@@ -61,10 +67,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(state));
   }, []);
 
-  const loginWithMagicLink = useCallback(async (email: string) => {
+  const loginWithMagicLink = useCallback(async (email: string): Promise<MagicLinkRequestResult> => {
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
-      return { ok: false, message: "Email is required." };
+      return { ok: false, status: "error", message: "Email is required." };
     }
     setIsLoading(true);
     try {
@@ -83,8 +89,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await response.json();
       return {
         ok: true,
+        status: "sent",
         message: "Please check your email, and follow link to signin.",
       };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Login failed.";
+      return { ok: false, status: "error", message };
     } finally {
       setIsLoading(false);
     }
