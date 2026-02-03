@@ -103,6 +103,7 @@ export function EnvironmentsView() {
   const [environmentList, setEnvironmentList] = useState<EnvironmentSummary[]>([]);
   const [suggestions] = useState<AISuggestion[]>(mockSuggestions);
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [pendingEnvironment, setPendingEnvironment] = useState<string | null>(null);
   const [isListLoading, setIsListLoading] = useState(true);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
@@ -368,6 +369,10 @@ export function EnvironmentsView() {
     setShowUnsavedDialog(false);
     setPendingEnvironment(null);
   }, []);
+
+  const handleDeleteEnvironment = () => {
+    setShowDeleteDialog(false);
+  };
 
   const handleCancelChanges = () => {
     if (!activeEnvironmentId) return;
@@ -914,7 +919,7 @@ export function EnvironmentsView() {
                           Permanently delete this environment
                         </p>
                       </div>
-                      <Button variant="destructive" size="sm">
+                      <Button variant="destructive" size="sm" onClick={() => setShowDeleteDialog(true)}>
                         Delete environment
                       </Button>
                     </div>
@@ -942,6 +947,22 @@ export function EnvironmentsView() {
             <AlertDialogCancel onClick={handleCancelDialog}>Cancel</AlertDialogCancel>
             <Button variant="outline" onClick={handleDiscard}>Discard</Button>
             <AlertDialogAction onClick={handleSaveAndProceed}>Save</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete environment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action is irreversible. Deleting the {activeEnvironmentName} environment will permanently remove its
+              configuration and secrets.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowDeleteDialog(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteEnvironment}>Delete environment</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
