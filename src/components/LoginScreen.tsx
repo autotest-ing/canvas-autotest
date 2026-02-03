@@ -61,14 +61,6 @@ export function LoginScreen() {
           </Button>
         </div>
 
-        {/* Sign up link */}
-        <p className="mt-6 text-sm text-muted-foreground">
-          Don't have an account?{" "}
-          <button className="font-medium text-foreground underline underline-offset-2 hover:text-foreground/80">
-            Sign up
-          </button>
-        </p>
-
         {/* Terms */}
         <p className="mt-4 text-sm text-muted-foreground">
           By proceeding, you agree to the{" "}
