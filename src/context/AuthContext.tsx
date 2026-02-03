@@ -20,6 +20,8 @@ type AuthContextValue = {
   isAuthenticated: boolean;
   isLoading: boolean;
   loginWithMagicLink: (email: string) => Promise<MagicLinkRequestResult>;
+  confirmMagicLink: (email: string, token: string) => Promise<MagicLinkRequestResult>;
+  setAuthFromToken: (token: string, expiresAt?: string | null) => void;
   logout: () => void;
 };
 
@@ -53,6 +55,25 @@ const isTokenValid = (expiresAt: string | null) => {
   return Date.now() < expiresAtMs;
 };
 
+const decodeBase64Url = (value: string) => {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padding = normalized.length % 4 === 0 ? "" : "=".repeat(4 - (normalized.length % 4));
+  return atob(`${normalized}${padding}`);
+};
+
+const getExpiresAtFromToken = (token: string) => {
+  const payload = token.split(".")[1];
+  if (!payload) return null;
+  try {
+    const decoded = decodeBase64Url(payload);
+    const parsed = JSON.parse(decoded) as { exp?: number };
+    if (typeof parsed.exp !== "number") return null;
+    return new Date(parsed.exp * 1000).toISOString();
+  } catch {
+    return null;
+  }
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>(getInitialAuthState);
   const [isLoading, setIsLoading] = useState(false);
@@ -66,6 +87,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(state));
   }, []);
+
+  const setAuthFromToken = useCallback(
+    (token: string, expiresAt?: string | null) => {
+      const derivedExpiresAt = expiresAt ?? getExpiresAtFromToken(token);
+      persistState({
+        token,
+        expiresAt: derivedExpiresAt ?? null,
+      });
+    },
+    [persistState]
+  );
 
   const loginWithMagicLink = useCallback(async (email: string): Promise<MagicLinkRequestResult> => {
     const trimmedEmail = email.trim();
@@ -100,6 +132,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const confirmMagicLink = useCallback(
+    async (email: string, token: string): Promise<MagicLinkRequestResult> => {
+      const trimmedEmail = email.trim();
+      const trimmedToken = token.trim();
+      if (!trimmedEmail || !trimmedToken) {
+        return { ok: false, status: "error", message: "Invalid or expired link." };
+      }
+      setIsLoading(true);
+      try {
+        const response = await fetch(`${BASE_API_URL}/v1.0/signin/confirm`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email: trimmedEmail, token: trimmedToken }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Magic link confirmation failed.");
+        }
+
+        const data = (await response.json()) as {
+          access_token?: string;
+          expiresAt?: string | null;
+          expires_at?: string | null;
+        };
+        if (!data?.access_token) {
+          throw new Error("Missing access token.");
+        }
+        const expiresAt = data.expiresAt ?? data.expires_at ?? null;
+        setAuthFromToken(data.access_token, expiresAt);
+        return { ok: true, status: "sent", message: "Signed in successfully." };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Login failed.";
+        return { ok: false, status: "error", message };
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [setAuthFromToken]
+  );
+
   const logout = useCallback(() => {
     persistState({ token: null, expiresAt: null });
   }, [persistState]);
@@ -111,9 +185,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated: Boolean(authState.token && isTokenValid(authState.expiresAt)),
       isLoading,
       loginWithMagicLink,
+      confirmMagicLink,
+      setAuthFromToken,
       logout,
     }),
-    [authState, isLoading, loginWithMagicLink, logout]
+    [authState, isLoading, loginWithMagicLink, confirmMagicLink, setAuthFromToken, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

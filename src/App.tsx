@@ -17,6 +17,7 @@ import Deployments from "./pages/Deployments";
 import DeploymentDetail from "./pages/DeploymentDetail";
 import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
+import MagicLink from "./pages/MagicLink";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -45,6 +46,7 @@ const App = () => (
                 <Route path="/deployments/:deployId" element={<DeploymentDetail />} />
                 <Route path="/notifications" element={<Notifications />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/magic-link" element={<MagicLink />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
