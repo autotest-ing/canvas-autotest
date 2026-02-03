@@ -43,6 +43,8 @@ interface KeyValuePair {
   key: string;
   value: string;
   isOverridable: boolean;
+  isDeleted?: boolean;
+  isNew?: boolean;
 }
 
 interface SecretPair {
@@ -50,6 +52,8 @@ interface SecretPair {
   key: string;
   value: string;
   isRevealed: boolean;
+  isDeleted?: boolean;
+  isNew?: boolean;
 }
 
 interface AISuggestion {
@@ -119,8 +123,9 @@ export function EnvironmentsView() {
   const secrets = currentEnv?.secrets ?? [];
   const hasChanges = currentEnv?.hasChanges ?? false;
 
-  const baseUrlVariable = variables.find(variable => variable.key === "BASE_URL");
-  const visibleVariables = variables.filter(variable => variable.key !== "BASE_URL");
+  const baseUrlVariable = variables.find(variable => variable.key === "BASE_URL" && !variable.isDeleted);
+  const visibleVariables = variables.filter(variable => variable.key !== "BASE_URL" && !variable.isDeleted);
+  const visibleSecrets = secrets.filter(secret => !secret.isDeleted);
 
   // Handle browser refresh/close
   useEffect(() => {
@@ -276,8 +281,8 @@ export function EnvironmentsView() {
 
   const handleSaveAndProceed = useCallback(async () => {
     // Validate before saving
-    const emptyVars = variables.filter(v => v.key && !v.value);
-    const emptySecrets = secrets.filter(s => s.key && !s.value);
+    const emptyVars = variables.filter(v => !v.isDeleted && v.key && !v.value);
+    const emptySecrets = secrets.filter(s => !s.isDeleted && s.key && !s.value);
     
     if (emptyVars.length > 0 || emptySecrets.length > 0) {
       toast.error("Missing values", {
@@ -307,11 +312,15 @@ export function EnvironmentsView() {
             key: variable.key,
             value: variable.value,
             is_overridable: variable.isOverridable,
+            ...(variable.isNew ? { new: true } : {}),
+            ...(variable.isDeleted ? { is_deleted: true } : {}),
           })),
           secrets: currentEnv.secrets.map(secret => ({
             id: secret.id,
             key: secret.key,
             value: secret.value,
+            ...(secret.isNew ? { new: true } : {}),
+            ...(secret.isDeleted ? { is_deleted: true } : {}),
           })),
         },
         token
@@ -400,7 +409,7 @@ export function EnvironmentsView() {
     updateCurrentEnv({
       variables: [
         ...variables,
-        { id: String(Date.now()), key: "", value: "", isOverridable: false },
+        { id: String(Date.now()), key: "", value: "", isOverridable: false, isNew: true },
       ],
     });
   };
@@ -410,11 +419,15 @@ export function EnvironmentsView() {
   };
 
   const removeVariable = (id: string) => {
-    updateCurrentEnv({ variables: variables.filter(v => v.id !== id) });
+    updateCurrentEnv({
+      variables: variables.map(v => v.id === id ? { ...v, isDeleted: true } : v),
+    });
   };
 
   const addSecret = () => {
-    updateCurrentEnv({ secrets: [...secrets, { id: String(Date.now()), key: "", value: "", isRevealed: true }] });
+    updateCurrentEnv({
+      secrets: [...secrets, { id: String(Date.now()), key: "", value: "", isRevealed: true, isNew: true }],
+    });
   };
 
   const updateSecret = (id: string, field: "key" | "value", value: string) => {
@@ -422,7 +435,9 @@ export function EnvironmentsView() {
   };
 
   const removeSecret = (id: string) => {
-    updateCurrentEnv({ secrets: secrets.filter(s => s.id !== id) });
+    updateCurrentEnv({
+      secrets: secrets.map(s => s.id === id ? { ...s, isDeleted: true } : s),
+    });
   };
 
   const toggleSecretVisibility = (id: string) => {
@@ -433,7 +448,7 @@ export function EnvironmentsView() {
     updateCurrentEnv({
       variables: [
         ...variables,
-        { id: String(Date.now()), key: variable, value: "", isOverridable: false },
+        { id: String(Date.now()), key: variable, value: "", isOverridable: false, isNew: true },
       ],
     });
     toast.success("Variable added", {
@@ -443,8 +458,8 @@ export function EnvironmentsView() {
 
   const handleSave = async () => {
     // Validate
-    const emptyVars = variables.filter(v => v.key && !v.value);
-    const emptySecrets = secrets.filter(s => s.key && !s.value);
+    const emptyVars = variables.filter(v => !v.isDeleted && v.key && !v.value);
+    const emptySecrets = secrets.filter(s => !s.isDeleted && s.key && !s.value);
     
     if (emptyVars.length > 0 || emptySecrets.length > 0) {
       toast.error("Missing values", {
@@ -472,11 +487,15 @@ export function EnvironmentsView() {
             key: variable.key,
             value: variable.value,
             is_overridable: variable.isOverridable,
+            ...(variable.isNew ? { new: true } : {}),
+            ...(variable.isDeleted ? { is_deleted: true } : {}),
           })),
           secrets: currentEnv.secrets.map(secret => ({
             id: secret.id,
             key: secret.key,
             value: secret.value,
+            ...(secret.isNew ? { new: true } : {}),
+            ...(secret.isDeleted ? { is_deleted: true } : {}),
           })),
         },
         token
@@ -508,7 +527,7 @@ export function EnvironmentsView() {
     updateCurrentEnv({
       variables: [
         ...variables,
-        { id: String(Date.now()), key: "BASE_URL", value: "", isOverridable: false },
+        { id: String(Date.now()), key: "BASE_URL", value: "", isOverridable: false, isNew: true },
       ],
     });
   };
@@ -822,7 +841,7 @@ export function EnvironmentsView() {
                       <Lock className="w-5 h-5 text-muted-foreground" />
                       <CardTitle className="text-base">Secrets</CardTitle>
                       <Badge variant="secondary" className="text-xs">
-                        {secrets.length}
+                        {visibleSecrets.length}
                       </Badge>
                     </div>
                     {isEditing && (
@@ -837,12 +856,12 @@ export function EnvironmentsView() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {secrets.length === 0 ? (
+                  {visibleSecrets.length === 0 ? (
                     <div className="text-center py-6 text-sm text-muted-foreground">
                       No secrets defined. Click &quot;Add Secret&quot; to create one.
                     </div>
                   ) : (
-                    secrets.map((secret) => (
+                    visibleSecrets.map((secret) => (
                       <div key={secret.id} className="flex items-center gap-3">
                         <div className="flex-1 grid grid-cols-2 gap-3">
                           <div className="space-y-1">
