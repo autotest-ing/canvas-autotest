@@ -10,49 +10,14 @@ import { NodeConnector } from "@/components/canvas/NodeConnector";
 import { CanvasMinimap } from "@/components/canvas/CanvasMinimap";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
-import type { RunTestCase, RunTestStep } from "@/components/RunTestCaseList";
-
+import { useSuiteExecution } from "@/hooks/use-suite-execution";
+import { useAuth } from "@/context/AuthContext";
 interface RunCanvasViewProps {
   runId?: string;
   suiteId?: string;
+  environmentId?: string;
+  variables?: Record<string, unknown>;
 }
-
-// Mock data for demonstration
-const mockTestCases: RunTestCase[] = [
-  {
-    id: "tc-1",
-    name: "User Authentication",
-    status: "pass",
-    duration: "1.2s",
-    steps: [
-      { id: "step-1-1", name: "Sign In", method: "POST", endpoint: "/auth/login", status: "pass", duration: "0.4s", assertionsPassed: 3, assertionsTotal: 3 },
-      { id: "step-1-2", name: "Verify Token", method: "GET", endpoint: "/auth/verify", status: "pass", duration: "0.3s", assertionsPassed: 2, assertionsTotal: 2 },
-    ],
-  },
-  {
-    id: "tc-2",
-    name: "Create Lead",
-    status: "fail",
-    duration: "2.1s",
-    steps: [
-      { id: "step-2-1", name: "Submit Lead", method: "POST", endpoint: "/leads", status: "pass", duration: "0.8s", assertionsPassed: 4, assertionsTotal: 4 },
-      { id: "step-2-2", name: "Validate Response", method: "GET", endpoint: "/leads/123", status: "fail", duration: "0.5s", assertionsPassed: 1, assertionsTotal: 3 },
-      { id: "step-2-3", name: "Check Webhook", method: "POST", endpoint: "/webhooks", status: "pending", duration: undefined, assertionsPassed: 0, assertionsTotal: 2 },
-    ],
-  },
-  {
-    id: "tc-3",
-    name: "List Leads API",
-    status: "running",
-    duration: undefined,
-    steps: [
-      { id: "step-3-1", name: "Get All Leads", method: "GET", endpoint: "/leads", status: "running", duration: undefined, assertionsPassed: 0, assertionsTotal: 5 },
-    ],
-  },
-];
-
-const mockSuiteName = "Leads API";
-const mockSuiteStatus: "pass" | "fail" | "pending" | "running" | "mixed" = "mixed";
 
 // Layout constants
 const SUITE_X = 100;
@@ -74,7 +39,7 @@ const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 2;
 const ZOOM_STEP = 0.1;
 
-export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
+export function RunCanvasView({ runId, suiteId, environmentId, variables }: RunCanvasViewProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -82,10 +47,32 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
-  const [isAnimating, setIsAnimating] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+  const hasAutoStarted = useRef(false);
+
+  const { token } = useAuth();
+
+  // WebSocket-driven suite execution
+  const {
+    testCases,
+    suiteName,
+    suiteStatus,
+    runId: wsRunId,
+    isRunning,
+    error,
+    startExecution,
+    stopExecution,
+  } = useSuiteExecution({
+    token,
+    suiteId,
+    environmentId,
+    variables,
+  });
+
+  const displayRunId = wsRunId || runId;
+  const isAnimating = isRunning;
 
   // Set initial zoom for mobile
   useEffect(() => {
@@ -95,14 +82,14 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
     }
   }, [isMobile]);
 
-  // Check autorun parameter on mount
+  // Auto-start execution when autorun=true
   useEffect(() => {
     const autorun = searchParams.get("autorun");
-    if (autorun === "true") {
-      setIsAnimating(true);
-      setIsPaused(false);
+    if (autorun === "true" && !hasAutoStarted.current && token && suiteId) {
+      hasAutoStarted.current = true;
+      startExecution();
     }
-  }, [searchParams]);
+  }, [searchParams, token, suiteId, startExecution]);
 
   // Track viewport size
   useEffect(() => {
@@ -120,16 +107,17 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
   }, []);
 
   const handleRun = useCallback(() => {
-    setIsAnimating(true);
     setIsPaused(false);
+    hasAutoStarted.current = true;
     setSearchParams({ autorun: "true" });
-  }, [setSearchParams]);
+    startExecution();
+  }, [setSearchParams, startExecution]);
 
   const handleStop = useCallback(() => {
-    setIsAnimating(false);
     setIsPaused(false);
     setSearchParams({});
-  }, [setSearchParams]);
+    stopExecution();
+  }, [setSearchParams, stopExecution]);
 
   const handlePause = useCallback(() => {
     setIsPaused((prev) => !prev);
@@ -203,7 +191,7 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
     setIsPanning(false);
   }, []);
 
-  // Calculate node positions
+  // Calculate node positions based on real data
   const nodePositions = useMemo(() => {
     const positions: {
       suite: { x: number; y: number };
@@ -213,7 +201,7 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
       cases: [],
     };
 
-    mockTestCases.forEach((testCase, caseIndex) => {
+    testCases.forEach((testCase, caseIndex) => {
       const caseY = CASE_START_Y + caseIndex * CASE_SPACING_Y;
       const casePosition = {
         id: testCase.id,
@@ -229,7 +217,7 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
     });
 
     return positions;
-  }, []);
+  }, [testCases]);
 
   // Calculate total canvas dimensions needed
   const canvasDimensions = useMemo(() => {
@@ -262,12 +250,12 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
       x: nodePositions.suite.x,
       y: nodePositions.suite.y,
       type: "suite",
-      status: mockSuiteStatus,
+      status: suiteStatus,
     });
 
     // Case and step nodes
     nodePositions.cases.forEach((casePos) => {
-      const testCase = mockTestCases.find((tc) => tc.id === casePos.id);
+      const testCase = testCases.find((tc) => tc.id === casePos.id);
       nodes.push({
         x: casePos.x,
         y: casePos.y,
@@ -287,14 +275,14 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
     });
 
     return nodes;
-  }, [nodePositions]);
+  }, [nodePositions, testCases, suiteStatus]);
 
   const handlePanChange = useCallback((newPan: { x: number; y: number }) => {
     setPan(newPan);
   }, []);
 
   return (
-    <div 
+    <div
       ref={containerRef}
       className="relative w-full h-screen overflow-hidden touch-none"
       onMouseDown={handleMouseDown}
@@ -311,8 +299,8 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
         <div className="flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 bg-background/80 backdrop-blur-sm rounded-lg border border-border/50 shadow-sm">
           <LayoutGrid className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
           <span className="text-xs sm:text-sm font-medium text-foreground">Canvas</span>
-          {runId && !isMobile && (
-            <span className="text-xs text-muted-foreground">#{runId.slice(0, 8)}</span>
+          {displayRunId && !isMobile && (
+            <span className="text-xs text-muted-foreground">#{displayRunId.slice(0, 8)}</span>
           )}
         </div>
       </div>
@@ -397,10 +385,19 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
         </div>
       )}
 
+      {/* Error display */}
+      {error && (
+        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-20">
+          <div className="px-4 py-2 bg-destructive/10 text-destructive text-sm rounded-lg border border-destructive/30">
+            {error}
+          </div>
+        </div>
+      )}
+
       {/* Canvas Container with zoom and pan transforms */}
-      <div 
+      <div
         className="canvas-content absolute inset-0"
-        style={{ 
+        style={{
           cursor: isPanning ? 'grabbing' : 'grab',
         }}
       >
@@ -426,7 +423,7 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
                 startY={nodePositions.suite.y}
                 endX={casePos.x - CASE_NODE_RADIUS}
                 endY={casePos.y}
-                status={mockTestCases.find((tc) => tc.id === casePos.id)?.status || "pending"}
+                status={testCases.find((tc) => tc.id === casePos.id)?.status || "pending"}
                 isAnimating={isAnimating}
                 isPaused={isPaused}
               />
@@ -434,7 +431,7 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
 
             {/* Test Case to Test Step connectors */}
             {nodePositions.cases.map((casePos) => {
-              const testCase = mockTestCases.find((tc) => tc.id === casePos.id);
+              const testCase = testCases.find((tc) => tc.id === casePos.id);
               return casePos.steps.map((stepPos) => {
                 const step = testCase?.steps.find((s) => s.id === stepPos.id);
                 return (
@@ -457,16 +454,16 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
           <div className="absolute inset-0">
             {/* Suite Node */}
             <SuiteNode
-              name={mockSuiteName}
-              status={mockSuiteStatus}
-              testCaseCount={mockTestCases.length}
+              name={suiteName || "Test Suite"}
+              status={suiteStatus}
+              testCaseCount={testCases.length}
               x={nodePositions.suite.x}
               y={nodePositions.suite.y}
             />
 
             {/* Test Case Nodes */}
             {nodePositions.cases.map((casePos) => {
-              const testCase = mockTestCases.find((tc) => tc.id === casePos.id);
+              const testCase = testCases.find((tc) => tc.id === casePos.id);
               if (!testCase) return null;
               return (
                 <TestCaseNode
@@ -482,7 +479,7 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
 
             {/* Test Step Nodes */}
             {nodePositions.cases.map((casePos) => {
-              const testCase = mockTestCases.find((tc) => tc.id === casePos.id);
+              const testCase = testCases.find((tc) => tc.id === casePos.id);
               if (!testCase) return null;
               return casePos.steps.map((stepPos) => {
                 const step = testCase.steps.find((s) => s.id === stepPos.id);

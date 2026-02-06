@@ -1,8 +1,13 @@
 const BASE_API_URL = "https://internal-api.autotest.ing";
+const WS_BASE_URL = "wss://internal-api.autotest.ing";
 
 const getAuthHeaders = (token: string) => ({
   Authorization: `Bearer ${token}`,
 });
+
+export function getSuiteExecutionWsUrl(token: string): string {
+  return `${WS_BASE_URL}/v1.0/executions/suite_ws?token=${encodeURIComponent(token)}`;
+}
 
 // ============== Types matching backend TestSuiteFullResponse ==============
 
