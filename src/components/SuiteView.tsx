@@ -9,7 +9,16 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { List } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { fetchSuitesFull, fetchSuites, fetchEnvironments, type TestSuiteFullResponse, type Environment } from "@/lib/api/suites";
+import {
+  createAssertion,
+  fetchSuitesFull,
+  fetchSuites,
+  fetchEnvironments,
+  type TestSuiteFullResponse,
+  type Environment,
+  type AssertionNested,
+  type CreateAssertionPayload,
+} from "@/lib/api/suites";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -30,6 +39,23 @@ function mapAssertionType(backendType: string): Assertion["type"] {
     custom: "body",
   };
   return mapping[backendType] ?? "body";
+}
+
+function mapBackendAssertion(assertion: AssertionNested): Assertion {
+  return {
+    id: assertion.id,
+    description: assertion.name,
+    type: mapAssertionType(assertion.assertion_type),
+    status: "pending",
+    assertionType: assertion.assertion_type,
+    operator: assertion.operator,
+    extractor: assertion.extractor ?? null,
+    expected: assertion.expected,
+    expectedTemplate: assertion.expected_template ?? null,
+    severity: assertion.severity,
+    isEnabled: assertion.is_enabled,
+    sortOrder: assertion.sort_order,
+  };
 }
 
 // Derive method from step config or default to GET
@@ -60,10 +86,7 @@ function transformSuiteData(data: TestSuiteFullResponse): TestCase[] {
       endpoint: deriveEndpoint(step.config),
       status: undefined,
       assertions: step.assertions.map((a) => ({
-        id: a.id,
-        description: a.name,
-        type: mapAssertionType(a.assertion_type),
-        status: "pending" as const,
+        ...mapBackendAssertion(a),
       })),
     })),
   }));
@@ -162,6 +185,7 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
   const [isResolvingSuiteId, setIsResolvingSuiteId] = useState(false);
   const [environments, setEnvironments] = useState<Environment[]>([]);
   const [selectedEnvironmentId, setSelectedEnvironmentId] = useState<string | null>(null);
+  const [creatingAssertionStepId, setCreatingAssertionStepId] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
   // Resolve suiteId: if it's already a UUID use it directly,
@@ -286,6 +310,46 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
     navigate(`/suites/${resolvedSuiteId}/runs`);
   };
 
+  const handleCreateAssertion = async (stepId: string, payload: CreateAssertionPayload) => {
+    if (!token) {
+      const missingAuthError = new Error("Missing auth token.");
+      toast.error("Failed to add assertion", {
+        description: missingAuthError.message,
+      });
+      throw missingAuthError;
+    }
+
+    setCreatingAssertionStepId(stepId);
+
+    try {
+      const createdAssertion = await createAssertion(payload, token);
+
+      setTestCases((prevCases) =>
+        prevCases.map((testCase) => ({
+          ...testCase,
+          steps: testCase.steps.map((step) => {
+            if (step.id !== stepId) {
+              return step;
+            }
+
+            return {
+              ...step,
+              assertions: [...step.assertions, mapBackendAssertion(createdAssertion)],
+            };
+          }),
+        }))
+      );
+
+      toast.success("Assertion added");
+    } catch (error) {
+      const description = error instanceof Error ? error.message : "Please try again.";
+      toast.error("Failed to add assertion", { description });
+      throw error instanceof Error ? error : new Error("Failed to add assertion");
+    } finally {
+      setCreatingAssertionStepId((currentStepId) => (currentStepId === stepId ? null : currentStepId));
+    }
+  };
+
   // Mobile layout
   if (isMobile) {
     return (
@@ -332,6 +396,8 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
               onRunSuite={handleRunSuite}
               onAskAI={handleAskAI}
               onViewRuns={handleViewRuns}
+              onCreateAssertion={handleCreateAssertion}
+              creatingAssertionStepId={creatingAssertionStepId}
             />
           )}
         </div>
@@ -372,6 +438,8 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
                 onRunSuite={handleRunSuite}
                 onAskAI={handleAskAI}
                 onViewRuns={handleViewRuns}
+                onCreateAssertion={handleCreateAssertion}
+                creatingAssertionStepId={creatingAssertionStepId}
               />
             )}
           </ResizablePanel>

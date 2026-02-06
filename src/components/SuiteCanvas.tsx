@@ -12,6 +12,7 @@ import { Play, Sparkles, BookOpen } from "lucide-react";
 import { TestStepCard } from "./TestStepCard";
 import type { TestCase } from "./TestCaseList";
 import type { Environment } from "@/lib/api/suites";
+import type { CreateAssertionPayload } from "@/lib/api/suites";
 
 interface AISuggestion {
   id: string;
@@ -31,6 +32,8 @@ interface SuiteCanvasProps {
   onRunSuite: () => void;
   onAskAI: () => void;
   onViewRuns?: () => void;
+  onCreateAssertion?: (stepId: string, payload: CreateAssertionPayload) => Promise<void>;
+  creatingAssertionStepId?: string | null;
 }
 
 export function SuiteCanvas({
@@ -44,6 +47,8 @@ export function SuiteCanvas({
   onRunSuite,
   onAskAI,
   onViewRuns,
+  onCreateAssertion,
+  creatingAssertionStepId,
 }: SuiteCanvasProps) {
   return (
     <div className="h-full flex flex-col">
@@ -117,6 +122,8 @@ export function SuiteCanvas({
                       step={step}
                       stepNumber={index + 1}
                       isExpanded={index === 0}
+                      onCreateAssertion={onCreateAssertion}
+                      isCreatingAssertion={creatingAssertionStepId === step.id}
                     />
                   ))}
                 </div>

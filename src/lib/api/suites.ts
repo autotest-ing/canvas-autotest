@@ -15,13 +15,42 @@ export type AssertionNested = {
   id: string;
   test_step_id: string;
   name: string;
-  assertion_type: string;
+  assertion_type: AssertionType;
   extractor?: Record<string, unknown> | null;
   operator: string;
   expected?: unknown;
+  expected_template?: string | null;
   severity: string;
   is_enabled: boolean;
   sort_order: number;
+};
+
+export type AssertionType =
+  | "status_code"
+  | "header"
+  | "jsonpath"
+  | "body_contains"
+  | "body_equals"
+  | "response_time"
+  | "schema"
+  | "custom";
+
+export type CreateAssertionPayload = {
+  test_step_id: string;
+  name: string;
+  assertion_type: AssertionType;
+  operator: string;
+  extractor?: Record<string, unknown> | null;
+  expected?: unknown;
+  expected_template?: string | null;
+  severity: string;
+  is_enabled: boolean;
+  sort_order: number;
+};
+
+export type CreateAssertionResponse = AssertionNested & {
+  expected_template?: string | null;
+  created_at?: string;
 };
 
 export type TestStepNested = {
@@ -139,4 +168,35 @@ export async function executeSuite(
   }
 
   return (await response.json()) as Record<string, unknown>;
+}
+
+export async function createAssertion(
+  payload: CreateAssertionPayload,
+  token: string
+): Promise<CreateAssertionResponse> {
+  const response = await fetch(`${BASE_API_URL}/v1.0/assertions`, {
+    method: "POST",
+    headers: {
+      ...getAuthHeaders(token),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (response.status !== 201 && !response.ok) {
+    let message = "Failed to create assertion";
+    try {
+      const data = (await response.json()) as { message?: string; detail?: string };
+      if (typeof data?.message === "string" && data.message.trim()) {
+        message = `${message}: ${data.message}`;
+      } else if (typeof data?.detail === "string" && data.detail.trim()) {
+        message = `${message}: ${data.detail}`;
+      }
+    } catch {
+      // keep default error
+    }
+    throw new Error(message);
+  }
+
+  return (await response.json()) as CreateAssertionResponse;
 }

@@ -1,15 +1,20 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, CheckCircle2, AlertCircle, Clock } from "lucide-react";
+import { ChevronDown, CheckCircle2, AlertCircle, Clock, Plus } from "lucide-react";
 import type { TestStep, Assertion } from "./TestCaseList";
+import { AddAssertionDialog } from "@/components/AddAssertionDialog";
+import type { CreateAssertionPayload } from "@/lib/api/suites";
 
 interface TestStepCardProps {
   step: TestStep;
   stepNumber: number;
   isExpanded?: boolean;
+  onCreateAssertion?: (stepId: string, payload: CreateAssertionPayload) => Promise<void>;
+  isCreatingAssertion?: boolean;
 }
 
 const methodColors: Record<TestStep["method"], string> = {
@@ -54,8 +59,15 @@ function StepStatusIcon({ status }: { status?: TestStep["status"] }) {
   }
 }
 
-export function TestStepCard({ step, stepNumber, isExpanded = false }: TestStepCardProps) {
+export function TestStepCard({
+  step,
+  stepNumber,
+  isExpanded = false,
+  onCreateAssertion,
+  isCreatingAssertion = false,
+}: TestStepCardProps) {
   const [open, setOpen] = useState(isExpanded);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const passedAssertions = step.assertions.filter(a => a.status === "pass").length;
   const totalAssertions = step.assertions.length;
 
@@ -107,38 +119,69 @@ export function TestStepCard({ step, stepNumber, isExpanded = false }: TestStepC
         <CollapsibleContent>
           <div className="px-4 pb-4 pt-0">
             <div className="border-t border-border/50 pt-3 space-y-2">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                Assertions
-              </p>
-              {step.assertions.map((assertion) => (
-                <div
-                  key={assertion.id}
-                  className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/30"
-                >
-                  <div
-                    className={cn(
-                      "w-5 h-5 rounded-full flex items-center justify-center shrink-0",
-                      assertion.status === "pass"
-                        ? "bg-emerald-500/15"
-                        : assertion.status === "fail"
-                        ? "bg-destructive/15"
-                        : "bg-muted"
-                    )}
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Assertions
+                </p>
+                {onCreateAssertion && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setDialogOpen(true)}
+                    disabled={isCreatingAssertion}
                   >
-                    <AssertionIcon status={assertion.status} />
+                    <Plus className="mr-1 h-3.5 w-3.5" />
+                    Add Assertion
+                  </Button>
+                )}
+              </div>
+
+              {step.assertions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No assertions yet.</p>
+              ) : (
+                step.assertions.map((assertion) => (
+                  <div
+                    key={assertion.id}
+                    className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/30"
+                  >
+                    <div
+                      className={cn(
+                        "w-5 h-5 rounded-full flex items-center justify-center shrink-0",
+                        assertion.status === "pass"
+                          ? "bg-emerald-500/15"
+                          : assertion.status === "fail"
+                          ? "bg-destructive/15"
+                          : "bg-muted"
+                      )}
+                    >
+                      <AssertionIcon status={assertion.status} />
+                    </div>
+                    <p className="flex-1 text-sm text-foreground">
+                      {assertion.description}
+                    </p>
+                    <Badge variant="outline" className="text-[10px] shrink-0">
+                      {assertion.type}
+                    </Badge>
                   </div>
-                  <p className="flex-1 text-sm text-foreground">
-                    {assertion.description}
-                  </p>
-                  <Badge variant="outline" className="text-[10px] shrink-0">
-                    {assertion.type}
-                  </Badge>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </CollapsibleContent>
       </Collapsible>
+
+      {onCreateAssertion && (
+        <AddAssertionDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          stepId={step.id}
+          assertions={step.assertions}
+          isSubmitting={isCreatingAssertion}
+          onSubmit={onCreateAssertion}
+        />
+      )}
     </Card>
   );
 }

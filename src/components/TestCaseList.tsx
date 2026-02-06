@@ -17,6 +17,14 @@ export interface Assertion {
   description: string;
   type: "status" | "body" | "header" | "timing" | "schema";
   status: "pass" | "fail" | "pending";
+  assertionType: string;
+  operator: string;
+  extractor?: Record<string, unknown> | null;
+  expected?: unknown;
+  expectedTemplate?: string | null;
+  severity: string;
+  isEnabled: boolean;
+  sortOrder: number;
 }
 
 export interface TestCase {
