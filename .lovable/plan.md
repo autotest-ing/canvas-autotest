@@ -1,157 +1,53 @@
 
-
-# Create Visual Run Canvas Page
+# Fix Canvas Node Connector Alignment
 
 ## Overview
-Create a new dedicated Run Canvas page that displays a visual, node-based flow diagram showing the test execution hierarchy. The visualization follows the pattern from Make.com (reference image) with:
-- **Test Suite** as a central circle node with suite name (e.g., "Smoke", "Regression", "Leads API")
-- **Test Cases** connected via lines from the suite node
-- **Test Steps** connected via lines from each test case
-- **Assertions** shown on hover as popup cards on test steps
-- **Run command** button fixed at bottom-left
+Fix the connection lines on the Run Canvas page so they properly connect from the center/edge of each node to the center/edge of the next node. Currently the lines use hardcoded offset values that don't match the actual node sizes.
 
-## Technical Approach
+## Problem Analysis
+Looking at the screenshot, the connection lines don't align properly with the nodes because:
+1. All nodes are positioned using their center point (x, y) with `transform: translate(-50%, -50%)`
+2. The connector offsets are hardcoded values that don't match actual node radii
 
-### SVG-based Canvas
-The visual flow will be rendered using SVG for smooth lines/connections and positioned HTML elements for interactive nodes. This approach:
-- Allows for curved/dotted connector lines like in the reference
-- Enables interactive hover states
-- Works well with existing Tailwind styling
+**Current node sizes:**
+- Suite Node: `w-24 h-24` = 96px diameter, radius = 48px
+- Test Case Node: `w-16 h-16` = 64px diameter, radius = 32px  
+- Test Step Node: `w-12 h-12` = 48px diameter, radius = 24px
 
-### Node Layout Algorithm
-Nodes will be laid out in a left-to-right flow:
-1. Suite node on the left (large circle)
-2. Test Case nodes in the middle column
-3. Test Step nodes on the right
-4. Lines connecting related nodes with dotted paths
+**Current connector offsets (incorrect):**
+- Suite to Case: `startX + 50` (should be +48), `endX - 35` (should be -32)
+- Case to Step: `startX + 35` (should be +32), `endX - 30` (should be -24)
 
-## Files to Create/Modify
+## Solution
+Update `RunCanvasView.tsx` to use the correct node radii as constants and calculate connector positions accurately so lines connect edge-to-edge.
 
-### 1. New Page: `src/pages/RunCanvas.tsx`
-- Route handler page that wraps the canvas component
-- Uses LeftRail for navigation
-- Passes runId from URL params
+## Changes
 
-### 2. New Component: `src/components/RunCanvasView.tsx`
-Main canvas container with:
-- Full viewport SVG canvas
-- Node rendering
-- Line/connector rendering
-- Zoom/pan controls (optional, basic version first)
+### File: `src/components/RunCanvasView.tsx`
 
-### 3. New Component: `src/components/canvas/SuiteNode.tsx`
-Circle node for Test Suite:
-- Large circle (80-100px diameter)
-- Suite name label below
-- Colored based on status
-- Badge showing count
-
-### 4. New Component: `src/components/canvas/TestCaseNode.tsx`
-Circle node for Test Case:
-- Medium circle (60-70px diameter)
-- Test case name below
-- Status indicator badge
-- Click to select/highlight
-
-### 5. New Component: `src/components/canvas/TestStepNode.tsx`
-Circle node for Test Step:
-- Smaller circle (50-60px diameter)
-- Step name + method badge
-- Hover triggers assertion popup
-
-### 6. New Component: `src/components/canvas/AssertionPopover.tsx`
-Hover popup showing assertion details:
-- Uses HoverCard component
-- Lists all assertions with status icons
-- Shows pass/fail counts
-
-### 7. New Component: `src/components/canvas/NodeConnector.tsx`
-SVG path component for connecting nodes:
-- Dotted line style (like reference image)
-- Curved bezier paths
-- Color based on status
-
-### 8. Update Routes: `src/App.tsx`
-Add new route:
-```
-/runs/:runId/canvas → RunCanvas page
+**Add node size constants:**
+```typescript
+// Node sizes (diameter in pixels based on Tailwind classes)
+const SUITE_NODE_RADIUS = 48;    // w-24 = 96px / 2
+const CASE_NODE_RADIUS = 32;     // w-16 = 64px / 2
+const STEP_NODE_RADIUS = 24;     // w-12 = 48px / 2
 ```
 
-## Visual Layout
+**Update Suite to Test Case connectors (around line 352-361):**
+- Start X: `nodePositions.suite.x + SUITE_NODE_RADIUS` (right edge of suite)
+- Start Y: `nodePositions.suite.y` (center Y)
+- End X: `casePos.x - CASE_NODE_RADIUS` (left edge of case)
+- End Y: `casePos.y` (center Y)
 
-```text
-+------------------------------------------------------------------+
-|                                                                  |
-|    +------+                                                      |
-|    |      |        +-------+          +---------+                |
-|    | Suite|---●●●--| Case 1|---●●●----| Step 1  |[hover:popup]   |
-|    | Node |        +-------+          +---------+                |
-|    | "Smoke"                   \                                 |
-|    +------+                     \     +---------+                |
-|        \                         `●●--| Step 2  |                |
-|         \                             +---------+                |
-|          \         +-------+                                     |
-|           `---●●●--| Case 2|---●●●----+---------+                |
-|                    +-------+          | Step 3  |                |
-|                                       +---------+                |
-|                                                                  |
-+------------------------------------------------------------------+
-| [▶ Run]                                                          |
-+------------------------------------------------------------------+
-```
+**Update Test Case to Test Step connectors (around line 364-379):**
+- Start X: `casePos.x + CASE_NODE_RADIUS` (right edge of case)
+- Start Y: `casePos.y` (center Y)
+- End X: `stepPos.x - STEP_NODE_RADIUS` (left edge of step)
+- End Y: `stepPos.y` (center Y)
 
-## Node Colors (based on status)
-- **Pass**: Emerald/Green circle with check icon
-- **Fail**: Red/Destructive circle with X icon  
-- **Pending**: Gray circle with clock icon
-- **Running**: Primary/Teal with animated pulse
-
-## Data Structure
-Uses existing `RunTestCase` and `RunTestStep` interfaces from `RunTestCaseList.tsx`:
-- Each test case contains steps array
-- Steps have assertion counts
-- Status determines node styling
-
-## Implementation Order
-1. Create basic page and route
-2. Build node components (Suite, TestCase, TestStep)
-3. Add SVG connector lines
-4. Implement assertion hover popup
-5. Add fixed Run button
-6. Polish styling and animations
-
-## Technical Details
-
-### Canvas Positioning
-- Use CSS Grid or absolute positioning within a relative container
-- Calculate node positions based on hierarchy level
-- SVG overlay for connection lines
-
-### Hover Card for Assertions
-```tsx
-<HoverCard>
-  <HoverCardTrigger asChild>
-    <TestStepNode step={step} />
-  </HoverCardTrigger>
-  <HoverCardContent>
-    <AssertionList assertions={step.assertions} />
-  </HoverCardContent>
-</HoverCard>
-```
-
-### Fixed Run Button
-```tsx
-<div className="fixed bottom-6 left-6 z-50">
-  <Button onClick={handleRun} className="gap-2 shadow-lg">
-    <Play className="w-4 h-4" />
-    Run
-  </Button>
-</div>
-```
-
-## Build Errors to Fix First
-Before implementing this feature, the existing build errors in `EnvironmentsView.tsx` and `environments.ts` need to be fixed:
-1. Add `is_default` and `isDefault` properties to `EnvironmentDetailResponse` type
-2. Add `is_overridable` and `isOverridable` properties to `EnvironmentVariable` type
-3. Remove the `base_url` check in `updateEnvironment` function since it was removed from the payload type
-
+## Visual Result
+After this fix, connection lines will:
+- Start from the exact right edge of the source node
+- End at the exact left edge of the target node
+- Pass through the horizontal center (Y) of both nodes
+- Create smooth curved bezier paths between nodes
