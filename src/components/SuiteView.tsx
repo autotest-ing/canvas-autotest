@@ -1,136 +1,68 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import { TestCaseList, type TestCase } from "./TestCaseList";
+import { TestCaseList, type TestCase, type TestStep, type Assertion } from "./TestCaseList";
 import { SuiteCanvas } from "./SuiteCanvas";
 import { MobileBottomSpacer } from "./LeftRail";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { List } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { fetchSuitesFull, executeSuite, type TestSuiteFullResponse } from "@/lib/api/suites";
+import { toast } from "sonner";
 
-// Mock data with proper hierarchy: Suite → Test Cases → Test Steps → Assertions
-const mockTestCases: TestCase[] = [
-  {
-    id: "1",
-    name: "User Login Flow",
-    description: "Validates complete login flow with valid credentials",
-    status: "pass",
-    steps: [
-      {
-        id: "1-1",
-        name: "Submit Login Request",
-        method: "POST",
-        endpoint: "/auth/login",
-        status: "pass",
-        assertions: [
-          { id: "1-1-1", description: "Response status should be 200", type: "status", status: "pass" },
-          { id: "1-1-2", description: "Response body should contain access_token", type: "body", status: "pass" },
-          { id: "1-1-3", description: "Token should be valid JWT format", type: "schema", status: "pass" },
-        ],
-      },
-      {
-        id: "1-2",
-        name: "Verify User Session",
-        method: "GET",
-        endpoint: "/auth/me",
-        status: "pass",
-        assertions: [
-          { id: "1-2-1", description: "Response status should be 200", type: "status", status: "pass" },
-          { id: "1-2-2", description: "User object should contain email", type: "body", status: "pass" },
-        ],
-      },
-    ],
-  },
-  {
-    id: "2",
-    name: "Token Refresh Flow",
-    description: "Tests token refresh mechanism before expiry",
-    status: "mixed",
-    steps: [
-      {
-        id: "2-1",
-        name: "Request Token Refresh",
-        method: "POST",
-        endpoint: "/auth/refresh",
-        status: "pass",
-        assertions: [
-          { id: "2-1-1", description: "Response status should be 200", type: "status", status: "pass" },
-          { id: "2-1-2", description: "New access_token should be returned", type: "body", status: "pass" },
-        ],
-      },
-      {
-        id: "2-2",
-        name: "Validate New Token",
-        method: "GET",
-        endpoint: "/auth/validate",
-        status: "fail",
-        assertions: [
-          { id: "2-2-1", description: "Response time should be under 500ms", type: "timing", status: "fail" },
-          { id: "2-2-2", description: "Token claims should match", type: "body", status: "pass" },
-        ],
-      },
-    ],
-  },
-  {
-    id: "3",
-    name: "User Registration",
-    description: "Complete new user registration flow",
-    status: "fail",
-    steps: [
-      {
-        id: "3-1",
-        name: "Submit Registration",
-        method: "POST",
-        endpoint: "/auth/register",
-        status: "fail",
-        assertions: [
-          { id: "3-1-1", description: "Response status should be 201", type: "status", status: "fail" },
-          { id: "3-1-2", description: "User ID should be returned", type: "body", status: "pending" },
-        ],
-      },
-      {
-        id: "3-2",
-        name: "Verify Email Sent",
-        method: "GET",
-        endpoint: "/auth/verify-email-status",
-        status: "pending",
-        assertions: [
-          { id: "3-2-1", description: "Email status should be 'sent'", type: "body", status: "pending" },
-        ],
-      },
-    ],
-  },
-  {
-    id: "4",
-    name: "Logout Flow",
-    description: "Tests user logout and session invalidation",
-    status: "pending",
-    steps: [
-      {
-        id: "4-1",
-        name: "Submit Logout",
-        method: "POST",
-        endpoint: "/auth/logout",
-        status: "pending",
-        assertions: [
-          { id: "4-1-1", description: "Response status should be 200", type: "status", status: "pending" },
-          { id: "4-1-2", description: "Session should be invalidated", type: "body", status: "pending" },
-        ],
-      },
-      {
-        id: "4-2",
-        name: "Verify Session Invalidated",
-        method: "GET",
-        endpoint: "/auth/me",
-        status: "pending",
-        assertions: [
-          { id: "4-2-1", description: "Response status should be 401", type: "status", status: "pending" },
-        ],
-      },
-    ],
-  },
-];
+// Map backend assertion_type to frontend Assertion["type"]
+function mapAssertionType(backendType: string): Assertion["type"] {
+  const mapping: Record<string, Assertion["type"]> = {
+    status_code: "status",
+    header: "header",
+    jsonpath: "body",
+    body_contains: "body",
+    body_equals: "body",
+    response_time: "timing",
+    schema: "schema",
+    custom: "body",
+  };
+  return mapping[backendType] ?? "body";
+}
+
+// Derive method from step config or default to GET
+function deriveMethod(config: Record<string, unknown>): TestStep["method"] {
+  const method = (config?.method as string)?.toUpperCase();
+  if (method && ["GET", "POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+    return method as TestStep["method"];
+  }
+  return "GET";
+}
+
+// Derive endpoint from step config
+function deriveEndpoint(config: Record<string, unknown>): string {
+  return (config?.url as string) || (config?.endpoint as string) || (config?.path as string) || "/";
+}
+
+// Transform backend response to frontend TestCase[] format
+function transformSuiteData(data: TestSuiteFullResponse): TestCase[] {
+  return data.test_cases.map((tc) => ({
+    id: tc.id,
+    name: tc.name,
+    description: tc.description ?? undefined,
+    status: undefined, // No last-run status on the definition itself
+    steps: tc.steps.map((step) => ({
+      id: step.id,
+      name: step.name,
+      method: deriveMethod(step.config),
+      endpoint: deriveEndpoint(step.config),
+      status: undefined,
+      assertions: step.assertions.map((a) => ({
+        id: a.id,
+        description: a.name,
+        type: mapAssertionType(a.assertion_type),
+        status: "pending" as const,
+      })),
+    })),
+  }));
+}
 
 const mockSuggestions = [
   {
@@ -153,28 +85,52 @@ const mockSuggestions = [
   },
 ];
 
-// Mock suite metadata
-const mockSuiteData: Record<string, { name: string; description: string }> = {
-  "auth-suite": { name: "Auth Suite", description: "Authentication and authorization flow tests" },
-  "api-suite": { name: "API Suite", description: "Core API endpoint tests" },
-  "e2e-suite": { name: "E2E Suite", description: "End-to-end user journey tests" },
-};
-
 interface SuiteViewProps {
   suiteId?: string;
 }
 
 export function SuiteView({ suiteId = "auth-suite" }: SuiteViewProps) {
   const navigate = useNavigate();
-  const [selectedTestCaseId, setSelectedTestCaseId] = useState<string | null>(mockTestCases[0]?.id || null);
+  const { token } = useAuth();
+  const [testCases, setTestCases] = useState<TestCase[]>([]);
+  const [suiteName, setSuiteName] = useState("");
+  const [suiteDescription, setSuiteDescription] = useState("");
+  const [selectedTestCaseId, setSelectedTestCaseId] = useState<string | null>(null);
   const [mobileListOpen, setMobileListOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const isMobile = useIsMobile();
-  
-  const selectedTestCase = mockTestCases.find(tc => tc.id === selectedTestCaseId) || null;
-  const suiteData = mockSuiteData[suiteId] || mockSuiteData["auth-suite"];
 
-  const handleRunSuite = () => {
-    console.log("Running suite:", suiteId);
+  const loadSuite = useCallback(async () => {
+    if (!token || !suiteId) return;
+    setIsLoading(true);
+    try {
+      const data = await fetchSuitesFull(suiteId, token);
+      setSuiteName(data.name);
+      setSuiteDescription(data.description ?? "");
+      const cases = transformSuiteData(data);
+      setTestCases(cases);
+      setSelectedTestCaseId(cases[0]?.id ?? null);
+    } catch {
+      toast.error("Failed to load test suite");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [token, suiteId]);
+
+  useEffect(() => {
+    void loadSuite();
+  }, [loadSuite]);
+
+  const selectedTestCase = testCases.find(tc => tc.id === selectedTestCaseId) || null;
+
+  const handleRunSuite = async () => {
+    if (!token || !suiteId) return;
+    try {
+      await executeSuite(suiteId, token);
+      toast.success("Suite execution started");
+    } catch {
+      toast.error("Failed to start suite execution");
+    }
   };
 
   const handleAskAI = () => {
@@ -205,7 +161,7 @@ export function SuiteView({ suiteId = "auth-suite" }: SuiteViewProps) {
             </SheetTrigger>
             <SheetContent side="left" className="w-80 p-0">
               <TestCaseList
-                testCases={mockTestCases}
+                testCases={testCases}
                 selectedId={selectedTestCaseId}
                 onSelect={handleSelectTestCase}
               />
@@ -219,8 +175,8 @@ export function SuiteView({ suiteId = "auth-suite" }: SuiteViewProps) {
         {/* Canvas content */}
         <div className="flex-1">
           <SuiteCanvas
-            suiteName={suiteData.name}
-            suiteDescription={suiteData.description}
+            suiteName={suiteName}
+            suiteDescription={suiteDescription}
             selectedTestCase={selectedTestCase}
             suggestions={mockSuggestions}
             onRunSuite={handleRunSuite}
@@ -240,7 +196,7 @@ export function SuiteView({ suiteId = "auth-suite" }: SuiteViewProps) {
         <ResizablePanelGroup direction="horizontal" className="h-full">
           <ResizablePanel defaultSize={30} minSize={20} maxSize={50}>
             <TestCaseList
-              testCases={mockTestCases}
+              testCases={testCases}
               selectedId={selectedTestCaseId}
               onSelect={setSelectedTestCaseId}
             />
@@ -248,8 +204,8 @@ export function SuiteView({ suiteId = "auth-suite" }: SuiteViewProps) {
           <ResizableHandle className="w-px bg-border/50 hover:bg-primary/30 transition-colors" />
           <ResizablePanel defaultSize={70} minSize={50}>
             <SuiteCanvas
-              suiteName={suiteData.name}
-              suiteDescription={suiteData.description}
+              suiteName={suiteName}
+              suiteDescription={suiteDescription}
               selectedTestCase={selectedTestCase}
               suggestions={mockSuggestions}
               onRunSuite={handleRunSuite}
