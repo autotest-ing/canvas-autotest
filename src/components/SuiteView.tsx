@@ -271,6 +271,9 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
               suiteDescription={suiteDescription}
               selectedTestCase={selectedTestCase}
               suggestions={mockSuggestions}
+              environments={environments}
+              selectedEnvironmentId={selectedEnvironmentId}
+              onEnvironmentChange={setSelectedEnvironmentId}
               onRunSuite={handleRunSuite}
               onAskAI={handleAskAI}
               onViewRuns={handleViewRuns}
