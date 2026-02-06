@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { TestCaseList, type TestCase, type TestStep, type Assertion } from "./TestCaseList";
@@ -11,6 +11,7 @@ import { List } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { fetchSuitesFull, fetchSuites, fetchEnvironments, type TestSuiteFullResponse, type Environment } from "@/lib/api/suites";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Simple UUID v4 format check
 const isUUID = (value: string) =>
@@ -93,6 +94,61 @@ interface SuiteViewProps {
   suiteId?: string;
 }
 
+function SuiteListSkeleton() {
+  return (
+    <div className="h-full flex flex-col bg-card/50">
+      <div className="p-4 border-b border-border/50">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-3 w-16 mt-2" />
+      </div>
+      <div className="p-2 space-y-2">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <div key={index} className="flex items-center gap-3 px-3 py-3 rounded-xl border border-border/40">
+            <Skeleton className="w-8 h-8 rounded-lg shrink-0" />
+            <div className="flex-1 min-w-0">
+              <Skeleton className="h-4 w-2/3" />
+              <Skeleton className="h-3 w-1/3 mt-2" />
+            </div>
+            <Skeleton className="w-4 h-4 shrink-0" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SuiteCanvasSkeleton() {
+  return (
+    <div className="h-full flex flex-col">
+      <div className="p-4 md:p-6 border-b border-border/50">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <Skeleton className="h-7 w-56" />
+            <Skeleton className="h-4 w-80 mt-3 max-w-full" />
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Skeleton className="h-8 w-24" />
+            <Skeleton className="h-8 w-36" />
+            <Skeleton className="h-8 w-24" />
+          </div>
+        </div>
+      </div>
+      <div className="p-6 space-y-4">
+        <Skeleton className="h-5 w-40" />
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="rounded-xl border border-border/50 p-4 space-y-3">
+              <Skeleton className="h-5 w-52" />
+              <Skeleton className="h-4 w-80 max-w-full" />
+              <Skeleton className="h-12 w-full" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function SuiteView({ suiteId }: SuiteViewProps) {
   const navigate = useNavigate();
   const { token, currentUser } = useAuth();
@@ -103,6 +159,7 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
   const [selectedTestCaseId, setSelectedTestCaseId] = useState<string | null>(null);
   const [mobileListOpen, setMobileListOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isResolvingSuiteId, setIsResolvingSuiteId] = useState(false);
   const [environments, setEnvironments] = useState<Environment[]>([]);
   const [selectedEnvironmentId, setSelectedEnvironmentId] = useState<string | null>(null);
   const isMobile = useIsMobile();
@@ -112,13 +169,20 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
   useEffect(() => {
     if (suiteId && isUUID(suiteId)) {
       setResolvedSuiteId(suiteId);
+      setIsResolvingSuiteId(false);
       return;
     }
 
     const accountId = currentUser?.default_account_id;
-    if (!token || !accountId) return;
+    if (!token || !accountId) {
+      setIsResolvingSuiteId(false);
+      return;
+    }
 
     let cancelled = false;
+    setIsResolvingSuiteId(true);
+    setResolvedSuiteId(null);
+
     (async () => {
       try {
         const suites = await fetchSuites(accountId, token);
@@ -130,10 +194,14 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
         }
       } catch {
         if (!cancelled) toast.error("Failed to load test suites");
+      } finally {
+        if (!cancelled) setIsResolvingSuiteId(false);
       }
     })();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [suiteId, token, currentUser?.default_account_id]);
 
   // Load environments for the account
@@ -160,28 +228,40 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
   }, [token, currentUser?.default_account_id]);
 
   // Load the full suite once we have a resolved UUID
-  const loadSuite = useCallback(async () => {
+  useEffect(() => {
     if (!token || !resolvedSuiteId) return;
+    let cancelled = false;
+
     setIsLoading(true);
-    try {
-      const data = await fetchSuitesFull(resolvedSuiteId, token);
-      setSuiteName(data.name);
-      setSuiteDescription(data.description ?? "");
-      const cases = transformSuiteData(data);
-      setTestCases(cases);
-      setSelectedTestCaseId(cases[0]?.id ?? null);
-    } catch {
-      toast.error("Failed to load test suite");
-    } finally {
-      setIsLoading(false);
-    }
+    // Prevent stale content from showing while switching suites.
+    setSuiteName("");
+    setSuiteDescription("");
+    setTestCases([]);
+    setSelectedTestCaseId(null);
+
+    (async () => {
+      try {
+        const data = await fetchSuitesFull(resolvedSuiteId, token);
+        if (cancelled) return;
+        setSuiteName(data.name);
+        setSuiteDescription(data.description ?? "");
+        const cases = transformSuiteData(data);
+        setTestCases(cases);
+        setSelectedTestCaseId(cases[0]?.id ?? null);
+      } catch {
+        if (!cancelled) toast.error("Failed to load test suite");
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [token, resolvedSuiteId]);
 
-  useEffect(() => {
-    void loadSuite();
-  }, [loadSuite]);
-
   const selectedTestCase = testCases.find(tc => tc.id === selectedTestCaseId) || null;
+  const isSuiteContentLoading = isResolvingSuiteId || isLoading;
 
   const handleRunSuite = () => {
     if (!resolvedSuiteId) return;
@@ -220,52 +300,27 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="w-80 p-0">
-              <TestCaseList
-                testCases={testCases}
-                selectedId={selectedTestCaseId}
-                onSelect={handleSelectTestCase}
-              />
+              {isSuiteContentLoading ? (
+                <SuiteListSkeleton />
+              ) : (
+                <TestCaseList
+                  testCases={testCases}
+                  selectedId={selectedTestCaseId}
+                  onSelect={handleSelectTestCase}
+                />
+              )}
             </SheetContent>
           </Sheet>
           <span className="text-sm text-muted-foreground">
-            {selectedTestCase?.name || "Select a test case"}
+            {isSuiteContentLoading ? "Loading suite..." : (selectedTestCase?.name || "Select a test case")}
           </span>
         </div>
 
         {/* Canvas content */}
         <div className="flex-1">
-          <SuiteCanvas
-            suiteName={suiteName}
-            suiteDescription={suiteDescription}
-            selectedTestCase={selectedTestCase}
-            suggestions={mockSuggestions}
-            environments={environments}
-            selectedEnvironmentId={selectedEnvironmentId}
-            onEnvironmentChange={setSelectedEnvironmentId}
-            onRunSuite={handleRunSuite}
-            onAskAI={handleAskAI}
-            onViewRuns={handleViewRuns}
-          />
-        </div>
-        <MobileBottomSpacer />
-      </div>
-    );
-  }
-
-  // Desktop layout
-  return (
-    <div className="h-screen animate-fade-in flex flex-col">
-      <div className="flex-1">
-        <ResizablePanelGroup direction="horizontal" className="h-full">
-          <ResizablePanel defaultSize={30} minSize={20} maxSize={50}>
-            <TestCaseList
-              testCases={testCases}
-              selectedId={selectedTestCaseId}
-              onSelect={setSelectedTestCaseId}
-            />
-          </ResizablePanel>
-          <ResizableHandle className="w-px bg-border/50 hover:bg-primary/30 transition-colors" />
-          <ResizablePanel defaultSize={70} minSize={50}>
+          {isSuiteContentLoading ? (
+            <SuiteCanvasSkeleton />
+          ) : (
             <SuiteCanvas
               suiteName={suiteName}
               suiteDescription={suiteDescription}
@@ -278,6 +333,47 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
               onAskAI={handleAskAI}
               onViewRuns={handleViewRuns}
             />
+          )}
+        </div>
+        <MobileBottomSpacer />
+      </div>
+    );
+  }
+
+  // Desktop layout
+  return (
+    <div className="h-screen animate-fade-in flex flex-col">
+      <div className="flex-1">
+        <ResizablePanelGroup direction="horizontal" className="h-full">
+          <ResizablePanel defaultSize={30} minSize={20} maxSize={50}>
+            {isSuiteContentLoading ? (
+              <SuiteListSkeleton />
+            ) : (
+              <TestCaseList
+                testCases={testCases}
+                selectedId={selectedTestCaseId}
+                onSelect={setSelectedTestCaseId}
+              />
+            )}
+          </ResizablePanel>
+          <ResizableHandle className="w-px bg-border/50 hover:bg-primary/30 transition-colors" />
+          <ResizablePanel defaultSize={70} minSize={50}>
+            {isSuiteContentLoading ? (
+              <SuiteCanvasSkeleton />
+            ) : (
+              <SuiteCanvas
+                suiteName={suiteName}
+                suiteDescription={suiteDescription}
+                selectedTestCase={selectedTestCase}
+                suggestions={mockSuggestions}
+                environments={environments}
+                selectedEnvironmentId={selectedEnvironmentId}
+                onEnvironmentChange={setSelectedEnvironmentId}
+                onRunSuite={handleRunSuite}
+                onAskAI={handleAskAI}
+                onViewRuns={handleViewRuns}
+              />
+            )}
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>
