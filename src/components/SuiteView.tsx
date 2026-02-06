@@ -9,7 +9,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { List } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { fetchSuitesFull, fetchSuites, executeSuite, type TestSuiteFullResponse } from "@/lib/api/suites";
+import { fetchSuitesFull, fetchSuites, type TestSuiteFullResponse } from "@/lib/api/suites";
 import { toast } from "sonner";
 
 // Simple UUID v4 format check
@@ -158,14 +158,10 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
 
   const selectedTestCase = testCases.find(tc => tc.id === selectedTestCaseId) || null;
 
-  const handleRunSuite = async () => {
-    if (!token || !resolvedSuiteId) return;
-    try {
-      await executeSuite(resolvedSuiteId, token);
-      toast.success("Suite execution started");
-    } catch {
-      toast.error("Failed to start suite execution");
-    }
+  const handleRunSuite = () => {
+    if (!resolvedSuiteId) return;
+    // Navigate to canvas page — the WebSocket hook will handle execution
+    navigate(`/suites/${resolvedSuiteId}/runs/live/canvas?autorun=true`);
   };
 
   const handleAskAI = () => {
