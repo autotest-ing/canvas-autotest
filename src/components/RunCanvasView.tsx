@@ -1,10 +1,12 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Play, LayoutGrid } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { Play, LayoutGrid, ZoomIn, ZoomOut, Maximize2, Move } from "lucide-react";
 import { SuiteNode } from "@/components/canvas/SuiteNode";
 import { TestCaseNode } from "@/components/canvas/TestCaseNode";
 import { TestStepNode } from "@/components/canvas/TestStepNode";
 import { NodeConnector } from "@/components/canvas/NodeConnector";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { RunTestCase, RunTestStep } from "@/components/RunTestCaseList";
 
 interface RunCanvasViewProps {
@@ -59,12 +61,67 @@ const STEP_X = 600;
 const STEP_START_OFFSET_Y = -40;
 const STEP_SPACING_Y = 100;
 
+// Zoom constants
+const MIN_ZOOM = 0.25;
+const MAX_ZOOM = 2;
+const ZOOM_STEP = 0.1;
+
 export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const handleRun = () => {
     console.log("Running test suite:", suiteId || runId);
   };
+
+  const handleZoomIn = useCallback(() => {
+    setZoom((z) => Math.min(z + ZOOM_STEP, MAX_ZOOM));
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    setZoom((z) => Math.max(z - ZOOM_STEP, MIN_ZOOM));
+  }, []);
+
+  const handleZoomReset = useCallback(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, []);
+
+  const handleZoomSlider = useCallback((value: number[]) => {
+    setZoom(value[0]);
+  }, []);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button === 0 && (e.target as HTMLElement).closest('.canvas-content')) {
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    }
+  }, [pan]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (isPanning) {
+      setPan({
+        x: e.clientX - panStart.x,
+        y: e.clientY - panStart.y,
+      });
+    }
+  }, [isPanning, panStart]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsPanning(false);
+  }, []);
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+      setZoom((z) => Math.min(Math.max(z + delta, MIN_ZOOM), MAX_ZOOM));
+    }
+  }, []);
 
   // Calculate node positions
   const nodePositions = useMemo(() => {
@@ -107,7 +164,15 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
   }, [nodePositions]);
 
   return (
-    <div className="relative w-full h-screen overflow-auto">
+    <div 
+      ref={containerRef}
+      className="relative w-full h-screen overflow-hidden"
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+      onWheel={handleWheel}
+    >
       {/* Header */}
       <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
         <div className="flex items-center gap-2 px-3 py-1.5 bg-background/80 backdrop-blur-sm rounded-lg border border-border/50 shadow-sm">
@@ -119,95 +184,179 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
         </div>
       </div>
 
-      {/* Canvas Container */}
+      {/* Zoom Controls */}
+      <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+        <div className="flex items-center gap-1 px-2 py-1.5 bg-background/80 backdrop-blur-sm rounded-lg border border-border/50 shadow-sm">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={handleZoomOut}
+                disabled={zoom <= MIN_ZOOM}
+              >
+                <ZoomOut className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Zoom Out</TooltipContent>
+          </Tooltip>
+
+          <div className="w-24 px-2">
+            <Slider
+              value={[zoom]}
+              min={MIN_ZOOM}
+              max={MAX_ZOOM}
+              step={0.05}
+              onValueChange={handleZoomSlider}
+              className="cursor-pointer"
+            />
+          </div>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={handleZoomIn}
+                disabled={zoom >= MAX_ZOOM}
+              >
+                <ZoomIn className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Zoom In</TooltipContent>
+          </Tooltip>
+
+          <div className="w-px h-5 bg-border mx-1" />
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={handleZoomReset}
+              >
+                <Maximize2 className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Reset View</TooltipContent>
+          </Tooltip>
+
+          <span className="text-xs text-muted-foreground w-10 text-center font-mono">
+            {Math.round(zoom * 100)}%
+          </span>
+        </div>
+      </div>
+
+      {/* Pan indicator */}
+      {isPanning && (
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-lg border border-primary/30">
+            <Move className="w-4 h-4 text-primary" />
+            <span className="text-sm text-primary">Panning</span>
+          </div>
+        </div>
+      )}
+
+      {/* Canvas Container with zoom and pan transforms */}
       <div 
-        className="relative"
+        className="canvas-content absolute inset-0"
         style={{ 
-          width: "100%", 
-          minWidth: 900,
-          height: canvasHeight,
+          cursor: isPanning ? 'grabbing' : 'grab',
         }}
       >
-        {/* SVG Connectors Layer */}
-        <svg
-          className="absolute inset-0 pointer-events-none"
-          style={{ width: "100%", height: canvasHeight }}
+        <div
+          className="relative origin-top-left transition-transform duration-75"
+          style={{ 
+            width: "100%", 
+            minWidth: 900,
+            height: canvasHeight,
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+          }}
         >
-          {/* Suite to Test Case connectors */}
-          {nodePositions.cases.map((casePos) => (
-            <NodeConnector
-              key={`suite-to-${casePos.id}`}
-              startX={nodePositions.suite.x + 50}
-              startY={nodePositions.suite.y}
-              endX={casePos.x - 35}
-              endY={casePos.y}
-              status={mockTestCases.find((tc) => tc.id === casePos.id)?.status || "pending"}
-            />
-          ))}
-
-          {/* Test Case to Test Step connectors */}
-          {nodePositions.cases.map((casePos) => {
-            const testCase = mockTestCases.find((tc) => tc.id === casePos.id);
-            return casePos.steps.map((stepPos) => {
-              const step = testCase?.steps.find((s) => s.id === stepPos.id);
-              return (
-                <NodeConnector
-                  key={`${casePos.id}-to-${stepPos.id}`}
-                  startX={casePos.x + 35}
-                  startY={casePos.y}
-                  endX={stepPos.x - 30}
-                  endY={stepPos.y}
-                  status={step?.status || "pending"}
-                />
-              );
-            });
-          })}
-        </svg>
-
-        {/* Nodes Layer */}
-        <div className="absolute inset-0">
-          {/* Suite Node */}
-          <SuiteNode
-            name={mockSuiteName}
-            status={mockSuiteStatus}
-            testCaseCount={mockTestCases.length}
-            x={nodePositions.suite.x}
-            y={nodePositions.suite.y}
-          />
-
-          {/* Test Case Nodes */}
-          {nodePositions.cases.map((casePos) => {
-            const testCase = mockTestCases.find((tc) => tc.id === casePos.id);
-            if (!testCase) return null;
-            return (
-              <TestCaseNode
-                key={testCase.id}
-                testCase={testCase}
-                x={casePos.x}
-                y={casePos.y}
-                isSelected={selectedCaseId === testCase.id}
-                onClick={() => setSelectedCaseId(testCase.id === selectedCaseId ? null : testCase.id)}
+          {/* SVG Connectors Layer */}
+          <svg
+            className="absolute inset-0 pointer-events-none"
+            style={{ width: "100%", height: canvasHeight }}
+          >
+            {/* Suite to Test Case connectors */}
+            {nodePositions.cases.map((casePos) => (
+              <NodeConnector
+                key={`suite-to-${casePos.id}`}
+                startX={nodePositions.suite.x + 50}
+                startY={nodePositions.suite.y}
+                endX={casePos.x - 35}
+                endY={casePos.y}
+                status={mockTestCases.find((tc) => tc.id === casePos.id)?.status || "pending"}
               />
-            );
-          })}
+            ))}
 
-          {/* Test Step Nodes */}
-          {nodePositions.cases.map((casePos) => {
-            const testCase = mockTestCases.find((tc) => tc.id === casePos.id);
-            if (!testCase) return null;
-            return casePos.steps.map((stepPos) => {
-              const step = testCase.steps.find((s) => s.id === stepPos.id);
-              if (!step) return null;
+            {/* Test Case to Test Step connectors */}
+            {nodePositions.cases.map((casePos) => {
+              const testCase = mockTestCases.find((tc) => tc.id === casePos.id);
+              return casePos.steps.map((stepPos) => {
+                const step = testCase?.steps.find((s) => s.id === stepPos.id);
+                return (
+                  <NodeConnector
+                    key={`${casePos.id}-to-${stepPos.id}`}
+                    startX={casePos.x + 35}
+                    startY={casePos.y}
+                    endX={stepPos.x - 30}
+                    endY={stepPos.y}
+                    status={step?.status || "pending"}
+                  />
+                );
+              });
+            })}
+          </svg>
+
+          {/* Nodes Layer */}
+          <div className="absolute inset-0">
+            {/* Suite Node */}
+            <SuiteNode
+              name={mockSuiteName}
+              status={mockSuiteStatus}
+              testCaseCount={mockTestCases.length}
+              x={nodePositions.suite.x}
+              y={nodePositions.suite.y}
+            />
+
+            {/* Test Case Nodes */}
+            {nodePositions.cases.map((casePos) => {
+              const testCase = mockTestCases.find((tc) => tc.id === casePos.id);
+              if (!testCase) return null;
               return (
-                <TestStepNode
-                  key={step.id}
-                  step={step}
-                  x={stepPos.x}
-                  y={stepPos.y}
+                <TestCaseNode
+                  key={testCase.id}
+                  testCase={testCase}
+                  x={casePos.x}
+                  y={casePos.y}
+                  isSelected={selectedCaseId === testCase.id}
+                  onClick={() => setSelectedCaseId(testCase.id === selectedCaseId ? null : testCase.id)}
                 />
               );
-            });
-          })}
+            })}
+
+            {/* Test Step Nodes */}
+            {nodePositions.cases.map((casePos) => {
+              const testCase = mockTestCases.find((tc) => tc.id === casePos.id);
+              if (!testCase) return null;
+              return casePos.steps.map((stepPos) => {
+                const step = testCase.steps.find((s) => s.id === stepPos.id);
+                if (!step) return null;
+                return (
+                  <TestStepNode
+                    key={step.id}
+                    step={step}
+                    x={stepPos.x}
+                    y={stepPos.y}
+                  />
+                );
+              });
+            })}
+          </div>
         </div>
       </div>
 
