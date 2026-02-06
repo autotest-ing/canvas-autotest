@@ -1,7 +1,8 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Play, LayoutGrid, ZoomIn, ZoomOut, Maximize2, Move } from "lucide-react";
+import { Play, LayoutGrid, ZoomIn, ZoomOut, Maximize2, Move, Square, Pause } from "lucide-react";
 import { SuiteNode } from "@/components/canvas/SuiteNode";
 import { TestCaseNode } from "@/components/canvas/TestCaseNode";
 import { TestStepNode } from "@/components/canvas/TestStepNode";
@@ -73,13 +74,25 @@ const MAX_ZOOM = 2;
 const ZOOM_STEP = 0.1;
 
 export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Check autorun parameter on mount
+  useEffect(() => {
+    const autorun = searchParams.get("autorun");
+    if (autorun === "true") {
+      setIsAnimating(true);
+      setIsPaused(false);
+    }
+  }, [searchParams]);
 
   // Track viewport size
   useEffect(() => {
@@ -96,9 +109,21 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
     return () => window.removeEventListener("resize", updateSize);
   }, []);
 
-  const handleRun = () => {
-    console.log("Running test suite:", suiteId || runId);
-  };
+  const handleRun = useCallback(() => {
+    setIsAnimating(true);
+    setIsPaused(false);
+    setSearchParams({ autorun: "true" });
+  }, [setSearchParams]);
+
+  const handleStop = useCallback(() => {
+    setIsAnimating(false);
+    setIsPaused(false);
+    setSearchParams({});
+  }, [setSearchParams]);
+
+  const handlePause = useCallback(() => {
+    setIsPaused((prev) => !prev);
+  }, []);
 
   const handleZoomIn = useCallback(() => {
     setZoom((z) => Math.min(z + ZOOM_STEP, MAX_ZOOM));
@@ -362,6 +387,8 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
                 endX={casePos.x - CASE_NODE_RADIUS}
                 endY={casePos.y}
                 status={mockTestCases.find((tc) => tc.id === casePos.id)?.status || "pending"}
+                isAnimating={isAnimating}
+                isPaused={isPaused}
               />
             ))}
 
@@ -378,6 +405,8 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
                     endX={stepPos.x - STEP_NODE_RADIUS}
                     endY={stepPos.y}
                     status={step?.status || "pending"}
+                    isAnimating={isAnimating}
+                    isPaused={isPaused}
                   />
                 );
               });
@@ -444,12 +473,34 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
         nodes={minimapNodes}
       />
 
-      {/* Fixed Run Button */}
-      <div className="fixed bottom-6 left-20 z-50">
-        <Button onClick={handleRun} size="lg" className="gap-2 shadow-lg">
-          <Play className="w-4 h-4" />
-          Run
-        </Button>
+      {/* Fixed Control Buttons */}
+      <div className="fixed bottom-6 left-20 z-50 flex items-center gap-2">
+        {!isAnimating ? (
+          <Button onClick={handleRun} size="lg" className="gap-2 shadow-lg">
+            <Play className="w-4 h-4" />
+            Run
+          </Button>
+        ) : (
+          <>
+            <Button onClick={handlePause} size="lg" variant="secondary" className="gap-2 shadow-lg">
+              {isPaused ? (
+                <>
+                  <Play className="w-4 h-4" />
+                  Resume
+                </>
+              ) : (
+                <>
+                  <Pause className="w-4 h-4" />
+                  Pause
+                </>
+              )}
+            </Button>
+            <Button onClick={handleStop} size="lg" variant="destructive" className="gap-2 shadow-lg">
+              <Square className="w-4 h-4" />
+              Stop
+            </Button>
+          </>
+        )}
       </div>
     </div>
   );
