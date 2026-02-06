@@ -68,7 +68,27 @@ export type TestSuiteListItem = {
   updated_at: string;
 };
 
+// ============== Environment types ==============
+
+export type Environment = {
+  id: string;
+  name: string;
+};
+
 // ============== API functions ==============
+
+export async function fetchEnvironments(accountId: string, token: string): Promise<Environment[]> {
+  const response = await fetch(`${BASE_API_URL}/v1.0/environments?account_id=${accountId}`, {
+    headers: getAuthHeaders(token),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to load environments");
+  }
+
+  const data = (await response.json()) as { items?: Environment[] };
+  return data.items ?? [];
+}
 
 export async function fetchSuitesFull(suiteId: string, token: string): Promise<TestSuiteFullResponse> {
   const response = await fetch(`${BASE_API_URL}/v1.0/test-suites/${suiteId}/full`, {

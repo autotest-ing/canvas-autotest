@@ -9,7 +9,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { List } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { fetchSuitesFull, fetchSuites, type TestSuiteFullResponse } from "@/lib/api/suites";
+import { fetchSuitesFull, fetchSuites, fetchEnvironments, type TestSuiteFullResponse, type Environment } from "@/lib/api/suites";
 import { toast } from "sonner";
 
 // Simple UUID v4 format check
@@ -103,6 +103,8 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
   const [selectedTestCaseId, setSelectedTestCaseId] = useState<string | null>(null);
   const [mobileListOpen, setMobileListOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [environments, setEnvironments] = useState<Environment[]>([]);
+  const [selectedEnvironmentId, setSelectedEnvironmentId] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
   // Resolve suiteId: if it's already a UUID use it directly,
@@ -134,6 +136,29 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
     return () => { cancelled = true; };
   }, [suiteId, token, currentUser?.default_account_id]);
 
+  // Load environments for the account
+  useEffect(() => {
+    const accountId = currentUser?.default_account_id;
+    if (!token || !accountId) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const envs = await fetchEnvironments(accountId, token);
+        if (cancelled) return;
+        setEnvironments(envs);
+        // Auto-select first environment if available
+        if (envs.length > 0) {
+          setSelectedEnvironmentId(envs[0].id);
+        }
+      } catch {
+        // Silently fail — environments are optional
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [token, currentUser?.default_account_id]);
+
   // Load the full suite once we have a resolved UUID
   const loadSuite = useCallback(async () => {
     if (!token || !resolvedSuiteId) return;
@@ -161,7 +186,11 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
   const handleRunSuite = () => {
     if (!resolvedSuiteId) return;
     // Navigate to canvas page — the WebSocket hook will handle execution
-    navigate(`/suites/${resolvedSuiteId}/runs/live/canvas?autorun=true`);
+    const params = new URLSearchParams({ autorun: "true" });
+    if (selectedEnvironmentId) {
+      params.set("environmentId", selectedEnvironmentId);
+    }
+    navigate(`/suites/${resolvedSuiteId}/runs/live/canvas?${params.toString()}`);
   };
 
   const handleAskAI = () => {
@@ -210,6 +239,9 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
             suiteDescription={suiteDescription}
             selectedTestCase={selectedTestCase}
             suggestions={mockSuggestions}
+            environments={environments}
+            selectedEnvironmentId={selectedEnvironmentId}
+            onEnvironmentChange={setSelectedEnvironmentId}
             onRunSuite={handleRunSuite}
             onAskAI={handleAskAI}
             onViewRuns={handleViewRuns}

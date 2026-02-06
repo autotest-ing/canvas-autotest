@@ -1,9 +1,17 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Play, Sparkles, BookOpen, History } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Play, Sparkles, BookOpen } from "lucide-react";
 import { TestStepCard } from "./TestStepCard";
 import type { TestCase } from "./TestCaseList";
+import type { Environment } from "@/lib/api/suites";
 
 interface AISuggestion {
   id: string;
@@ -17,6 +25,9 @@ interface SuiteCanvasProps {
   suiteDescription?: string;
   selectedTestCase: TestCase | null;
   suggestions: AISuggestion[];
+  environments: Environment[];
+  selectedEnvironmentId: string | null;
+  onEnvironmentChange: (environmentId: string | null) => void;
   onRunSuite: () => void;
   onAskAI: () => void;
   onViewRuns?: () => void;
@@ -27,6 +38,9 @@ export function SuiteCanvas({
   suiteDescription,
   selectedTestCase,
   suggestions,
+  environments,
+  selectedEnvironmentId,
+  onEnvironmentChange,
   onRunSuite,
   onAskAI,
   onViewRuns,
@@ -46,6 +60,22 @@ export function SuiteCanvas({
             <Sparkles className="w-4 h-4" />
             Ask AI
           </Button>
+          <Select
+            value={selectedEnvironmentId ?? "none"}
+            onValueChange={(val) => onEnvironmentChange(val === "none" ? null : val)}
+          >
+            <SelectTrigger className="h-8 w-[140px] text-sm">
+              <SelectValue placeholder="Environment" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No Environment</SelectItem>
+              {environments.map((env) => (
+                <SelectItem key={env.id} value={env.id}>
+                  {env.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button size="sm" onClick={onRunSuite} className="gap-2">
             <Play className="w-4 h-4" />
             Run Suite
@@ -111,7 +141,7 @@ export function SuiteCanvas({
             <Card className="border-border/50 bg-accent/30">
               <CardContent className="p-4">
                 <p className="text-sm text-muted-foreground">
-                  This suite tests the authentication flow including login, token refresh, and session management. 
+                  This suite tests the authentication flow including login, token refresh, and session management.
                   The endpoints follow OAuth 2.0 patterns with JWT tokens.
                 </p>
               </CardContent>
