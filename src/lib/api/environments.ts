@@ -23,7 +23,9 @@ export type EnvironmentDetailResponse = {
   name: string;
   base_url?: string;
   baseUrl?: string;
-  variables?: EnvironmentVariable[];
+  is_default?: boolean;
+  isDefault?: boolean;
+  variables?: Array<EnvironmentVariable & { is_overridable?: boolean; isOverridable?: boolean }>;
   secrets?: EnvironmentSecret[];
 };
 
@@ -72,18 +74,13 @@ export async function updateEnvironment(
   payload: EnvironmentUpdatePayload,
   token: string
 ) {
-  if (payload.base_url !== undefined) {
-    throw new Error("Invalid update payload: base_url is not allowed when updating an environment.");
-  }
-
-  const { base_url: _baseUrl, ...updatePayload } = payload;
   const response = await fetch(`${BASE_API_URL}/v1.0/environments/${envId}`, {
     method: "PATCH",
     headers: {
       ...getAuthHeaders(token),
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(updatePayload),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {

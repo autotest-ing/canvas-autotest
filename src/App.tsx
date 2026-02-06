@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import Suites from "./pages/Suites";
 import Runs from "./pages/Runs";
 import RunDetail from "./pages/RunDetail";
+import RunCanvas from "./pages/RunCanvas";
 import Sources from "./pages/Sources";
 import Environments from "./pages/Environments";
 import Integrations from "./pages/Integrations";
@@ -38,8 +39,10 @@ const App = () => (
                 <Route path="/suites/:suiteId" element={<Suites />} />
                 <Route path="/suites/:suiteId/runs" element={<Runs />} />
                 <Route path="/suites/:suiteId/runs/:runId" element={<RunDetail />} />
+                <Route path="/suites/:suiteId/runs/:runId/canvas" element={<RunCanvas />} />
                 <Route path="/runs" element={<Runs />} />
                 <Route path="/runs/:runId" element={<RunDetail />} />
+                <Route path="/runs/:runId/canvas" element={<RunCanvas />} />
                 <Route path="/sources" element={<Sources />} />
                 <Route path="/environments" element={<Environments />} />
                 <Route path="/integrations" element={<Integrations />} />
