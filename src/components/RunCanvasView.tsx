@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Play, LayoutGrid, ZoomIn, ZoomOut, Maximize2, Move } from "lucide-react";
@@ -6,6 +6,7 @@ import { SuiteNode } from "@/components/canvas/SuiteNode";
 import { TestCaseNode } from "@/components/canvas/TestCaseNode";
 import { TestStepNode } from "@/components/canvas/TestStepNode";
 import { NodeConnector } from "@/components/canvas/NodeConnector";
+import { CanvasMinimap } from "@/components/canvas/CanvasMinimap";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { RunTestCase, RunTestStep } from "@/components/RunTestCaseList";
 
@@ -72,7 +73,23 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Track viewport size
+  useEffect(() => {
+    const updateSize = () => {
+      if (containerRef.current) {
+        setViewportSize({
+          width: containerRef.current.clientWidth,
+          height: containerRef.current.clientHeight,
+        });
+      }
+    };
+    updateSize();
+    window.addEventListener("resize", updateSize);
+    return () => window.removeEventListener("resize", updateSize);
+  }, []);
 
   const handleRun = () => {
     console.log("Running test suite:", suiteId || runId);
@@ -151,17 +168,67 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
     return positions;
   }, []);
 
-  // Calculate total canvas height needed
-  const canvasHeight = useMemo(() => {
+  // Calculate total canvas dimensions needed
+  const canvasDimensions = useMemo(() => {
     let maxY = SUITE_Y + 100;
+    let maxX = STEP_X + 150;
     nodePositions.cases.forEach((c) => {
       c.steps.forEach((s) => {
         maxY = Math.max(maxY, s.y + 80);
+        maxX = Math.max(maxX, s.x + 100);
       });
       maxY = Math.max(maxY, c.y + 80);
     });
-    return Math.max(maxY + 100, 700);
+    return {
+      width: Math.max(maxX + 100, 900),
+      height: Math.max(maxY + 100, 700),
+    };
   }, [nodePositions]);
+
+  // Build minimap nodes data
+  const minimapNodes = useMemo(() => {
+    const nodes: Array<{
+      x: number;
+      y: number;
+      type: "suite" | "case" | "step";
+      status?: "pass" | "fail" | "pending" | "running" | "mixed";
+    }> = [];
+
+    // Suite node
+    nodes.push({
+      x: nodePositions.suite.x,
+      y: nodePositions.suite.y,
+      type: "suite",
+      status: mockSuiteStatus,
+    });
+
+    // Case and step nodes
+    nodePositions.cases.forEach((casePos) => {
+      const testCase = mockTestCases.find((tc) => tc.id === casePos.id);
+      nodes.push({
+        x: casePos.x,
+        y: casePos.y,
+        type: "case",
+        status: testCase?.status,
+      });
+
+      casePos.steps.forEach((stepPos) => {
+        const step = testCase?.steps.find((s) => s.id === stepPos.id);
+        nodes.push({
+          x: stepPos.x,
+          y: stepPos.y,
+          type: "step",
+          status: step?.status,
+        });
+      });
+    });
+
+    return nodes;
+  }, [nodePositions]);
+
+  const handlePanChange = useCallback((newPan: { x: number; y: number }) => {
+    setPan(newPan);
+  }, []);
 
   return (
     <div 
@@ -269,17 +336,17 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
       >
         <div
           className="relative origin-top-left transition-transform duration-75"
-          style={{ 
-            width: "100%", 
+          style={{
+            width: canvasDimensions.width,
             minWidth: 900,
-            height: canvasHeight,
+            height: canvasDimensions.height,
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
           }}
         >
           {/* SVG Connectors Layer */}
           <svg
             className="absolute inset-0 pointer-events-none"
-            style={{ width: "100%", height: canvasHeight }}
+            style={{ width: canvasDimensions.width, height: canvasDimensions.height }}
           >
             {/* Suite to Test Case connectors */}
             {nodePositions.cases.map((casePos) => (
@@ -359,6 +426,18 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
           </div>
         </div>
       </div>
+
+      {/* Minimap */}
+      <CanvasMinimap
+        canvasWidth={canvasDimensions.width}
+        canvasHeight={canvasDimensions.height}
+        viewportWidth={viewportSize.width}
+        viewportHeight={viewportSize.height}
+        zoom={zoom}
+        pan={pan}
+        onPanChange={handlePanChange}
+        nodes={minimapNodes}
+      />
 
       {/* Fixed Run Button */}
       <div className="fixed bottom-6 left-20 z-50">
