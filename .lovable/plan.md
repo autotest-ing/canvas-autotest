@@ -1,59 +1,157 @@
 
-# Add Unsaved Changes Confirmation Dialog
+
+# Create Visual Run Canvas Page
 
 ## Overview
-Add a confirmation dialog that prompts users to save or discard changes when they:
-1. Try to switch to a different environment tab with unsaved changes
-2. Try to navigate away from the Environments page with unsaved changes
+Create a new dedicated Run Canvas page that displays a visual, node-based flow diagram showing the test execution hierarchy. The visualization follows the pattern from Make.com (reference image) with:
+- **Test Suite** as a central circle node with suite name (e.g., "Smoke", "Regression", "Leads API")
+- **Test Cases** connected via lines from the suite node
+- **Test Steps** connected via lines from each test case
+- **Assertions** shown on hover as popup cards on test steps
+- **Run command** button fixed at bottom-left
 
-The dialog will include three buttons: Save, Discard, and Cancel.
+## Technical Approach
 
-## Changes
+### SVG-based Canvas
+The visual flow will be rendered using SVG for smooth lines/connections and positioned HTML elements for interactive nodes. This approach:
+- Allows for curved/dotted connector lines like in the reference
+- Enables interactive hover states
+- Works well with existing Tailwind styling
 
-### 1. Update EnvironmentsView Component
-**File:** `src/components/EnvironmentsView.tsx`
+### Node Layout Algorithm
+Nodes will be laid out in a left-to-right flow:
+1. Suite node on the left (large circle)
+2. Test Case nodes in the middle column
+3. Test Step nodes on the right
+4. Lines connecting related nodes with dotted paths
 
-**New State:**
-- `showUnsavedDialog`: Boolean to control dialog visibility
-- `pendingEnvironment`: Store the environment tab the user wants to switch to (null if navigating away)
+## Files to Create/Modify
 
-**New Imports:**
-- `AlertDialog`, `AlertDialogAction`, `AlertDialogCancel`, `AlertDialogContent`, `AlertDialogDescription`, `AlertDialogFooter`, `AlertDialogHeader`, `AlertDialogTitle` from `@/components/ui/alert-dialog`
-- `useBlocker` from `react-router-dom` (for blocking navigation)
+### 1. New Page: `src/pages/RunCanvas.tsx`
+- Route handler page that wraps the canvas component
+- Uses LeftRail for navigation
+- Passes runId from URL params
 
-**Logic Changes:**
-- Intercept tab switching: When user clicks a different tab, check `hasChanges`. If true, show dialog instead of switching
-- Use `useBlocker` hook to intercept route navigation when there are unsaved changes
-- Handle browser refresh/close with `beforeunload` event
+### 2. New Component: `src/components/RunCanvasView.tsx`
+Main canvas container with:
+- Full viewport SVG canvas
+- Node rendering
+- Line/connector rendering
+- Zoom/pan controls (optional, basic version first)
 
-**Dialog Actions:**
-- **Save**: Call `handleSave()`, then proceed with the pending action (switch tab or navigate away)
-- **Discard**: Reset the current environment changes, then proceed with the pending action
-- **Cancel**: Close dialog and stay on current view
+### 3. New Component: `src/components/canvas/SuiteNode.tsx`
+Circle node for Test Suite:
+- Large circle (80-100px diameter)
+- Suite name label below
+- Colored based on status
+- Badge showing count
 
-### Technical Details
+### 4. New Component: `src/components/canvas/TestCaseNode.tsx`
+Circle node for Test Case:
+- Medium circle (60-70px diameter)
+- Test case name below
+- Status indicator badge
+- Click to select/highlight
 
-```text
-+----------------------------------------------+
-|        Save or discard changes?              |
-+----------------------------------------------+
-| You have unsaved changes to the Development  |
-| environment. Would you like to save them     |
-| before leaving?                              |
-+----------------------------------------------+
-|           [Cancel]  [Discard]  [Save]        |
-+----------------------------------------------+
+### 5. New Component: `src/components/canvas/TestStepNode.tsx`
+Circle node for Test Step:
+- Smaller circle (50-60px diameter)
+- Step name + method badge
+- Hover triggers assertion popup
+
+### 6. New Component: `src/components/canvas/AssertionPopover.tsx`
+Hover popup showing assertion details:
+- Uses HoverCard component
+- Lists all assertions with status icons
+- Shows pass/fail counts
+
+### 7. New Component: `src/components/canvas/NodeConnector.tsx`
+SVG path component for connecting nodes:
+- Dotted line style (like reference image)
+- Curved bezier paths
+- Color based on status
+
+### 8. Update Routes: `src/App.tsx`
+Add new route:
+```
+/runs/:runId/canvas → RunCanvas page
 ```
 
-**Navigation Blocking:**
-- Use `react-router-dom`'s `useBlocker` hook to intercept in-app navigation
-- Add `beforeunload` event listener for browser close/refresh
-- Track pending action type to know whether to switch tab or navigate
+## Visual Layout
 
-**Cancel Button in Header:**
-- Add a "Cancel" button next to the "Save Changes" button
-- Only visible when `hasChanges` is true
-- Clicking it resets the current environment to its initial state
+```text
++------------------------------------------------------------------+
+|                                                                  |
+|    +------+                                                      |
+|    |      |        +-------+          +---------+                |
+|    | Suite|---●●●--| Case 1|---●●●----| Step 1  |[hover:popup]   |
+|    | Node |        +-------+          +---------+                |
+|    | "Smoke"                   \                                 |
+|    +------+                     \     +---------+                |
+|        \                         `●●--| Step 2  |                |
+|         \                             +---------+                |
+|          \         +-------+                                     |
+|           `---●●●--| Case 2|---●●●----+---------+                |
+|                    +-------+          | Step 3  |                |
+|                                       +---------+                |
+|                                                                  |
++------------------------------------------------------------------+
+| [▶ Run]                                                          |
++------------------------------------------------------------------+
+```
 
-### Files to Modify
-- `src/components/EnvironmentsView.tsx`
+## Node Colors (based on status)
+- **Pass**: Emerald/Green circle with check icon
+- **Fail**: Red/Destructive circle with X icon  
+- **Pending**: Gray circle with clock icon
+- **Running**: Primary/Teal with animated pulse
+
+## Data Structure
+Uses existing `RunTestCase` and `RunTestStep` interfaces from `RunTestCaseList.tsx`:
+- Each test case contains steps array
+- Steps have assertion counts
+- Status determines node styling
+
+## Implementation Order
+1. Create basic page and route
+2. Build node components (Suite, TestCase, TestStep)
+3. Add SVG connector lines
+4. Implement assertion hover popup
+5. Add fixed Run button
+6. Polish styling and animations
+
+## Technical Details
+
+### Canvas Positioning
+- Use CSS Grid or absolute positioning within a relative container
+- Calculate node positions based on hierarchy level
+- SVG overlay for connection lines
+
+### Hover Card for Assertions
+```tsx
+<HoverCard>
+  <HoverCardTrigger asChild>
+    <TestStepNode step={step} />
+  </HoverCardTrigger>
+  <HoverCardContent>
+    <AssertionList assertions={step.assertions} />
+  </HoverCardContent>
+</HoverCard>
+```
+
+### Fixed Run Button
+```tsx
+<div className="fixed bottom-6 left-6 z-50">
+  <Button onClick={handleRun} className="gap-2 shadow-lg">
+    <Play className="w-4 h-4" />
+    Run
+  </Button>
+</div>
+```
+
+## Build Errors to Fix First
+Before implementing this feature, the existing build errors in `EnvironmentsView.tsx` and `environments.ts` need to be fixed:
+1. Add `is_default` and `isDefault` properties to `EnvironmentDetailResponse` type
+2. Add `is_overridable` and `isOverridable` properties to `EnvironmentVariable` type
+3. Remove the `base_url` check in `updateEnvironment` function since it was removed from the payload type
+
