@@ -15,7 +15,7 @@ const Suites = () => {
         <div className="flex min-h-screen w-full">
           <LeftRail activeItem={activeItem} onItemClick={setActiveItem} />
           <main className="flex-1 canvas-bg">
-            <SuiteView suiteId={suiteId || "auth-suite"} />
+            <SuiteView suiteId={suiteId} />
           </main>
         </div>
       </AuthGate>

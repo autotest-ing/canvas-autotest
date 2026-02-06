@@ -9,8 +9,12 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { List } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { fetchSuitesFull, executeSuite, type TestSuiteFullResponse } from "@/lib/api/suites";
+import { fetchSuitesFull, fetchSuites, executeSuite, type TestSuiteFullResponse } from "@/lib/api/suites";
 import { toast } from "sonner";
+
+// Simple UUID v4 format check
+const isUUID = (value: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 
 // Map backend assertion_type to frontend Assertion["type"]
 function mapAssertionType(backendType: string): Assertion["type"] {
@@ -89,9 +93,10 @@ interface SuiteViewProps {
   suiteId?: string;
 }
 
-export function SuiteView({ suiteId = "auth-suite" }: SuiteViewProps) {
+export function SuiteView({ suiteId }: SuiteViewProps) {
   const navigate = useNavigate();
-  const { token } = useAuth();
+  const { token, currentUser } = useAuth();
+  const [resolvedSuiteId, setResolvedSuiteId] = useState<string | null>(null);
   const [testCases, setTestCases] = useState<TestCase[]>([]);
   const [suiteName, setSuiteName] = useState("");
   const [suiteDescription, setSuiteDescription] = useState("");
@@ -100,11 +105,41 @@ export function SuiteView({ suiteId = "auth-suite" }: SuiteViewProps) {
   const [isLoading, setIsLoading] = useState(false);
   const isMobile = useIsMobile();
 
+  // Resolve suiteId: if it's already a UUID use it directly,
+  // otherwise fetch the suite list and pick the first one
+  useEffect(() => {
+    if (suiteId && isUUID(suiteId)) {
+      setResolvedSuiteId(suiteId);
+      return;
+    }
+
+    const accountId = currentUser?.default_account_id;
+    if (!token || !accountId) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const suites = await fetchSuites(accountId, token);
+        if (cancelled) return;
+        if (suites.length > 0) {
+          setResolvedSuiteId(suites[0].id);
+        } else {
+          toast.error("No test suites found");
+        }
+      } catch {
+        if (!cancelled) toast.error("Failed to load test suites");
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [suiteId, token, currentUser?.default_account_id]);
+
+  // Load the full suite once we have a resolved UUID
   const loadSuite = useCallback(async () => {
-    if (!token || !suiteId) return;
+    if (!token || !resolvedSuiteId) return;
     setIsLoading(true);
     try {
-      const data = await fetchSuitesFull(suiteId, token);
+      const data = await fetchSuitesFull(resolvedSuiteId, token);
       setSuiteName(data.name);
       setSuiteDescription(data.description ?? "");
       const cases = transformSuiteData(data);
@@ -115,7 +150,7 @@ export function SuiteView({ suiteId = "auth-suite" }: SuiteViewProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [token, suiteId]);
+  }, [token, resolvedSuiteId]);
 
   useEffect(() => {
     void loadSuite();
@@ -124,9 +159,9 @@ export function SuiteView({ suiteId = "auth-suite" }: SuiteViewProps) {
   const selectedTestCase = testCases.find(tc => tc.id === selectedTestCaseId) || null;
 
   const handleRunSuite = async () => {
-    if (!token || !suiteId) return;
+    if (!token || !resolvedSuiteId) return;
     try {
-      await executeSuite(suiteId, token);
+      await executeSuite(resolvedSuiteId, token);
       toast.success("Suite execution started");
     } catch {
       toast.error("Failed to start suite execution");
@@ -134,7 +169,7 @@ export function SuiteView({ suiteId = "auth-suite" }: SuiteViewProps) {
   };
 
   const handleAskAI = () => {
-    console.log("Ask AI about suite:", suiteId);
+    console.log("Ask AI about suite:", resolvedSuiteId);
   };
 
   const handleSelectTestCase = (id: string) => {
@@ -143,7 +178,7 @@ export function SuiteView({ suiteId = "auth-suite" }: SuiteViewProps) {
   };
 
   const handleViewRuns = () => {
-    navigate(`/suites/${suiteId}/runs`);
+    navigate(`/suites/${resolvedSuiteId}/runs`);
   };
 
   // Mobile layout
