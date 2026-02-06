@@ -62,6 +62,11 @@ const STEP_X = 600;
 const STEP_START_OFFSET_Y = -40;
 const STEP_SPACING_Y = 100;
 
+// Node radii (based on Tailwind classes)
+const SUITE_NODE_RADIUS = 48;  // w-24 = 96px / 2
+const CASE_NODE_RADIUS = 32;   // w-16 = 64px / 2
+const STEP_NODE_RADIUS = 24;   // w-12 = 48px / 2
+
 // Zoom constants
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 2;
@@ -352,9 +357,9 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
             {nodePositions.cases.map((casePos) => (
               <NodeConnector
                 key={`suite-to-${casePos.id}`}
-                startX={nodePositions.suite.x + 50}
+                startX={nodePositions.suite.x + SUITE_NODE_RADIUS}
                 startY={nodePositions.suite.y}
-                endX={casePos.x - 35}
+                endX={casePos.x - CASE_NODE_RADIUS}
                 endY={casePos.y}
                 status={mockTestCases.find((tc) => tc.id === casePos.id)?.status || "pending"}
               />
@@ -368,9 +373,9 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
                 return (
                   <NodeConnector
                     key={`${casePos.id}-to-${stepPos.id}`}
-                    startX={casePos.x + 35}
+                    startX={casePos.x + CASE_NODE_RADIUS}
                     startY={casePos.y}
-                    endX={stepPos.x - 30}
+                    endX={stepPos.x - STEP_NODE_RADIUS}
                     endY={stepPos.y}
                     status={step?.status || "pending"}
                   />
