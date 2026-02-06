@@ -9,6 +9,7 @@ import { TestStepNode } from "@/components/canvas/TestStepNode";
 import { NodeConnector } from "@/components/canvas/NodeConnector";
 import { CanvasMinimap } from "@/components/canvas/CanvasMinimap";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { RunTestCase, RunTestStep } from "@/components/RunTestCaseList";
 
 interface RunCanvasViewProps {
@@ -84,6 +85,15 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
   const [isAnimating, setIsAnimating] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
+
+  // Set initial zoom for mobile
+  useEffect(() => {
+    if (isMobile) {
+      setZoom(0.6);
+      setPan({ x: 20, y: 80 });
+    }
+  }, [isMobile]);
 
   // Check autorun parameter on mount
   useEffect(() => {
@@ -168,6 +178,29 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
       const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
       setZoom((z) => Math.min(Math.max(z + delta, MIN_ZOOM), MAX_ZOOM));
     }
+  }, []);
+
+  // Touch handlers for mobile
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      setIsPanning(true);
+      setPanStart({ x: touch.clientX - pan.x, y: touch.clientY - pan.y });
+    }
+  }, [pan]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (isPanning && e.touches.length === 1) {
+      const touch = e.touches[0];
+      setPan({
+        x: touch.clientX - panStart.x,
+        y: touch.clientY - panStart.y,
+      });
+    }
+  }, [isPanning, panStart]);
+
+  const handleTouchEnd = useCallback(() => {
+    setIsPanning(false);
   }, []);
 
   // Calculate node positions
@@ -263,87 +296,94 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
   return (
     <div 
       ref={containerRef}
-      className="relative w-full h-screen overflow-hidden"
+      className="relative w-full h-screen overflow-hidden touch-none"
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
       onWheel={handleWheel}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
       {/* Header */}
-      <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-background/80 backdrop-blur-sm rounded-lg border border-border/50 shadow-sm">
-          <LayoutGrid className="w-4 h-4 text-primary" />
-          <span className="text-sm font-medium text-foreground">Run Canvas</span>
-          {runId && (
+      <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
+        <div className="flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 bg-background/80 backdrop-blur-sm rounded-lg border border-border/50 shadow-sm">
+          <LayoutGrid className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
+          <span className="text-xs sm:text-sm font-medium text-foreground">Canvas</span>
+          {runId && !isMobile && (
             <span className="text-xs text-muted-foreground">#{runId.slice(0, 8)}</span>
           )}
         </div>
       </div>
 
       {/* Zoom Controls */}
-      <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
-        <div className="flex items-center gap-1 px-2 py-1.5 bg-background/80 backdrop-blur-sm rounded-lg border border-border/50 shadow-sm">
+      <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+        <div className="flex items-center gap-0.5 sm:gap-1 px-1.5 py-1 sm:px-2 sm:py-1.5 bg-background/80 backdrop-blur-sm rounded-lg border border-border/50 shadow-sm">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7"
+                className="h-7 w-7 sm:h-7 sm:w-7"
                 onClick={handleZoomOut}
                 disabled={zoom <= MIN_ZOOM}
               >
-                <ZoomOut className="h-4 w-4" />
+                <ZoomOut className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>Zoom Out</TooltipContent>
           </Tooltip>
 
-          <div className="w-24 px-2">
-            <Slider
-              value={[zoom]}
-              min={MIN_ZOOM}
-              max={MAX_ZOOM}
-              step={0.05}
-              onValueChange={handleZoomSlider}
-              className="cursor-pointer"
-            />
-          </div>
+          {!isMobile && (
+            <div className="w-24 px-2">
+              <Slider
+                value={[zoom]}
+                min={MIN_ZOOM}
+                max={MAX_ZOOM}
+                step={0.05}
+                onValueChange={handleZoomSlider}
+                className="cursor-pointer"
+              />
+            </div>
+          )}
 
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7"
+                className="h-7 w-7 sm:h-7 sm:w-7"
                 onClick={handleZoomIn}
                 disabled={zoom >= MAX_ZOOM}
               >
-                <ZoomIn className="h-4 w-4" />
+                <ZoomIn className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>Zoom In</TooltipContent>
           </Tooltip>
 
-          <div className="w-px h-5 bg-border mx-1" />
+          <div className="w-px h-5 bg-border mx-0.5 sm:mx-1" />
 
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7"
+                className="h-7 w-7 sm:h-7 sm:w-7"
                 onClick={handleZoomReset}
               >
-                <Maximize2 className="h-4 w-4" />
+                <Maximize2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>Reset View</TooltipContent>
           </Tooltip>
 
-          <span className="text-xs text-muted-foreground w-10 text-center font-mono">
-            {Math.round(zoom * 100)}%
-          </span>
+          {!isMobile && (
+            <span className="text-xs text-muted-foreground w-10 text-center font-mono">
+              {Math.round(zoom * 100)}%
+            </span>
+          )}
         </div>
       </div>
 
@@ -461,43 +501,45 @@ export function RunCanvasView({ runId, suiteId }: RunCanvasViewProps) {
         </div>
       </div>
 
-      {/* Minimap */}
-      <CanvasMinimap
-        canvasWidth={canvasDimensions.width}
-        canvasHeight={canvasDimensions.height}
-        viewportWidth={viewportSize.width}
-        viewportHeight={viewportSize.height}
-        zoom={zoom}
-        pan={pan}
-        onPanChange={handlePanChange}
-        nodes={minimapNodes}
-      />
+      {/* Minimap - hidden on mobile */}
+      {!isMobile && (
+        <CanvasMinimap
+          canvasWidth={canvasDimensions.width}
+          canvasHeight={canvasDimensions.height}
+          viewportWidth={viewportSize.width}
+          viewportHeight={viewportSize.height}
+          zoom={zoom}
+          pan={pan}
+          onPanChange={handlePanChange}
+          nodes={minimapNodes}
+        />
+      )}
 
       {/* Fixed Control Buttons */}
-      <div className="fixed bottom-6 left-20 z-50 flex items-center gap-2">
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-20 sm:translate-x-0 z-50 flex items-center gap-2">
         {!isAnimating ? (
-          <Button onClick={handleRun} size="lg" className="gap-2 shadow-lg">
+          <Button onClick={handleRun} size={isMobile ? "default" : "lg"} className="gap-2 shadow-lg">
             <Play className="w-4 h-4" />
             Run
           </Button>
         ) : (
           <>
-            <Button onClick={handlePause} size="lg" variant="secondary" className="gap-2 shadow-lg">
+            <Button onClick={handlePause} size={isMobile ? "default" : "lg"} variant="secondary" className="gap-1.5 sm:gap-2 shadow-lg">
               {isPaused ? (
                 <>
                   <Play className="w-4 h-4" />
-                  Resume
+                  {!isMobile && "Resume"}
                 </>
               ) : (
                 <>
                   <Pause className="w-4 h-4" />
-                  Pause
+                  {!isMobile && "Pause"}
                 </>
               )}
             </Button>
-            <Button onClick={handleStop} size="lg" variant="destructive" className="gap-2 shadow-lg">
+            <Button onClick={handleStop} size={isMobile ? "default" : "lg"} variant="destructive" className="gap-1.5 sm:gap-2 shadow-lg">
               <Square className="w-4 h-4" />
-              Stop
+              {!isMobile && "Stop"}
             </Button>
           </>
         )}
