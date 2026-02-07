@@ -81,6 +81,12 @@ export function getNextSortOrder(assertions: AssertionWithSortOrder[]): number {
   return maxSort + 1;
 }
 
+const VARIABLE_PATTERN = /\{\{[A-Za-z_][A-Za-z0-9_]*\}\}/;
+
+function containsVariable(value: unknown): value is string {
+  return typeof value === "string" && VARIABLE_PATTERN.test(value);
+}
+
 function parseJson(value: string): { ok: true; parsed: unknown } | { ok: false } {
   try {
     return { ok: true, parsed: JSON.parse(value) };
@@ -291,6 +297,9 @@ export function buildCreateAssertionPayload(params: {
     return { ok: false, error: fieldResult.error };
   }
 
+  const expected = fieldResult.fields.expected;
+  const expectedTemplate = containsVariable(expected) ? expected : null;
+
   return {
     ok: true,
     payload: {
@@ -299,8 +308,8 @@ export function buildCreateAssertionPayload(params: {
       assertion_type: fieldResult.fields.assertion_type,
       operator: fieldResult.fields.operator,
       extractor: fieldResult.fields.extractor,
-      expected: fieldResult.fields.expected,
-      expected_template: null,
+      expected: expected,
+      expected_template: expectedTemplate,
       severity: "error",
       is_enabled: fieldResult.fields.is_enabled,
       sort_order: getNextSortOrder(existingAssertions),
@@ -309,6 +318,9 @@ export function buildCreateAssertionPayload(params: {
 }
 
 export function mapAssertionToFormValues(assertion: AssertionDetailResponse): AddAssertionFormValues {
+  // Prefer expected_template over expected when it contains variable references
+  const effectiveExpected = assertion.expected_template ?? assertion.expected;
+
   const formValues: AddAssertionFormValues = {
     name: assertion.name ?? "",
     assertionType: assertion.assertion_type,
@@ -325,7 +337,7 @@ export function mapAssertionToFormValues(assertion: AssertionDetailResponse): Ad
     const extractor = (assertion.extractor ?? {}) as Record<string, unknown>;
     formValues.headerKey =
       typeof extractor.key === "string" && extractor.key.trim() ? extractor.key : "";
-    formValues.expectedText = formatExpectedAsText(assertion.expected);
+    formValues.expectedText = formatExpectedAsText(effectiveExpected);
     return formValues;
   }
 
@@ -334,25 +346,25 @@ export function mapAssertionToFormValues(assertion: AssertionDetailResponse): Ad
     formValues.jsonPath =
       typeof extractor.path === "string" && extractor.path.trim() ? extractor.path : "$";
     if (assertion.operator === "is_in") {
-      formValues.expectedJson = formatExpectedAsJson(assertion.expected);
+      formValues.expectedJson = formatExpectedAsJson(effectiveExpected);
     } else {
-      formValues.expectedText = formatExpectedAsText(assertion.expected);
+      formValues.expectedText = formatExpectedAsText(effectiveExpected);
     }
     return formValues;
   }
 
   if (assertion.assertion_type === "status_code" || assertion.assertion_type === "response_time") {
     formValues.expectedNumber =
-      assertion.expected === null || assertion.expected === undefined ? "" : String(assertion.expected);
+      effectiveExpected === null || effectiveExpected === undefined ? "" : String(effectiveExpected);
     return formValues;
   }
 
   if (assertion.assertion_type === "body_equals" || assertion.assertion_type === "schema") {
-    formValues.expectedJson = formatExpectedAsJson(assertion.expected);
+    formValues.expectedJson = formatExpectedAsJson(effectiveExpected);
     return formValues;
   }
 
-  formValues.expectedText = formatExpectedAsText(assertion.expected);
+  formValues.expectedText = formatExpectedAsText(effectiveExpected);
   return formValues;
 }
 
@@ -387,6 +399,12 @@ export function buildUpdateAssertionPayload(params: {
 
   if (!isEqualValue(nextFields.expected, originalAssertion.expected)) {
     payload.expected = nextFields.expected;
+  }
+
+  // Sync expected_template when expected changes
+  const nextExpectedTemplate = containsVariable(nextFields.expected) ? (nextFields.expected as string) : null;
+  if (nextExpectedTemplate !== (originalAssertion.expected_template ?? null)) {
+    payload.expected_template = nextExpectedTemplate;
   }
 
   if (nextFields.is_enabled !== originalAssertion.is_enabled) {

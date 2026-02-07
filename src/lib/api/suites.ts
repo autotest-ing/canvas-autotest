@@ -59,7 +59,7 @@ export type AssertionDetailResponse = AssertionNested & {
 };
 
 export type UpdateAssertionPayload = Partial<
-  Pick<CreateAssertionPayload, "name" | "assertion_type" | "operator" | "extractor" | "expected" | "is_enabled">
+  Pick<CreateAssertionPayload, "name" | "assertion_type" | "operator" | "extractor" | "expected" | "expected_template" | "is_enabled">
 >;
 
 export type RequestPayload = {
