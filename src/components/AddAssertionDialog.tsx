@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Loader2, Plus, RefreshCw, SquareCode, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -26,6 +26,9 @@ import {
 import type {
   AssertionDetailResponse,
   CreateAssertionPayload,
+  RequestPayload,
+  StepResultFullDetail,
+  StepResultHttpResponse,
   UpdateAssertionPayload,
 } from "@/lib/api/suites";
 import {
@@ -39,6 +42,7 @@ import {
   type AddAssertionFormValues,
 } from "@/lib/assertion-form";
 import type { Assertion } from "@/components/TestCaseList";
+import { HttpCodePanel } from "@/components/HttpCodePanel";
 
 type BaseDialogProps = {
   open: boolean;
@@ -53,6 +57,8 @@ type BaseDialogProps = {
   onDelete?: (assertionId: string) => Promise<void>;
   isSubmitting?: boolean;
   isDeleting?: boolean;
+  stepRequest?: RequestPayload | null;
+  onFetchLatestResult?: (stepId: string) => Promise<StepResultFullDetail | null>;
 };
 type AddAssertionDialogProps = BaseDialogProps;
 
@@ -81,6 +87,8 @@ export function AddAssertionDialog({
   onDelete,
   isSubmitting = false,
   isDeleting = false,
+  stepRequest,
+  onFetchLatestResult,
 }: AddAssertionDialogProps) {
   const isEditMode = mode === "edit";
 
@@ -91,6 +99,12 @@ export function AddAssertionDialog({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isDeletingInternal, setIsDeletingInternal] = useState(false);
+
+  const [showCodePanel, setShowCodePanel] = useState(false);
+  const [latestResponse, setLatestResponse] = useState<StepResultHttpResponse | null>(null);
+  const [latestRequest, setLatestRequest] = useState<RequestPayload | null>(null);
+  const [isLoadingLatestResult, setIsLoadingLatestResult] = useState(false);
+  const [hasFetchedLatestResult, setHasFetchedLatestResult] = useState(false);
 
   const operatorOptions = useMemo(
     () => getOperatorOptions(formValues.assertionType),
@@ -146,6 +160,32 @@ export function AddAssertionDialog({
     }
   }, [assertionId, isEditMode, onFetchAssertion]);
 
+  const fetchLatestResult = useCallback(async () => {
+    if (!onFetchLatestResult || hasFetchedLatestResult) return;
+
+    setIsLoadingLatestResult(true);
+    try {
+      const result = await onFetchLatestResult(stepId);
+      if (result) {
+        setLatestResponse(result.response ?? null);
+        setLatestRequest(result.request as RequestPayload | null);
+      }
+    } catch {
+      // Silently fail — response panel just won't show
+    } finally {
+      setIsLoadingLatestResult(false);
+      setHasFetchedLatestResult(true);
+    }
+  }, [onFetchLatestResult, stepId, hasFetchedLatestResult]);
+
+  const handleToggleCodePanel = () => {
+    const next = !showCodePanel;
+    setShowCodePanel(next);
+    if (next && !hasFetchedLatestResult) {
+      void fetchLatestResult();
+    }
+  };
+
   const resetForm = () => {
     setFormValues(initialValues);
     setLoadedAssertion(null);
@@ -154,6 +194,11 @@ export function AddAssertionDialog({
     setSubmitError(null);
     setIsDeleteConfirmOpen(false);
     setIsDeletingInternal(false);
+    setShowCodePanel(false);
+    setLatestResponse(null);
+    setLatestRequest(null);
+    setIsLoadingLatestResult(false);
+    setHasFetchedLatestResult(false);
   };
 
   useEffect(() => {
@@ -266,191 +311,228 @@ export function AddAssertionDialog({
       !editBuildResult.ok ||
       !editBuildResult.hasChanges;
 
+  // Use request from latest execution result if available, otherwise fall back to step request config
+  const displayRequest = latestRequest ?? stepRequest ?? null;
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className={showCodePanel ? "sm:max-w-5xl" : "sm:max-w-2xl"}>
         <DialogHeader>
-          <DialogTitle>{mode === "add" ? "Add New Assertion" : "Edit Assertion"}</DialogTitle>
-          <DialogDescription>
-            {mode === "add"
-              ? "Create an assertion and save it to this test step."
-              : "Update this assertion or delete it."}
-          </DialogDescription>
-        </DialogHeader>
-
-        {isEditMode && isLoadingAssertion ? (
-          <div className="flex items-center justify-center py-10">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            <span className="ml-2 text-sm text-muted-foreground">Loading assertion details...</span>
-          </div>
-        ) : isEditMode && loadError ? (
-          <div className="space-y-4 py-2">
-            <p className="text-sm text-destructive">{loadError}</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle>{mode === "add" ? "Add New Assertion" : "Edit Assertion"}</DialogTitle>
+              <DialogDescription>
+                {mode === "add"
+                  ? "Create an assertion and save it to this test step."
+                  : "Update this assertion or delete it."}
+              </DialogDescription>
+            </div>
             <Button
-              type="button"
-              variant="outline"
-              onClick={() => void fetchAssertionDetails()}
-              disabled={isBusy}
-              className="w-fit"
+              variant={showCodePanel ? "secondary" : "ghost"}
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              onClick={handleToggleCodePanel}
+              title={showCodePanel ? "Hide HTTP details" : "Show HTTP details"}
             >
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Retry
+              <SquareCode className="h-4 w-4" />
             </Button>
           </div>
-        ) : (
-          <div className="grid gap-4 py-1">
-            <div className="grid gap-2">
-              <Label htmlFor={`assertion-name-${stepId}`}>Name</Label>
-              <Input
-                id={`assertion-name-${stepId}`}
-                placeholder="Status code is 200"
-                value={formValues.name}
-                onChange={(event) => updateForm("name", event.target.value)}
-                disabled={isBusy}
-              />
-            </div>
+        </DialogHeader>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <Label>Assertion Type</Label>
-                <Select
-                  value={formValues.assertionType}
-                  onValueChange={handleAssertionTypeChange}
-                  disabled={isBusy}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select assertion type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {assertionTypeOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+        <div className={showCodePanel ? "flex gap-4" : undefined}>
+          <div className={showCodePanel ? "flex-1 min-w-0" : undefined}>
+            {isEditMode && isLoadingAssertion ? (
+              <div className="flex items-center justify-center py-10">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-sm text-muted-foreground">Loading assertion details...</span>
               </div>
-
-              <div className="grid gap-2">
-                <Label>Operator</Label>
-                <Select
-                  value={formValues.operator}
-                  onValueChange={(value) => updateForm("operator", value)}
+            ) : isEditMode && loadError ? (
+              <div className="space-y-4 py-2">
+                <p className="text-sm text-destructive">{loadError}</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void fetchAssertionDetails()}
                   disabled={isBusy}
+                  className="w-fit"
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select operator" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {operatorOptions.map((operator) => (
-                      <SelectItem key={operator} value={operator}>
-                        {operator}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Retry
+                </Button>
               </div>
-            </div>
-
-            {mode === "edit" && (
-              <div className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2">
-                <div className="space-y-0.5">
-                  <Label htmlFor={`assertion-enabled-${stepId}`}>Enabled</Label>
-                  <p className="text-xs text-muted-foreground">Disable to skip this assertion during execution.</p>
+            ) : (
+              <div className="grid gap-4 py-1">
+                <div className="grid gap-2">
+                  <Label htmlFor={`assertion-name-${stepId}`}>Name</Label>
+                  <Input
+                    id={`assertion-name-${stepId}`}
+                    placeholder="Status code is 200"
+                    value={formValues.name}
+                    onChange={(event) => updateForm("name", event.target.value)}
+                    disabled={isBusy}
+                  />
                 </div>
-                <Switch
-                  id={`assertion-enabled-${stepId}`}
-                  checked={formValues.isEnabled}
-                  onCheckedChange={(checked) => updateForm("isEnabled", checked)}
-                  disabled={isBusy}
-                />
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="grid gap-2">
+                    <Label>Assertion Type</Label>
+                    <Select
+                      value={formValues.assertionType}
+                      onValueChange={handleAssertionTypeChange}
+                      disabled={isBusy}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select assertion type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {assertionTypeOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label>Operator</Label>
+                    <Select
+                      value={formValues.operator}
+                      onValueChange={(value) => updateForm("operator", value)}
+                      disabled={isBusy}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select operator" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {operatorOptions.map((operator) => (
+                          <SelectItem key={operator} value={operator}>
+                            {operator}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {mode === "edit" && (
+                  <div className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2">
+                    <div className="space-y-0.5">
+                      <Label htmlFor={`assertion-enabled-${stepId}`}>Enabled</Label>
+                      <p className="text-xs text-muted-foreground">Disable to skip this assertion during execution.</p>
+                    </div>
+                    <Switch
+                      id={`assertion-enabled-${stepId}`}
+                      checked={formValues.isEnabled}
+                      onCheckedChange={(checked) => updateForm("isEnabled", checked)}
+                      disabled={isBusy}
+                    />
+                  </div>
+                )}
+
+                {formValues.assertionType === "header" && (
+                  <div className="grid gap-2">
+                    <Label htmlFor={`assertion-header-${stepId}`}>Header Name</Label>
+                    <Input
+                      id={`assertion-header-${stepId}`}
+                      placeholder="content-type"
+                      value={formValues.headerKey}
+                      onChange={(event) => updateForm("headerKey", event.target.value)}
+                      disabled={isBusy}
+                    />
+                  </div>
+                )}
+
+                {formValues.assertionType === "jsonpath" && (
+                  <div className="grid gap-2">
+                    <Label htmlFor={`assertion-jsonpath-${stepId}`}>JSONPath</Label>
+                    <Input
+                      id={`assertion-jsonpath-${stepId}`}
+                      placeholder="$.token_type"
+                      value={formValues.jsonPath}
+                      onChange={(event) => updateForm("jsonPath", event.target.value)}
+                      disabled={isBusy}
+                    />
+                  </div>
+                )}
+
+                {isNumberExpected && (
+                  <div className="grid gap-2">
+                    <Label htmlFor={`assertion-number-${stepId}`}>
+                      {formValues.assertionType === "response_time" ? "Expected (ms)" : "Expected Value"}
+                    </Label>
+                    <Input
+                      id={`assertion-number-${stepId}`}
+                      type="number"
+                      placeholder={formValues.assertionType === "response_time" ? "300" : "200"}
+                      value={formValues.expectedNumber}
+                      onChange={(event) => updateForm("expectedNumber", event.target.value)}
+                      disabled={isBusy}
+                    />
+                  </div>
+                )}
+
+                {!isNumberExpected && !isJsonExpected && (
+                  <div className="grid gap-2">
+                    <Label htmlFor={`assertion-expected-${stepId}`}>Expected Value</Label>
+                    <Input
+                      id={`assertion-expected-${stepId}`}
+                      placeholder='application/json or bearer'
+                      value={formValues.expectedText}
+                      onChange={(event) => updateForm("expectedText", event.target.value)}
+                      disabled={isBusy}
+                    />
+                  </div>
+                )}
+
+                {isJsonExpected && (
+                  <div className="grid gap-2">
+                    <Label htmlFor={`assertion-expected-json-${stepId}`}>
+                      {formValues.assertionType === "schema" ? "Schema JSON" : "Expected JSON"}
+                    </Label>
+                    <Textarea
+                      id={`assertion-expected-json-${stepId}`}
+                      placeholder={
+                        formValues.assertionType === "schema"
+                          ? '{ "type": "object", "required": ["access_token"] }'
+                          : '[ "microsaas", "microsaas.farm", "farm" ]'
+                      }
+                      className="min-h-[120px] font-mono text-xs"
+                      value={formValues.expectedJson}
+                      onChange={(event) => updateForm("expectedJson", event.target.value)}
+                      disabled={isBusy}
+                    />
+                  </div>
+                )}
+
+                {mode === "edit" && editBuildResult?.ok && !editBuildResult.hasChanges && (
+                  <p className="text-xs text-muted-foreground">No changes to save.</p>
+                )}
+
+                {submitError && (
+                  <p className="text-sm text-destructive">{submitError}</p>
+                )}
               </div>
-            )}
-
-            {formValues.assertionType === "header" && (
-              <div className="grid gap-2">
-                <Label htmlFor={`assertion-header-${stepId}`}>Header Name</Label>
-                <Input
-                  id={`assertion-header-${stepId}`}
-                  placeholder="content-type"
-                  value={formValues.headerKey}
-                  onChange={(event) => updateForm("headerKey", event.target.value)}
-                  disabled={isBusy}
-                />
-              </div>
-            )}
-
-            {formValues.assertionType === "jsonpath" && (
-              <div className="grid gap-2">
-                <Label htmlFor={`assertion-jsonpath-${stepId}`}>JSONPath</Label>
-                <Input
-                  id={`assertion-jsonpath-${stepId}`}
-                  placeholder="$.token_type"
-                  value={formValues.jsonPath}
-                  onChange={(event) => updateForm("jsonPath", event.target.value)}
-                  disabled={isBusy}
-                />
-              </div>
-            )}
-
-            {isNumberExpected && (
-              <div className="grid gap-2">
-                <Label htmlFor={`assertion-number-${stepId}`}>
-                  {formValues.assertionType === "response_time" ? "Expected (ms)" : "Expected Value"}
-                </Label>
-                <Input
-                  id={`assertion-number-${stepId}`}
-                  type="number"
-                  placeholder={formValues.assertionType === "response_time" ? "300" : "200"}
-                  value={formValues.expectedNumber}
-                  onChange={(event) => updateForm("expectedNumber", event.target.value)}
-                  disabled={isBusy}
-                />
-              </div>
-            )}
-
-            {!isNumberExpected && !isJsonExpected && (
-              <div className="grid gap-2">
-                <Label htmlFor={`assertion-expected-${stepId}`}>Expected Value</Label>
-                <Input
-                  id={`assertion-expected-${stepId}`}
-                  placeholder='application/json or bearer'
-                  value={formValues.expectedText}
-                  onChange={(event) => updateForm("expectedText", event.target.value)}
-                  disabled={isBusy}
-                />
-              </div>
-            )}
-
-            {isJsonExpected && (
-              <div className="grid gap-2">
-                <Label htmlFor={`assertion-expected-json-${stepId}`}>
-                  {formValues.assertionType === "schema" ? "Schema JSON" : "Expected JSON"}
-                </Label>
-                <Textarea
-                  id={`assertion-expected-json-${stepId}`}
-                  placeholder={
-                    formValues.assertionType === "schema"
-                      ? '{ "type": "object", "required": ["access_token"] }'
-                      : '[ "microsaas", "microsaas.farm", "farm" ]'
-                  }
-                  className="min-h-[120px] font-mono text-xs"
-                  value={formValues.expectedJson}
-                  onChange={(event) => updateForm("expectedJson", event.target.value)}
-                  disabled={isBusy}
-                />
-              </div>
-            )}
-
-            {mode === "edit" && editBuildResult?.ok && !editBuildResult.hasChanges && (
-              <p className="text-xs text-muted-foreground">No changes to save.</p>
-            )}
-
-            {submitError && (
-              <p className="text-sm text-destructive">{submitError}</p>
             )}
           </div>
-        )}
+
+          {showCodePanel && (
+            <div className="w-[320px] shrink-0">
+              {isLoadingLatestResult ? (
+                <div className="flex items-center justify-center py-10 border-l border-border/60 pl-4">
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-xs text-muted-foreground">Loading...</span>
+                </div>
+              ) : (
+                <HttpCodePanel
+                  request={displayRequest}
+                  response={latestResponse}
+                  onClose={() => setShowCodePanel(false)}
+                />
+              )}
+            </div>
+          )}
+        </div>
 
         {mode === "add" ? (
           <DialogFooter>

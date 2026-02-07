@@ -12,7 +12,7 @@ import { Play, Sparkles, BookOpen, Plus } from "lucide-react";
 import { TestStepCard } from "./TestStepCard";
 import type { TestCase } from "./TestCaseList";
 import type { Environment } from "@/lib/api/suites";
-import type { CreateAssertionPayload } from "@/lib/api/suites";
+import type { CreateAssertionPayload, StepResultFullDetail } from "@/lib/api/suites";
 
 interface AISuggestion {
   id: string;
@@ -35,6 +35,7 @@ interface SuiteCanvasProps {
   onCreateAssertion?: (stepId: string, payload: CreateAssertionPayload) => Promise<void>;
   onEditAssertion?: (stepId: string, assertionId: string) => void;
   onDeleteStep?: (stepId: string) => Promise<void>;
+  onFetchLatestResult?: (stepId: string) => Promise<StepResultFullDetail | null>;
   creatingAssertionStepId?: string | null;
   deletingStepId?: string | null;
   onOpenAddTestStep?: () => void;
@@ -55,6 +56,7 @@ export function SuiteCanvas({
   onCreateAssertion,
   onEditAssertion,
   onDeleteStep,
+  onFetchLatestResult,
   creatingAssertionStepId,
   deletingStepId,
   onOpenAddTestStep,
@@ -150,6 +152,7 @@ export function SuiteCanvas({
                       onCreateAssertion={onCreateAssertion}
                       onEditAssertion={onEditAssertion}
                       onDeleteStep={onDeleteStep}
+                      onFetchLatestResult={onFetchLatestResult}
                       isCreatingAssertion={creatingAssertionStepId === step.id}
                       isDeletingStep={deletingStepId === step.id}
                     />

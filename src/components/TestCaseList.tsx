@@ -15,6 +15,7 @@ export interface TestStep {
   collectionId?: string | null;
   sortOrder: number;
   config: Record<string, unknown>;
+  request?: Record<string, unknown> | null;
   assertions: Assertion[];
 }
 

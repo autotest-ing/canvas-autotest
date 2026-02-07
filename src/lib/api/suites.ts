@@ -539,6 +539,26 @@ export async function fetchStepResultDetails(
   return (await response.json()) as StepResultFullDetail;
 }
 
+export async function fetchLatestStepResult(
+  testStepId: string,
+  token: string
+): Promise<StepResultFullDetail | null> {
+  const response = await fetch(
+    `${BASE_API_URL}/v1.0/executions/steps/${testStepId}/latest-result`,
+    { headers: getAuthHeaders(token) }
+  );
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw await buildApiError(response, "Failed to load latest step result");
+  }
+
+  return (await response.json()) as StepResultFullDetail;
+}
+
 async function buildApiError(response: Response, prefix: string): Promise<Error> {
   let message = prefix;
   try {

@@ -18,11 +18,14 @@ import {
   createTestStep,
   deleteAssertion,
   deleteTestStep,
+  fetchLatestStepResult,
   fetchSuitesFull,
   fetchSuites,
   fetchEnvironments,
   getAssertion,
   updateAssertion,
+  type RequestPayload,
+  type StepResultFullDetail,
   type TestSuiteFullResponse,
   type Environment,
   type AssertionNested,
@@ -167,6 +170,7 @@ function mapBackendTestCase(tc: {
       collectionId: step.collection_id ?? null,
       sortOrder: step.sort_order,
       config: step.config,
+      request: step.request ?? null,
       assertions: (step.assertions ?? []).map((a) => ({
         ...mapBackendAssertion(a),
       })),
@@ -614,6 +618,11 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
     return getAssertion(assertionId, token);
   };
 
+  const handleFetchLatestStepResult = async (stepId: string): Promise<StepResultFullDetail | null> => {
+    if (!token) return null;
+    return fetchLatestStepResult(stepId, token);
+  };
+
   const handleUpdateAssertion = async (assertionId: string, payload: UpdateAssertionPayload) => {
     if (!token) {
       const missingAuthError = new Error("Missing auth token.");
@@ -717,6 +726,13 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
     }
   };
 
+  const editStepRequest = editAssertionContext
+    ? testCases
+        .flatMap((tc) => tc.steps)
+        .find((s) => s.id === editAssertionContext.stepId)
+        ?.request as RequestPayload | null | undefined
+    : null;
+
   const editAssertionDialog = editAssertionContext ? (
     <AddAssertionDialog
       mode="edit"
@@ -729,6 +745,8 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
       onFetchAssertion={handleFetchAssertion}
       onUpdate={handleUpdateAssertion}
       onDelete={handleDeleteAssertion}
+      stepRequest={editStepRequest}
+      onFetchLatestResult={handleFetchLatestStepResult}
     />
   ) : null;
 
@@ -803,6 +821,7 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
               onCreateAssertion={handleCreateAssertion}
               onEditAssertion={handleOpenEditAssertion}
               onDeleteStep={handleDeleteTestStep}
+              onFetchLatestResult={handleFetchLatestStepResult}
               creatingAssertionStepId={creatingAssertionStepId}
               deletingStepId={deletingTestStepId}
               onOpenAddTestStep={() => setIsAddTestStepDialogOpen(true)}

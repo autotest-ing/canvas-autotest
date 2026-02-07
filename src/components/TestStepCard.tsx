@@ -17,7 +17,7 @@ import {
 import { ChevronDown, CheckCircle2, AlertCircle, Clock, Loader2, MoreVertical, Plus } from "lucide-react";
 import type { TestStep, Assertion } from "./TestCaseList";
 import { AddAssertionDialog } from "@/components/AddAssertionDialog";
-import type { CreateAssertionPayload } from "@/lib/api/suites";
+import type { CreateAssertionPayload, RequestPayload, StepResultFullDetail } from "@/lib/api/suites";
 import { toast } from "sonner";
 
 interface TestStepCardProps {
@@ -29,6 +29,7 @@ interface TestStepCardProps {
   onDeleteStep?: (stepId: string) => Promise<void>;
   isCreatingAssertion?: boolean;
   isDeletingStep?: boolean;
+  onFetchLatestResult?: (stepId: string) => Promise<StepResultFullDetail | null>;
 }
 
 const methodColors: Record<TestStep["method"], string> = {
@@ -82,6 +83,7 @@ export function TestStepCard({
   onDeleteStep,
   isCreatingAssertion = false,
   isDeletingStep = false,
+  onFetchLatestResult,
 }: TestStepCardProps) {
   const [open, setOpen] = useState(isExpanded);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -279,6 +281,8 @@ export function TestStepCard({
           assertions={step.assertions}
           isSubmitting={isCreatingAssertion}
           onSubmit={onCreateAssertion}
+          stepRequest={step.request as import("@/lib/api/suites").RequestPayload | null | undefined}
+          onFetchLatestResult={onFetchLatestResult}
         />
       )}
 
