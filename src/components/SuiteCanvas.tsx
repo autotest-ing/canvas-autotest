@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Play, Sparkles, BookOpen, Plus } from "lucide-react";
+import { Play, Sparkles, BookOpen, Plus, Calendar } from "lucide-react";
 import { TestStepCard } from "./TestStepCard";
 import type { TestCase } from "./TestCaseList";
 import type { Environment } from "@/lib/api/suites";
@@ -40,6 +40,7 @@ interface SuiteCanvasProps {
   deletingStepId?: string | null;
   onOpenAddTestStep?: () => void;
   isCreatingTestStep?: boolean;
+  onSchedule?: () => void;
 }
 
 export function SuiteCanvas({
@@ -61,6 +62,7 @@ export function SuiteCanvas({
   deletingStepId,
   onOpenAddTestStep,
   isCreatingTestStep = false,
+  onSchedule,
 }: SuiteCanvasProps) {
   return (
     <div className="h-full flex flex-col">
@@ -97,6 +99,12 @@ export function SuiteCanvas({
             <Play className="w-4 h-4" />
             Run Suite
           </Button>
+          {onSchedule && (
+            <Button variant="outline" size="sm" onClick={onSchedule} className="gap-2">
+              <Calendar className="w-4 h-4" />
+              Schedule
+            </Button>
+          )}
         </div>
       </div>
 
