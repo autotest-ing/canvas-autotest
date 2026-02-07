@@ -4,6 +4,7 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/componen
 import { TestCaseList, type TestCase, type TestStep, type Assertion } from "./TestCaseList";
 import { SuiteCanvas } from "./SuiteCanvas";
 import { AddAssertionDialog } from "./AddAssertionDialog";
+import { AddTestStepDialog, type AddTestStepFormValues } from "./AddTestStepDialog";
 import { MobileBottomSpacer } from "./LeftRail";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -12,6 +13,7 @@ import { List } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
   createAssertion,
+  createTestStep,
   deleteAssertion,
   fetchSuitesFull,
   fetchSuites,
@@ -72,6 +74,14 @@ function deriveMethod(config: Record<string, unknown>): TestStep["method"] {
   return "GET";
 }
 
+function normalizeMethod(method?: string | null): TestStep["method"] {
+  const normalizedMethod = method?.toUpperCase();
+  if (normalizedMethod && ["GET", "POST", "PUT", "PATCH", "DELETE"].includes(normalizedMethod)) {
+    return normalizedMethod as TestStep["method"];
+  }
+  return "GET";
+}
+
 // Derive endpoint from step config
 function deriveEndpoint(config: Record<string, unknown>): string {
   return (config?.url as string) || (config?.endpoint as string) || (config?.path as string) || "/";
@@ -90,6 +100,11 @@ function transformSuiteData(data: TestSuiteFullResponse): TestCase[] {
       method: deriveMethod(step.config),
       endpoint: deriveEndpoint(step.config),
       status: undefined,
+      stepType: step.step_type,
+      requestId: step.request_id ?? null,
+      collectionId: step.collection_id ?? null,
+      sortOrder: step.sort_order,
+      config: step.config,
       assertions: step.assertions.map((a) => ({
         ...mapBackendAssertion(a),
       })),
@@ -191,6 +206,8 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
   const [environments, setEnvironments] = useState<Environment[]>([]);
   const [selectedEnvironmentId, setSelectedEnvironmentId] = useState<string | null>(null);
   const [creatingAssertionStepId, setCreatingAssertionStepId] = useState<string | null>(null);
+  const [isAddTestStepDialogOpen, setIsAddTestStepDialogOpen] = useState(false);
+  const [isCreatingTestStep, setIsCreatingTestStep] = useState(false);
   const [isEditAssertionDialogOpen, setIsEditAssertionDialogOpen] = useState(false);
   const [editAssertionContext, setEditAssertionContext] = useState<{
     stepId: string;
@@ -274,6 +291,7 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
     setSuiteDescription("");
     setTestCases([]);
     setSelectedTestCaseId(null);
+    setIsAddTestStepDialogOpen(false);
     setIsEditAssertionDialogOpen(false);
     setEditAssertionContext(null);
 
@@ -317,6 +335,7 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
 
   const handleSelectTestCase = (id: string) => {
     setSelectedTestCaseId(id);
+    setIsAddTestStepDialogOpen(false);
     setMobileListOpen(false);
   };
 
@@ -361,6 +380,89 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
       throw error instanceof Error ? error : new Error("Failed to add assertion");
     } finally {
       setCreatingAssertionStepId((currentStepId) => (currentStepId === stepId ? null : currentStepId));
+    }
+  };
+
+  const handleCreateTestStep = async (testCaseId: string, formValues: AddTestStepFormValues) => {
+    if (!token) {
+      const missingAuthError = new Error("Missing auth token.");
+      toast.error("Failed to add test step", {
+        description: missingAuthError.message,
+      });
+      throw missingAuthError;
+    }
+
+    const targetCase = testCases.find((testCase) => testCase.id === testCaseId);
+    if (!targetCase) {
+      const missingCaseError = new Error("Test case not found.");
+      toast.error("Failed to add test step", {
+        description: missingCaseError.message,
+      });
+      throw missingCaseError;
+    }
+
+    const nextSortOrder =
+      targetCase.steps.reduce((maxSort, step) => (step.sortOrder > maxSort ? step.sortOrder : maxSort), 0) + 1;
+
+    setIsCreatingTestStep(true);
+
+    try {
+      const createdStep = await createTestStep(
+        {
+          test_case_id: testCaseId,
+          name: formValues.name,
+          step_type: "request",
+          request_id: formValues.requestId,
+          sort_order: nextSortOrder,
+          config: {
+            timeout: formValues.timeout,
+            retries: formValues.retries,
+          },
+        },
+        token
+      );
+
+      const mappedMethod = normalizeMethod(formValues.selectedRequest.request.method);
+      const mappedEndpoint =
+        formValues.selectedRequest.request.url ??
+        formValues.selectedRequest.request.full_url ??
+        deriveEndpoint(createdStep.config);
+
+      setTestCases((prevCases) =>
+        prevCases.map((testCase) => {
+          if (testCase.id !== testCaseId) {
+            return testCase;
+          }
+
+          return {
+            ...testCase,
+            steps: [
+              ...testCase.steps,
+              {
+                id: createdStep.id,
+                name: createdStep.name,
+                method: mappedMethod,
+                endpoint: mappedEndpoint,
+                status: undefined,
+                stepType: createdStep.step_type,
+                requestId: createdStep.request_id,
+                collectionId: createdStep.collection_id,
+                sortOrder: createdStep.sort_order,
+                config: createdStep.config,
+                assertions: [],
+              },
+            ],
+          };
+        })
+      );
+
+      toast.success("Test step added");
+    } catch (error) {
+      const description = error instanceof Error ? error.message : "Please try again.";
+      toast.error("Failed to add test step", { description });
+      throw error instanceof Error ? error : new Error("Failed to add test step");
+    } finally {
+      setIsCreatingTestStep(false);
     }
   };
 
@@ -466,6 +568,17 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
     />
   ) : null;
 
+  const addTestStepDialog = selectedTestCase ? (
+    <AddTestStepDialog
+      open={isAddTestStepDialogOpen}
+      onOpenChange={setIsAddTestStepDialogOpen}
+      accountId={currentUser?.default_account_id ?? null}
+      token={token}
+      isSubmitting={isCreatingTestStep}
+      onSubmit={(values) => handleCreateTestStep(selectedTestCase.id, values)}
+    />
+  ) : null;
+
   // Mobile layout
   if (isMobile) {
     return (
@@ -515,9 +628,12 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
               onCreateAssertion={handleCreateAssertion}
               onEditAssertion={handleOpenEditAssertion}
               creatingAssertionStepId={creatingAssertionStepId}
+              onOpenAddTestStep={() => setIsAddTestStepDialogOpen(true)}
+              isCreatingTestStep={isCreatingTestStep}
             />
           )}
         </div>
+        {addTestStepDialog}
         {editAssertionDialog}
         <MobileBottomSpacer />
       </div>
@@ -536,7 +652,7 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
               <TestCaseList
                 testCases={testCases}
                 selectedId={selectedTestCaseId}
-                onSelect={setSelectedTestCaseId}
+                onSelect={handleSelectTestCase}
               />
             )}
           </ResizablePanel>
@@ -559,11 +675,14 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
                 onCreateAssertion={handleCreateAssertion}
                 onEditAssertion={handleOpenEditAssertion}
                 creatingAssertionStepId={creatingAssertionStepId}
+                onOpenAddTestStep={() => setIsAddTestStepDialogOpen(true)}
+                isCreatingTestStep={isCreatingTestStep}
               />
             )}
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>
+      {addTestStepDialog}
       {editAssertionDialog}
     </div>
   );

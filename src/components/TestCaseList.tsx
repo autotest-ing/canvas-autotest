@@ -9,6 +9,11 @@ export interface TestStep {
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   endpoint: string;
   status?: "pass" | "fail" | "pending";
+  stepType: string;
+  requestId?: string | null;
+  collectionId?: string | null;
+  sortOrder: number;
+  config: Record<string, unknown>;
   assertions: Assertion[];
 }
 

@@ -62,6 +62,35 @@ export type UpdateAssertionPayload = Partial<
   Pick<CreateAssertionPayload, "name" | "assertion_type" | "operator" | "extractor" | "expected" | "is_enabled">
 >;
 
+export type RequestPayload = {
+  method?: string | null;
+  url?: string | null;
+  full_url?: string | null;
+  headers?: Record<string, unknown> | null;
+  path_params?: Record<string, unknown> | null;
+  payload?: unknown;
+};
+
+export type RequestListItem = {
+  id: string;
+  request: RequestPayload;
+  created_at: string;
+  updated_at: string;
+  is_assigned_to_test_step: boolean;
+};
+
+export type RequestListResponse = {
+  items: RequestListItem[];
+  next_cursor: string | null;
+  total: number;
+};
+
+export type FetchRequestsParams = {
+  search?: string;
+  limit?: number;
+  cursor?: string;
+};
+
 export type TestStepNested = {
   id: string;
   test_case_id: string;
@@ -113,6 +142,30 @@ export type Environment = {
   name: string;
 };
 
+export type CreateTestStepPayload = {
+  test_case_id: string;
+  name: string;
+  step_type: "request";
+  request_id: string;
+  sort_order: number;
+  config: {
+    timeout: number;
+    retries: number;
+  };
+};
+
+export type CreateTestStepResponse = {
+  id: string;
+  test_case_id: string;
+  name: string;
+  step_type: string;
+  request_id: string | null;
+  collection_id: string | null;
+  sort_order: number;
+  config: Record<string, unknown>;
+  created_at: string;
+};
+
 // ============== API functions ==============
 
 export async function fetchEnvironments(accountId: string, token: string): Promise<Environment[]> {
@@ -153,6 +206,40 @@ export async function fetchSuites(accountId: string, token: string): Promise<Tes
   return data.items ?? [];
 }
 
+export async function fetchRequests(
+  accountId: string,
+  token: string,
+  params?: FetchRequestsParams
+): Promise<RequestListResponse> {
+  const limit = Math.min(100, Math.max(1, params?.limit ?? 20));
+  const url = new URL(`${BASE_API_URL}/v1.0/requests`);
+  url.searchParams.set("account_id", accountId);
+  url.searchParams.set("limit", String(limit));
+
+  if (params?.search?.trim()) {
+    url.searchParams.set("search", params.search.trim());
+  }
+
+  if (params?.cursor?.trim()) {
+    url.searchParams.set("cursor", params.cursor.trim());
+  }
+
+  const response = await fetch(url.toString(), {
+    headers: getAuthHeaders(token),
+  });
+
+  if (!response.ok) {
+    throw await buildApiError(response, "Failed to load requests");
+  }
+
+  const data = (await response.json()) as Partial<RequestListResponse>;
+  return {
+    items: Array.isArray(data.items) ? data.items : [],
+    next_cursor: typeof data.next_cursor === "string" ? data.next_cursor : null,
+    total: typeof data.total === "number" ? data.total : 0,
+  };
+}
+
 export async function executeSuite(
   suiteId: string,
   token: string,
@@ -177,6 +264,26 @@ export async function executeSuite(
   }
 
   return (await response.json()) as Record<string, unknown>;
+}
+
+export async function createTestStep(
+  payload: CreateTestStepPayload,
+  token: string
+): Promise<CreateTestStepResponse> {
+  const response = await fetch(`${BASE_API_URL}/v1.0/test-steps`, {
+    method: "POST",
+    headers: {
+      ...getAuthHeaders(token),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (response.status !== 201 && !response.ok) {
+    throw await buildApiError(response, "Failed to create test step");
+  }
+
+  return (await response.json()) as CreateTestStepResponse;
 }
 
 export async function createAssertion(

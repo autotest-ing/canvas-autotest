@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Play, Sparkles, BookOpen } from "lucide-react";
+import { Play, Sparkles, BookOpen, Plus } from "lucide-react";
 import { TestStepCard } from "./TestStepCard";
 import type { TestCase } from "./TestCaseList";
 import type { Environment } from "@/lib/api/suites";
@@ -35,6 +35,8 @@ interface SuiteCanvasProps {
   onCreateAssertion?: (stepId: string, payload: CreateAssertionPayload) => Promise<void>;
   onEditAssertion?: (stepId: string, assertionId: string) => void;
   creatingAssertionStepId?: string | null;
+  onOpenAddTestStep?: () => void;
+  isCreatingTestStep?: boolean;
 }
 
 export function SuiteCanvas({
@@ -51,6 +53,8 @@ export function SuiteCanvas({
   onCreateAssertion,
   onEditAssertion,
   creatingAssertionStepId,
+  onOpenAddTestStep,
+  isCreatingTestStep = false,
 }: SuiteCanvasProps) {
   return (
     <div className="h-full flex flex-col">
@@ -109,13 +113,28 @@ export function SuiteCanvas({
 
               {/* Test Steps */}
               <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                    Test Steps
-                  </h4>
-                  <span className="text-xs text-muted-foreground">
-                    ({selectedTestCase.steps.length} step{selectedTestCase.steps.length !== 1 ? "s" : ""})
-                  </span>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                      Test Steps
+                    </h4>
+                    <span className="text-xs text-muted-foreground">
+                      ({selectedTestCase.steps.length} step{selectedTestCase.steps.length !== 1 ? "s" : ""})
+                    </span>
+                  </div>
+                  {onOpenAddTestStep && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-xs"
+                      onClick={onOpenAddTestStep}
+                      disabled={isCreatingTestStep}
+                    >
+                      <Plus className="mr-1 h-3.5 w-3.5" />
+                      Add Test Step
+                    </Button>
+                  )}
                 </div>
                 <div className="space-y-2">
                   {selectedTestCase.steps.map((step, index) => (
