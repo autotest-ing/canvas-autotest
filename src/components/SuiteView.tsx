@@ -24,6 +24,7 @@ import {
   fetchEnvironments,
   getAssertion,
   updateAssertion,
+  reorderTestSteps,
   type RequestPayload,
   type StepResultFullDetail,
   type TestSuiteFullResponse,
@@ -726,6 +727,48 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
     }
   };
 
+  const handleReorderSteps = async (testCaseId: string, reorderedSteps: TestStep[]) => {
+    if (!token) {
+      toast.error("Missing auth token.");
+      return;
+    }
+
+    const stepIds = reorderedSteps.map((s) => s.id);
+
+    // Optimistically update UI
+    setTestCases((prevCases) =>
+      prevCases.map((testCase) => {
+        if (testCase.id !== testCaseId) return testCase;
+        return {
+          ...testCase,
+          steps: reorderedSteps.map((step, index) => ({
+            ...step,
+            sortOrder: index + 1,
+          })),
+        };
+      })
+    );
+
+    try {
+      await reorderTestSteps(testCaseId, stepIds, token);
+      toast.success("Step order updated");
+    } catch (error) {
+      // Revert on failure by reloading
+      const description = error instanceof Error ? error.message : "Please try again.";
+      toast.error("Failed to reorder steps", { description });
+      // Reload suite data to revert
+      if (resolvedSuiteId) {
+        try {
+          const data = await fetchSuitesFull(resolvedSuiteId, token);
+          const cases = transformSuiteData(data);
+          setTestCases(cases);
+        } catch {
+          // Silent fail on reload
+        }
+      }
+    }
+  };
+
   const editStepRequest = editAssertionContext
     ? testCases
         .flatMap((tc) => tc.steps)
@@ -826,6 +869,7 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
               deletingStepId={deletingTestStepId}
               onOpenAddTestStep={() => setIsAddTestStepDialogOpen(true)}
               isCreatingTestStep={isCreatingTestStep}
+              onReorderSteps={handleReorderSteps}
             />
           )}
         </div>
@@ -878,6 +922,7 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
                 deletingStepId={deletingTestStepId}
                 onOpenAddTestStep={() => setIsAddTestStepDialogOpen(true)}
                 isCreatingTestStep={isCreatingTestStep}
+                onReorderSteps={handleReorderSteps}
               />
             )}
           </ResizablePanel>

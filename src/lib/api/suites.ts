@@ -491,6 +491,44 @@ export async function createTestCase(
   return (await response.json()) as CreateTestCaseResponse;
 }
 
+export async function updateTestStep(
+  stepId: string,
+  payload: { sort_order?: number },
+  token: string
+): Promise<void> {
+  const response = await fetch(`${BASE_API_URL}/v1.0/test-steps/${stepId}`, {
+    method: "PATCH",
+    headers: {
+      ...getAuthHeaders(token),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw await buildApiError(response, "Failed to update test step");
+  }
+}
+
+export async function reorderTestSteps(
+  testCaseId: string,
+  stepIds: string[],
+  token: string
+): Promise<void> {
+  const response = await fetch(`${BASE_API_URL}/v1.0/test-steps/reorder`, {
+    method: "PUT",
+    headers: {
+      ...getAuthHeaders(token),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ test_case_id: testCaseId, step_ids: stepIds }),
+  });
+
+  if (!response.ok) {
+    throw await buildApiError(response, "Failed to reorder test steps");
+  }
+}
+
 export async function deleteTestStep(stepId: string, token: string): Promise<void> {
   const response = await fetch(`${BASE_API_URL}/v1.0/test-steps/${stepId}`, {
     method: "DELETE",

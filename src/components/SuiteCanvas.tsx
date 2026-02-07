@@ -1,3 +1,4 @@
+import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -8,11 +9,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Play, Sparkles, BookOpen, Plus } from "lucide-react";
+import { Play, Sparkles, BookOpen, Plus, Check, X } from "lucide-react";
 import { TestStepCard } from "./TestStepCard";
-import type { TestCase } from "./TestCaseList";
+import type { TestCase, TestStep } from "./TestCaseList";
 import type { Environment } from "@/lib/api/suites";
 import type { CreateAssertionPayload, StepResultFullDetail } from "@/lib/api/suites";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
 
 interface AISuggestion {
   id: string;
@@ -40,6 +56,7 @@ interface SuiteCanvasProps {
   deletingStepId?: string | null;
   onOpenAddTestStep?: () => void;
   isCreatingTestStep?: boolean;
+  onReorderSteps?: (testCaseId: string, reorderedSteps: TestStep[]) => Promise<void>;
 }
 
 export function SuiteCanvas({
@@ -61,7 +78,48 @@ export function SuiteCanvas({
   deletingStepId,
   onOpenAddTestStep,
   isCreatingTestStep = false,
+  onReorderSteps,
 }: SuiteCanvasProps) {
+  const [isDragMode, setIsDragMode] = useState(false);
+  const [localSteps, setLocalSteps] = useState<TestStep[]>([]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleEnableDragMode = useCallback(() => {
+    if (selectedTestCase) {
+      setLocalSteps([...selectedTestCase.steps]);
+      setIsDragMode(true);
+    }
+  }, [selectedTestCase]);
+
+  const handleCancelDragMode = useCallback(() => {
+    setIsDragMode(false);
+    setLocalSteps([]);
+  }, []);
+
+  const handleConfirmDragMode = useCallback(async () => {
+    if (!selectedTestCase || !onReorderSteps) return;
+    await onReorderSteps(selectedTestCase.id, localSteps);
+    setIsDragMode(false);
+    setLocalSteps([]);
+  }, [selectedTestCase, localSteps, onReorderSteps]);
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    setLocalSteps((prev) => {
+      const oldIndex = prev.findIndex((s) => s.id === active.id);
+      const newIndex = prev.findIndex((s) => s.id === over.id);
+      return arrayMove(prev, oldIndex, newIndex);
+    });
+  }, []);
+
+  const displaySteps = isDragMode ? localSteps : (selectedTestCase?.steps ?? []);
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -128,36 +186,75 @@ export function SuiteCanvas({
                       ({selectedTestCase.steps.length} step{selectedTestCase.steps.length !== 1 ? "s" : ""})
                     </span>
                   </div>
-                  {onOpenAddTestStep && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="h-7 px-2 text-xs"
-                      onClick={onOpenAddTestStep}
-                      disabled={isCreatingTestStep}
-                    >
-                      <Plus className="mr-1 h-3.5 w-3.5" />
-                      Add Test Step
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {isDragMode ? (
+                      <>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-xs"
+                          onClick={handleCancelDragMode}
+                        >
+                          <X className="mr-1 h-3.5 w-3.5" />
+                          Cancel
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => void handleConfirmDragMode()}
+                        >
+                          <Check className="mr-1 h-3.5 w-3.5" />
+                          Save Order
+                        </Button>
+                      </>
+                    ) : (
+                      onOpenAddTestStep && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-xs"
+                          onClick={onOpenAddTestStep}
+                          disabled={isCreatingTestStep}
+                        >
+                          <Plus className="mr-1 h-3.5 w-3.5" />
+                          Add Test Step
+                        </Button>
+                      )
+                    )}
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  {selectedTestCase.steps.map((step, index) => (
-                    <TestStepCard
-                      key={step.id}
-                      step={step}
-                      stepNumber={index + 1}
-                      isExpanded={index === 0}
-                      onCreateAssertion={onCreateAssertion}
-                      onEditAssertion={onEditAssertion}
-                      onDeleteStep={onDeleteStep}
-                      onFetchLatestResult={onFetchLatestResult}
-                      isCreatingAssertion={creatingAssertionStepId === step.id}
-                      isDeletingStep={deletingStepId === step.id}
-                    />
-                  ))}
-                </div>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={displaySteps.map((s) => s.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-2">
+                      {displaySteps.map((step, index) => (
+                        <TestStepCard
+                          key={step.id}
+                          step={step}
+                          stepNumber={index + 1}
+                          isExpanded={index === 0 && !isDragMode}
+                          onCreateAssertion={onCreateAssertion}
+                          onEditAssertion={onEditAssertion}
+                          onDeleteStep={onDeleteStep}
+                          onFetchLatestResult={onFetchLatestResult}
+                          isCreatingAssertion={creatingAssertionStepId === step.id}
+                          isDeletingStep={deletingStepId === step.id}
+                          isDragMode={isDragMode}
+                          onEnableDragMode={onReorderSteps ? handleEnableDragMode : undefined}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
               </div>
             </>
           ) : (
