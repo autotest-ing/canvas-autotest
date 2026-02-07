@@ -830,3 +830,195 @@ function normalizeTestCaseTableItem(rawItem: unknown): TestCaseTableItem | null 
       pickString(rawItem.updated_at),
   };
 }
+
+// ============== Schedule Types ==============
+
+export type ScheduleFrequency = "once" | "hourly" | "daily" | "weekly" | "cron";
+
+export type ScheduleConfig = {
+  frequency: ScheduleFrequency;
+  start_time?: string;
+  hour?: number;
+  minute?: number;
+  days_of_week?: number[];
+  cron_expression?: string;
+};
+
+export type Schedule = {
+  id: string;
+  account_id: string;
+  suite_id: string;
+  suite_name: string;
+  environment_id: string | null;
+  name: string;
+  config: ScheduleConfig;
+  is_enabled: boolean;
+  next_run_at: string | null;
+  last_run_at: string | null;
+  last_run_status: RunStatus | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CreateSchedulePayload = {
+  suite_id: string;
+  environment_id?: string | null;
+  name: string;
+  config: ScheduleConfig;
+  is_enabled: boolean;
+};
+
+// ============== Mock Schedules Data ==============
+
+const mockSchedules: Schedule[] = [
+  {
+    id: "sched-1",
+    account_id: "acc-1",
+    suite_id: "suite-1",
+    suite_name: "Auth Suite",
+    environment_id: "env-1",
+    name: "Daily Auth Tests",
+    config: { frequency: "daily", hour: 9, minute: 0 },
+    is_enabled: true,
+    next_run_at: "2026-02-08T09:00:00Z",
+    last_run_at: "2026-02-07T09:00:00Z",
+    last_run_status: "success",
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-02-07T09:00:00Z",
+  },
+  {
+    id: "sched-2",
+    account_id: "acc-1",
+    suite_id: "suite-2",
+    suite_name: "Payment Suite",
+    environment_id: null,
+    name: "Hourly Payment Checks",
+    config: { frequency: "hourly", minute: 30 },
+    is_enabled: true,
+    next_run_at: "2026-02-07T14:30:00Z",
+    last_run_at: "2026-02-07T13:30:00Z",
+    last_run_status: "failed",
+    created_at: "2026-01-15T00:00:00Z",
+    updated_at: "2026-02-07T13:30:00Z",
+  },
+  {
+    id: "sched-3",
+    account_id: "acc-1",
+    suite_id: "suite-3",
+    suite_name: "User API Suite",
+    environment_id: "env-2",
+    name: "Weekly Regression",
+    config: { frequency: "weekly", days_of_week: [1, 3, 5], hour: 6, minute: 0 },
+    is_enabled: false,
+    next_run_at: null,
+    last_run_at: "2026-02-05T06:00:00Z",
+    last_run_status: "success",
+    created_at: "2026-01-20T00:00:00Z",
+    updated_at: "2026-02-05T06:00:00Z",
+  },
+  {
+    id: "sched-4",
+    account_id: "acc-1",
+    suite_id: "suite-1",
+    suite_name: "Auth Suite",
+    environment_id: null,
+    name: "One-time Deploy Test",
+    config: { frequency: "once", start_time: "2026-02-10T15:00:00Z" },
+    is_enabled: true,
+    next_run_at: "2026-02-10T15:00:00Z",
+    last_run_at: null,
+    last_run_status: null,
+    created_at: "2026-02-06T00:00:00Z",
+    updated_at: "2026-02-06T00:00:00Z",
+  },
+];
+
+// ============== Schedule API Functions ==============
+
+export async function fetchSchedules(accountId: string, _token: string): Promise<Schedule[]> {
+  // Mock implementation - returns schedules for the account
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  return mockSchedules.filter((s) => s.account_id === accountId || accountId === "acc-1");
+}
+
+export async function createSchedule(
+  payload: CreateSchedulePayload,
+  _token: string
+): Promise<Schedule> {
+  // Mock implementation
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  
+  const newSchedule: Schedule = {
+    id: `sched-${Date.now()}`,
+    account_id: "acc-1",
+    suite_id: payload.suite_id,
+    suite_name: "New Suite",
+    environment_id: payload.environment_id ?? null,
+    name: payload.name,
+    config: payload.config,
+    is_enabled: payload.is_enabled,
+    next_run_at: payload.config.frequency === "once" ? payload.config.start_time ?? null : new Date().toISOString(),
+    last_run_at: null,
+    last_run_status: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  
+  mockSchedules.push(newSchedule);
+  return newSchedule;
+}
+
+export async function updateSchedule(
+  scheduleId: string,
+  payload: Partial<CreateSchedulePayload>,
+  _token: string
+): Promise<Schedule> {
+  await new Promise((resolve) => setTimeout(resolve, 400));
+  
+  const index = mockSchedules.findIndex((s) => s.id === scheduleId);
+  if (index === -1) {
+    throw new Error("Schedule not found");
+  }
+  
+  const updated: Schedule = {
+    ...mockSchedules[index],
+    ...payload,
+    environment_id: payload.environment_id ?? mockSchedules[index].environment_id,
+    updated_at: new Date().toISOString(),
+  };
+  
+  mockSchedules[index] = updated;
+  return updated;
+}
+
+export async function deleteSchedule(scheduleId: string, _token: string): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  
+  const index = mockSchedules.findIndex((s) => s.id === scheduleId);
+  if (index === -1) {
+    throw new Error("Schedule not found");
+  }
+  
+  mockSchedules.splice(index, 1);
+}
+
+export async function toggleScheduleEnabled(
+  scheduleId: string,
+  isEnabled: boolean,
+  _token: string
+): Promise<Schedule> {
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  
+  const index = mockSchedules.findIndex((s) => s.id === scheduleId);
+  if (index === -1) {
+    throw new Error("Schedule not found");
+  }
+  
+  mockSchedules[index] = {
+    ...mockSchedules[index],
+    is_enabled: isEnabled,
+    updated_at: new Date().toISOString(),
+  };
+  
+  return mockSchedules[index];
+}

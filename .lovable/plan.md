@@ -1,88 +1,181 @@
 
-
-# Add Dedicated Test Cases Page
+# Add Ability to Schedule Runs
 
 ## Overview
-Create a new dedicated page for Test Cases with a link in the side navigation menu. This page will display all test cases across suites in a centralized list view, following the existing UI patterns and architecture.
+Add a scheduling feature that allows users to configure recurring test suite runs. This includes a dedicated Schedules page accessible from the side navigation, a dialog for creating/editing schedules, and the ability to view upcoming scheduled runs.
 
 ## Changes Required
 
-### 1. Create Test Cases Page Component
-**File: `src/pages/TestCases.tsx`** (new file)
+### 1. Create Schedule Run Dialog Component
+**File: `src/components/ScheduleRunDialog.tsx`** (new file)
 
-Create a new page component following the pattern from `Runs.tsx`:
-- Import and use `LeftRail` with `activeItem="testcases"`
-- Wrap with `AuthGate` and `TooltipProvider`
-- Render the main `TestCasesListView` component
+A dialog for creating and editing scheduled runs with the following fields:
+- **Suite selection**: Dropdown to select which suite to schedule (required)
+- **Environment selection**: Optional environment for the scheduled run
+- **Schedule type**: One-time or recurring
+- **For one-time**: Date picker for start date/time
+- **For recurring**: Cron-style frequency options:
+  - Every X minutes/hours
+  - Daily at specific time
+  - Weekly on specific days
+  - Custom cron expression (advanced)
+- **Enabled toggle**: Turn schedule on/off without deleting
+- **Name**: Optional descriptive name for the schedule
 
-### 2. Create Test Cases List View Component
-**File: `src/components/TestCasesListView.tsx`** (new file)
+UI Pattern: Follow the existing `CreateTestCaseDialog.tsx` pattern with controlled form state and async submission.
 
-Create a list view component following the pattern from `RunsListView.tsx`:
-- Header with title "Test Cases" and count
-- Mobile-responsive layout (cards on mobile, table on desktop)
-- Show test case name, associated suite, step count, and status
-- Clickable rows that navigate to the suite with the test case selected
-- Filter/search functionality
-- Status badges for pass/fail/pending states
+### 2. Create Schedules List View Component
+**File: `src/components/SchedulesListView.tsx`** (new file)
 
-### 3. Update Left Rail Navigation
+A list view displaying all configured schedules with:
+- Header with title, count, and "New Schedule" button
+- Search/filter functionality
+- Table (desktop) / Cards (mobile) layout showing:
+  - Schedule name
+  - Suite name
+  - Frequency description (e.g., "Daily at 9:00 AM")
+  - Next run time
+  - Status (enabled/disabled)
+  - Last run status badge
+- Row actions: Edit, Enable/Disable toggle, Delete
+
+### 3. Create Schedules Page
+**File: `src/pages/Schedules.tsx`** (new file)
+
+Page component following existing patterns:
+- Uses `LeftRail` with `activeItem="schedules"`
+- Wrapped with `AuthGate` and `TooltipProvider`
+- Renders `SchedulesListView`
+
+### 4. Update Navigation
 **File: `src/components/LeftRail.tsx`**
 
-Add the Test Cases item to navigation arrays:
-- Add `FileText` icon import from lucide-react
-- Add to `topItems` array between Suites and Runs:
+Add Schedules to navigation:
+- Import `Calendar` icon from lucide-react
+- Add to `topItems` array after Runs:
   ```typescript
-  { icon: FileText, label: "Test Cases", id: "testcases", path: "/test-cases" }
+  { icon: Calendar, label: "Schedules", id: "schedules", path: "/schedules" }
   ```
 
-### 4. Update App Router
+### 5. Update App Router
 **File: `src/App.tsx`**
 
-Add routes for the Test Cases page:
-- Import the new `TestCases` page component
-- Add route: `<Route path="/test-cases" element={<TestCases />} />`
-- Add route with optional case ID: `<Route path="/test-cases/:caseId" element={<TestCases />} />`
+Add routes:
+- `<Route path="/schedules" element={<Schedules />} />`
+- `<Route path="/schedules/:scheduleId" element={<Schedules />} />`
 
-## Data Structure
+### 6. Add API Types and Functions
+**File: `src/lib/api/suites.ts`**
 
-The Test Cases page will display:
+Add types and API functions for schedules:
 
-| Column | Description |
-|--------|-------------|
-| Name | Test case name |
-| Suite | Parent suite name with link |
-| Steps | Number of test steps |
-| Status | Last run status (pass/fail/pending) |
-| Last Run | Timestamp of last execution |
+```typescript
+// Schedule Types
+export type ScheduleFrequency = "once" | "hourly" | "daily" | "weekly" | "cron";
 
-## Technical Details
+export type ScheduleConfig = {
+  frequency: ScheduleFrequency;
+  start_time?: string;
+  hour?: number;
+  minute?: number;
+  days_of_week?: number[];
+  cron_expression?: string;
+};
 
-### Navigation Flow
-- Click on test case row navigates to `/suites/:suiteId?selectedCase=:caseId`
-- This allows viewing the test case in context of its parent suite
+export type Schedule = {
+  id: string;
+  account_id: string;
+  suite_id: string;
+  suite_name: string;
+  environment_id: string | null;
+  name: string;
+  config: ScheduleConfig;
+  is_enabled: boolean;
+  next_run_at: string | null;
+  last_run_at: string | null;
+  last_run_status: RunStatus | null;
+  created_at: string;
+  updated_at: string;
+};
 
-### Component Hierarchy
-```text
-TestCases (page)
-  +-- LeftRail
-  +-- TestCasesListView
-        +-- Header (title, count, filters)
-        +-- ScrollArea
-              +-- Table (desktop) / Cards (mobile)
+export type CreateSchedulePayload = {
+  suite_id: string;
+  environment_id?: string | null;
+  name: string;
+  config: ScheduleConfig;
+  is_enabled: boolean;
+};
+
+// API Functions
+export async function fetchSchedules(accountId: string, token: string): Promise<Schedule[]>;
+export async function createSchedule(payload: CreateSchedulePayload, token: string): Promise<Schedule>;
+export async function updateSchedule(scheduleId: string, payload: Partial<CreateSchedulePayload>, token: string): Promise<Schedule>;
+export async function deleteSchedule(scheduleId: string, token: string): Promise<void>;
 ```
 
-### API Integration
-For now, use mock data similar to `RunsListView`. The component will be structured to easily integrate with the real API when available:
-- Aggregate test cases from multiple suites
-- Include suite reference for navigation
+### 7. Quick Schedule from Suite View (Optional Enhancement)
+**File: `src/components/SuiteCanvas.tsx`**
 
-## Files to Create/Modify
+Add a "Schedule" button next to "Run Suite" that opens the ScheduleRunDialog pre-filled with the current suite.
+
+## Data Flow
+
+```text
+Schedules Page
+    +-- SchedulesListView
+          +-- Header (title, "New Schedule" button)
+          +-- Search/Filter bar
+          +-- Table/Cards (schedule list)
+          |     +-- Row click opens edit dialog
+          +-- ScheduleRunDialog (create/edit)
+                +-- Suite selector
+                +-- Environment selector
+                +-- Frequency configuration
+                +-- DatePicker (for one-time runs)
+                +-- Enabled toggle
+```
+
+## Mock Data Structure
+
+For initial implementation, use mock data:
+
+```typescript
+const mockSchedules: Schedule[] = [
+  {
+    id: "sched-1",
+    account_id: "acc-1",
+    suite_id: "suite-1",
+    suite_name: "Auth Suite",
+    environment_id: "env-1",
+    name: "Daily Auth Tests",
+    config: { frequency: "daily", hour: 9, minute: 0 },
+    is_enabled: true,
+    next_run_at: "2026-02-08T09:00:00Z",
+    last_run_at: "2026-02-07T09:00:00Z",
+    last_run_status: "success",
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-02-07T09:00:00Z",
+  },
+  // ... more schedules
+];
+```
+
+## Files Summary
 
 | File | Action |
 |------|--------|
-| `src/pages/TestCases.tsx` | Create |
-| `src/components/TestCasesListView.tsx` | Create |
-| `src/components/LeftRail.tsx` | Modify (add nav item) |
-| `src/App.tsx` | Modify (add route) |
+| `src/components/ScheduleRunDialog.tsx` | Create |
+| `src/components/SchedulesListView.tsx` | Create |
+| `src/pages/Schedules.tsx` | Create |
+| `src/components/LeftRail.tsx` | Modify |
+| `src/App.tsx` | Modify |
+| `src/lib/api/suites.ts` | Modify |
+| `src/components/SuiteCanvas.tsx` | Modify (optional) |
 
+## Technical Considerations
+
+- **Date Picker**: Use the existing shadcn Calendar component with Popover, ensuring `pointer-events-auto` class is applied per project conventions
+- **Time Selection**: Add hour/minute dropdowns or use a time input for scheduling specific times
+- **Timezone**: Display times in user's local timezone with UTC storage
+- **Validation**: Ensure schedule configuration is valid before submission
+- **Mobile**: Responsive card layout for schedules list on mobile devices
