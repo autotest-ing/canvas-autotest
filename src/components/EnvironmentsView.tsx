@@ -313,7 +313,7 @@ export function EnvironmentsView() {
           name: currentEnv.name,
           is_default: currentEnv.isDefault,
           variables: currentEnv.variables.map(variable => ({
-            id: variable.id,
+            ...(!variable.isNew ? { id: variable.id } : {}),
             key: variable.key,
             value: variable.value,
             is_overridable: variable.isOverridable,
@@ -321,7 +321,7 @@ export function EnvironmentsView() {
             ...(variable.isDeleted ? { is_deleted: true } : {}),
           })),
           secrets: currentEnv.secrets.map(secret => ({
-            id: secret.id,
+            ...(!secret.isNew ? { id: secret.id } : {}),
             key: secret.key,
             value: secret.value,
             ...(secret.isNew ? { new: true } : {}),
@@ -522,7 +522,7 @@ export function EnvironmentsView() {
           name: currentEnv.name,
           is_default: currentEnv.isDefault,
           variables: currentEnv.variables.map(variable => ({
-            id: variable.id,
+            ...(!variable.isNew ? { id: variable.id } : {}),
             key: variable.key,
             value: variable.value,
             is_overridable: variable.isOverridable,
@@ -530,7 +530,7 @@ export function EnvironmentsView() {
             ...(variable.isDeleted ? { is_deleted: true } : {}),
           })),
           secrets: currentEnv.secrets.map(secret => ({
-            id: secret.id,
+            ...(!secret.isNew ? { id: secret.id } : {}),
             key: secret.key,
             value: secret.value,
             ...(secret.isNew ? { new: true } : {}),
