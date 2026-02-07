@@ -143,34 +143,58 @@ export function TestStepCard({
               {step.assertions.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No assertions yet.</p>
               ) : (
-                step.assertions.map((assertion) => (
-                  <button
-                    key={assertion.id}
-                    type="button"
-                    className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-muted/30 text-left transition-colors hover:bg-muted/50"
-                    onClick={() => onEditAssertion?.(step.id, assertion.id)}
-                    disabled={!onEditAssertion}
-                  >
-                    <div
+                step.assertions.map((assertion) => {
+                  const isDisabled = !assertion.isEnabled;
+
+                  return (
+                    <button
+                      key={assertion.id}
+                      type="button"
                       className={cn(
-                        "w-5 h-5 rounded-full flex items-center justify-center shrink-0",
-                        assertion.status === "pass"
-                          ? "bg-emerald-500/15"
-                          : assertion.status === "fail"
-                          ? "bg-destructive/15"
-                          : "bg-muted"
+                        "w-full flex items-center gap-3 p-2.5 rounded-lg text-left transition-colors",
+                        isDisabled
+                          ? "border border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10"
+                          : "bg-muted/30 hover:bg-muted/50"
                       )}
+                      onClick={() => onEditAssertion?.(step.id, assertion.id)}
+                      disabled={!onEditAssertion}
                     >
-                      <AssertionIcon status={assertion.status} />
-                    </div>
-                    <p className="flex-1 text-sm text-foreground">
-                      {assertion.description}
-                    </p>
-                    <Badge variant="outline" className="text-[10px] shrink-0">
-                      {assertion.type}
-                    </Badge>
-                  </button>
-                ))
+                      <div
+                        className={cn(
+                          "w-5 h-5 rounded-full flex items-center justify-center shrink-0",
+                          assertion.status === "pass"
+                            ? "bg-emerald-500/15"
+                            : assertion.status === "fail"
+                            ? "bg-destructive/15"
+                            : "bg-muted"
+                        )}
+                      >
+                        <AssertionIcon status={assertion.status} />
+                      </div>
+                      <p
+                        className={cn(
+                          "flex-1 text-sm",
+                          isDisabled ? "text-muted-foreground" : "text-foreground"
+                        )}
+                      >
+                        {assertion.description}
+                      </p>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {isDisabled && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] bg-amber-500/10 text-amber-700 border-amber-500/40"
+                          >
+                            disabled
+                          </Badge>
+                        )}
+                        <Badge variant="outline" className="text-[10px] shrink-0">
+                          {assertion.type}
+                        </Badge>
+                      </div>
+                    </button>
+                  );
+                })
               )}
             </div>
           </div>
