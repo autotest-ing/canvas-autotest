@@ -3,13 +3,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Play, Sparkles, BookOpen, Plus, Check, X, Calendar } from "lucide-react";
+import { Play, Sparkles, BookOpen, Plus, Check, X, Calendar, ChevronDown } from "lucide-react";
 import { TestStepCard } from "./TestStepCard";
 import type { TestCase, TestStep } from "./TestCaseList";
 import type { Environment } from "@/lib/api/suites";
@@ -46,6 +52,7 @@ interface SuiteCanvasProps {
   selectedEnvironmentId: string | null;
   onEnvironmentChange: (environmentId: string | null) => void;
   onRunSuite: () => void;
+  onRunWithOverrides: () => void;
   onAskAI: () => void;
   onViewRuns?: () => void;
   onCreateAssertion?: (stepId: string, payload: CreateAssertionPayload) => Promise<void>;
@@ -69,6 +76,7 @@ export function SuiteCanvas({
   selectedEnvironmentId,
   onEnvironmentChange,
   onRunSuite,
+  onRunWithOverrides,
   onAskAI,
   onViewRuns,
   onCreateAssertion,
@@ -153,10 +161,32 @@ export function SuiteCanvas({
               ))}
             </SelectContent>
           </Select>
-          <Button size="sm" onClick={onRunSuite} className="gap-2">
-            <Play className="w-4 h-4" />
-            Run Suite
-          </Button>
+          <div className="inline-flex items-center">
+            <Button
+              size="sm"
+              onClick={onRunSuite}
+              className="gap-2 rounded-r-none border-r border-primary-foreground/30"
+            >
+              <Play className="w-4 h-4" />
+              Run Suite
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  aria-label="Run suite options"
+                  className="rounded-l-none px-2"
+                >
+                  <ChevronDown className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={onRunWithOverrides}>
+                  Run with Overrides
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
           {onSchedule && (
             <Button variant="outline" size="sm" onClick={onSchedule} className="gap-2">
               <Calendar className="w-4 h-4" />

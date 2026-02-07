@@ -175,6 +175,22 @@ export type Environment = {
   name: string;
 };
 
+export type EnvironmentDetailVariable = {
+  id?: string | number;
+  key: string;
+  value: string;
+  is_overridable?: boolean;
+  isOverridable?: boolean;
+};
+
+export type EnvironmentDetailResponse = {
+  id: string;
+  name: string;
+  base_url?: string;
+  baseUrl?: string;
+  variables?: EnvironmentDetailVariable[];
+};
+
 export type CreateTestStepPayload = {
   test_case_id: string;
   name: string;
@@ -318,6 +334,21 @@ export async function fetchEnvironments(accountId: string, token: string): Promi
 
   const data = (await response.json()) as { items?: Environment[] };
   return data.items ?? [];
+}
+
+export async function fetchEnvironmentDetail(
+  envId: string,
+  token: string
+): Promise<EnvironmentDetailResponse> {
+  const response = await fetch(`${BASE_API_URL}/v1.0/environments/${envId}`, {
+    headers: getAuthHeaders(token),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to load environment details");
+  }
+
+  return (await response.json()) as EnvironmentDetailResponse;
 }
 
 export async function fetchSuitesFull(suiteId: string, token: string): Promise<TestSuiteFullResponse> {

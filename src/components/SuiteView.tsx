@@ -6,6 +6,7 @@ import { SuiteCanvas } from "./SuiteCanvas";
 import { AddAssertionDialog } from "./AddAssertionDialog";
 import { AddTestStepDialog, type AddTestStepFormValues } from "./AddTestStepDialog";
 import { CreateTestCaseDialog, type CreateTestCaseFormValues } from "./CreateTestCaseDialog";
+import { RunWithOverridesDialog, type OverrideVariableRow } from "./RunWithOverridesDialog";
 import { MobileBottomSpacer } from "./LeftRail";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -22,6 +23,7 @@ import {
   fetchSuitesFull,
   fetchSuites,
   fetchEnvironments,
+  fetchEnvironmentDetail,
   getAssertion,
   updateAssertion,
   reorderTestSteps,
@@ -290,6 +292,12 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
   const [isUpdatingAssertion, setIsUpdatingAssertion] = useState(false);
   const [deletingAssertionId, setDeletingAssertionId] = useState<string | null>(null);
   const [deletingTestStepId, setDeletingTestStepId] = useState<string | null>(null);
+  const [isRunWithOverridesOpen, setIsRunWithOverridesOpen] = useState(false);
+  const [isOverridesListLoading, setIsOverridesListLoading] = useState(false);
+  const [isOverridesDetailLoading, setIsOverridesDetailLoading] = useState(false);
+  const [isRunningWithOverrides, setIsRunningWithOverrides] = useState(false);
+  const [overrideEnvironmentId, setOverrideEnvironmentId] = useState<string | null>(null);
+  const [overrideVariables, setOverrideVariables] = useState<OverrideVariableRow[]>([]);
   const isMobile = useIsMobile();
 
   // Resolve suiteId: if it's already a UUID use it directly,
@@ -403,6 +411,121 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
       params.set("environmentId", selectedEnvironmentId);
     }
     navigate(`/suites/${resolvedSuiteId}/runs/live/canvas?${params.toString()}`);
+  };
+
+  const handleOverrideVariableChange = (id: string, field: "key" | "value", value: string) => {
+    setOverrideVariables((prev) =>
+      prev.map((variable) =>
+        variable.id === id
+          ? {
+              ...variable,
+              [field]: value,
+            }
+          : variable
+      )
+    );
+  };
+
+  const handleRunWithOverrides = async () => {
+    const accountId = currentUser?.default_account_id;
+    if (!token || !accountId || !resolvedSuiteId) return;
+
+    setIsRunWithOverridesOpen(true);
+    setIsOverridesListLoading(true);
+    setIsOverridesDetailLoading(true);
+    setOverrideEnvironmentId(null);
+    setOverrideVariables([]);
+
+    let selectedEnvId: string | null = null;
+
+    try {
+      const envs = await fetchEnvironments(accountId, token);
+      setEnvironments(envs);
+
+      if (envs.length === 0) {
+        toast.error("No environments found");
+        setIsRunWithOverridesOpen(false);
+        setIsOverridesDetailLoading(false);
+        return;
+      }
+
+      const hasSelectedEnvironment =
+        !!selectedEnvironmentId && envs.some((env) => env.id === selectedEnvironmentId);
+      selectedEnvId = hasSelectedEnvironment ? selectedEnvironmentId : envs[0].id;
+
+      setOverrideEnvironmentId(selectedEnvId);
+      setSelectedEnvironmentId(selectedEnvId);
+    } catch {
+      toast.error("Failed to load environments");
+      setIsRunWithOverridesOpen(false);
+      setIsOverridesDetailLoading(false);
+      return;
+    } finally {
+      setIsOverridesListLoading(false);
+    }
+
+    if (!selectedEnvId) {
+      setIsOverridesDetailLoading(false);
+      return;
+    }
+
+    try {
+      const detail = await fetchEnvironmentDetail(selectedEnvId, token);
+      const rows: OverrideVariableRow[] = [];
+
+      const baseUrl = detail.base_url ?? detail.baseUrl;
+      if (typeof baseUrl === "string" && baseUrl.trim()) {
+        rows.push({
+          id: "base-url",
+          key: "BASE_URL",
+          value: baseUrl,
+        });
+      }
+
+      (detail.variables ?? []).forEach((variable, index) => {
+        rows.push({
+          id: String(variable.id ?? `variable-${index}`),
+          key: variable.key ?? "",
+          value: variable.value ?? "",
+        });
+      });
+
+      setOverrideVariables(rows);
+    } catch {
+      toast.error("Failed to load environment details");
+    } finally {
+      setIsOverridesDetailLoading(false);
+    }
+  };
+
+  const handleRunSuiteWithOverrides = () => {
+    if (!resolvedSuiteId) return;
+
+    setIsRunningWithOverrides(true);
+
+    const params = new URLSearchParams({ autorun: "true" });
+    if (overrideEnvironmentId) {
+      params.set("environmentId", overrideEnvironmentId);
+    }
+
+    const variables = overrideVariables.reduce<Record<string, unknown>>((accumulator, variable) => {
+      const key = variable.key.trim();
+      if (!key) {
+        return accumulator;
+      }
+
+      accumulator[key] = variable.value;
+      return accumulator;
+    }, {});
+
+    navigate(`/suites/${resolvedSuiteId}/runs/live/canvas?${params.toString()}`, {
+      state: {
+        variables,
+      },
+    });
+
+    setIsRunningWithOverrides(false);
+    setIsRunWithOverridesOpen(false);
   };
 
   const handleAskAI = () => {
@@ -813,6 +936,18 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
     />
   );
 
+  const runWithOverridesDialog = (
+    <RunWithOverridesDialog
+      open={isRunWithOverridesOpen}
+      onOpenChange={setIsRunWithOverridesOpen}
+      variables={overrideVariables}
+      isLoading={isOverridesListLoading || isOverridesDetailLoading}
+      isSubmitting={isRunningWithOverrides}
+      onVariableChange={handleOverrideVariableChange}
+      onRun={handleRunSuiteWithOverrides}
+    />
+  );
+
   // Mobile layout
   if (isMobile) {
     return (
@@ -859,6 +994,7 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
               selectedEnvironmentId={selectedEnvironmentId}
               onEnvironmentChange={setSelectedEnvironmentId}
               onRunSuite={handleRunSuite}
+              onRunWithOverrides={handleRunWithOverrides}
               onAskAI={handleAskAI}
               onViewRuns={handleViewRuns}
               onCreateAssertion={handleCreateAssertion}
@@ -876,6 +1012,7 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
         {addTestStepDialog}
         {createTestCaseDialog}
         {editAssertionDialog}
+        {runWithOverridesDialog}
         <MobileBottomSpacer />
       </div>
     );
@@ -913,6 +1050,7 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
                 selectedEnvironmentId={selectedEnvironmentId}
                 onEnvironmentChange={setSelectedEnvironmentId}
                 onRunSuite={handleRunSuite}
+                onRunWithOverrides={handleRunWithOverrides}
                 onAskAI={handleAskAI}
                 onViewRuns={handleViewRuns}
                 onCreateAssertion={handleCreateAssertion}
@@ -931,6 +1069,7 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
       {addTestStepDialog}
       {createTestCaseDialog}
       {editAssertionDialog}
+      {runWithOverridesDialog}
     </div>
   );
 }
