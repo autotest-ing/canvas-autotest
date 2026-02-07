@@ -14,11 +14,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ChevronDown, CheckCircle2, AlertCircle, Clock, Loader2, MoreVertical, Plus } from "lucide-react";
+import { ChevronDown, CheckCircle2, AlertCircle, Clock, Loader2, MoreVertical, Plus, GripVertical } from "lucide-react";
 import type { TestStep, Assertion } from "./TestCaseList";
 import { AddAssertionDialog } from "@/components/AddAssertionDialog";
 import type { CreateAssertionPayload, RequestPayload, StepResultFullDetail } from "@/lib/api/suites";
 import { toast } from "sonner";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface TestStepCardProps {
   step: TestStep;
@@ -30,6 +32,8 @@ interface TestStepCardProps {
   isCreatingAssertion?: boolean;
   isDeletingStep?: boolean;
   onFetchLatestResult?: (stepId: string) => Promise<StepResultFullDetail | null>;
+  isDragMode?: boolean;
+  onEnableDragMode?: () => void;
 }
 
 const methodColors: Record<TestStep["method"], string> = {
@@ -84,6 +88,8 @@ export function TestStepCard({
   isCreatingAssertion = false,
   isDeletingStep = false,
   onFetchLatestResult,
+  isDragMode = false,
+  onEnableDragMode,
 }: TestStepCardProps) {
   const [open, setOpen] = useState(isExpanded);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -91,6 +97,22 @@ export function TestStepCard({
   const passedAssertions = step.assertions.filter(a => a.status === "pass").length;
   const totalAssertions = step.assertions.length;
   const isStepBusy = isDeletingStep;
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: step.id, disabled: !isDragMode });
+
+  const sortableStyle = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : undefined,
+  };
 
   const handleDeleteStep = async () => {
     if (!onDeleteStep) {
@@ -106,14 +128,31 @@ export function TestStepCard({
   };
 
   return (
-    <Card className="border-border/50 overflow-hidden">
-      <Collapsible open={open} onOpenChange={setOpen}>
+    <Card
+      ref={setNodeRef}
+      style={sortableStyle}
+      className={cn("border-border/50 overflow-hidden", isDragging && "shadow-lg")}
+    >
+      <Collapsible open={isDragMode ? false : open} onOpenChange={setOpen}>
         <div className="flex items-center gap-1">
+          {isDragMode && (
+            <button
+              type="button"
+              className="pl-2 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors"
+              {...attributes}
+              {...listeners}
+            >
+              <GripVertical className="h-5 w-5" />
+            </button>
+          )}
           <CollapsibleTrigger asChild>
             <button
               type="button"
-              className="flex-1 p-4 flex items-center gap-4 hover:bg-accent/30 transition-colors text-left"
-              disabled={isStepBusy}
+              className={cn(
+                "flex-1 p-4 flex items-center gap-4 hover:bg-accent/30 transition-colors text-left",
+                isDragMode && "pl-1"
+              )}
+              disabled={isStepBusy || isDragMode}
             >
               <div className="flex items-center gap-3 shrink-0">
                 <span className="text-xs font-medium text-muted-foreground w-6">
@@ -155,7 +194,7 @@ export function TestStepCard({
             </button>
           </CollapsibleTrigger>
 
-          {onDeleteStep && (
+          {onDeleteStep && !isDragMode && (
             <div className="pr-3">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -177,6 +216,14 @@ export function TestStepCard({
                   >
                     Edit
                   </DropdownMenuItem>
+                  {onEnableDragMode && (
+                    <DropdownMenuItem
+                      disabled={isStepBusy}
+                      onClick={onEnableDragMode}
+                    >
+                      Move
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem
                     disabled={isStepBusy}
                     className="text-destructive focus:text-destructive"
