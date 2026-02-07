@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { 
   Home, 
   Layers, 
+  FileText,
   Play, 
   Database, 
   Globe, 
@@ -37,6 +38,7 @@ interface NavItem {
 const topItems: NavItem[] = [
   { icon: Home, label: "Home", id: "home", path: "/" },
   { icon: Layers, label: "Suites", id: "suites", path: "/suites" },
+  { icon: FileText, label: "Test Cases", id: "testcases", path: "/test-cases" },
   { icon: Play, label: "Runs", id: "runs", path: "/runs" },
   { icon: Database, label: "Sources", id: "sources", path: "/sources" },
   { icon: Globe, label: "Environments", id: "environments", path: "/environments" },

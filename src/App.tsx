@@ -8,6 +8,7 @@ import { KeyboardShortcutsProvider } from "@/components/KeyboardShortcutsProvide
 import { AuthProvider } from "@/context/AuthContext";
 import Index from "./pages/Index";
 import Suites from "./pages/Suites";
+import TestCases from "./pages/TestCases";
 import Runs from "./pages/Runs";
 import RunDetail from "./pages/RunDetail";
 import RunCanvas from "./pages/RunCanvas";
@@ -40,6 +41,8 @@ const App = () => (
                 <Route path="/suites/:suiteId/runs" element={<Runs />} />
                 <Route path="/suites/:suiteId/runs/:runId" element={<RunDetail />} />
                 <Route path="/suites/:suiteId/runs/:runId/canvas" element={<RunCanvas />} />
+                <Route path="/test-cases" element={<TestCases />} />
+                <Route path="/test-cases/:caseId" element={<TestCases />} />
                 <Route path="/runs" element={<Runs />} />
                 <Route path="/runs/:runId" element={<RunDetail />} />
                 <Route path="/runs/:runId/canvas" element={<RunCanvas />} />
