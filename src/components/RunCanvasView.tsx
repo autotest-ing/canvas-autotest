@@ -6,12 +6,15 @@ import { Play, LayoutGrid, ZoomIn, ZoomOut, Maximize2, Move, Square, Pause } fro
 import { SuiteNode } from "@/components/canvas/SuiteNode";
 import { TestCaseNode } from "@/components/canvas/TestCaseNode";
 import { TestStepNode } from "@/components/canvas/TestStepNode";
+import { StepDetailDialog } from "@/components/canvas/StepDetailDialog";
 import { NodeConnector } from "@/components/canvas/NodeConnector";
 import { CanvasMinimap } from "@/components/canvas/CanvasMinimap";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSuiteExecution } from "@/hooks/use-suite-execution";
 import { useAuth } from "@/context/AuthContext";
+import type { RunTestStep } from "@/components/RunTestCaseList";
+
 interface RunCanvasViewProps {
   runId?: string;
   suiteId?: string;
@@ -48,6 +51,8 @@ export function RunCanvasView({ runId, suiteId, environmentId, variables }: RunC
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [isPaused, setIsPaused] = useState(false);
+  const [selectedStep, setSelectedStep] = useState<RunTestStep | null>(null);
+  const [stepDialogOpen, setStepDialogOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   const hasAutoStarted = useRef(false);
@@ -121,6 +126,13 @@ export function RunCanvasView({ runId, suiteId, environmentId, variables }: RunC
 
   const handlePause = useCallback(() => {
     setIsPaused((prev) => !prev);
+  }, []);
+
+  const handleStepClick = useCallback((step: RunTestStep) => {
+    if (step.status === "pass" || step.status === "fail") {
+      setSelectedStep(step);
+      setStepDialogOpen(true);
+    }
   }, []);
 
   const handleZoomIn = useCallback(() => {
@@ -504,6 +516,7 @@ export function RunCanvasView({ runId, suiteId, environmentId, variables }: RunC
                     step={step}
                     x={stepPos.x}
                     y={stepPos.y}
+                    onStepClick={handleStepClick}
                   />
                 );
               });
@@ -555,6 +568,13 @@ export function RunCanvasView({ runId, suiteId, environmentId, variables }: RunC
           </>
         )}
       </div>
+
+      {/* Step Detail Dialog */}
+      <StepDetailDialog
+        step={selectedStep}
+        open={stepDialogOpen}
+        onOpenChange={setStepDialogOpen}
+      />
     </div>
   );
 }

@@ -13,6 +13,7 @@ interface TestStepNodeProps {
   step: RunTestStep;
   x: number;
   y: number;
+  onStepClick?: (step: RunTestStep) => void;
 }
 
 function getStatusStyles(status: RunTestStep["status"]) {
@@ -61,7 +62,7 @@ function getMethodColor(method: RunTestStep["method"]) {
   }
 }
 
-export function TestStepNode({ step, x, y }: TestStepNodeProps) {
+export function TestStepNode({ step, x, y, onStepClick }: TestStepNodeProps) {
   const styles = getStatusStyles(step.status);
 
   return (
@@ -84,6 +85,7 @@ export function TestStepNode({ step, x, y }: TestStepNodeProps) {
               styles.bg,
               styles.border
             )}
+            onClick={() => onStepClick?.(step)}
           >
             {styles.icon}
           </button>

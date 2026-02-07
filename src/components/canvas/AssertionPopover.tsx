@@ -101,8 +101,30 @@ function getStatusIcon(status: Assertion["status"]) {
   }
 }
 
+function formatAssertionValue(value: unknown): string {
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    if ("value" in obj) return String(obj.value ?? "—");
+    return JSON.stringify(value);
+  }
+  return String(value);
+}
+
 export function AssertionPopover({ step }: AssertionPopoverProps) {
-  const assertions = getMockAssertions(step);
+  const hasRealData = step.assertionResults && step.assertionResults.length > 0;
+
+  const assertions: Assertion[] = hasRealData
+    ? step.assertionResults!.map((ar, i) => ({
+        id: String(i),
+        type: "custom" as const,
+        name: ar.message || `Assertion ${i + 1}`,
+        expected: formatAssertionValue(ar.expected),
+        actual: formatAssertionValue(ar.actual),
+        status: ar.status === "pass" ? "pass" : ar.status === "fail" ? "fail" : "pending",
+      }))
+    : getMockAssertions(step);
+
   const passedCount = assertions.filter((a) => a.status === "pass").length;
   const failedCount = assertions.filter((a) => a.status === "fail").length;
 

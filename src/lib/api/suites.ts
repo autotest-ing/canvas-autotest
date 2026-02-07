@@ -221,6 +221,47 @@ export type CreateTestCaseResponse = {
   updated_at?: string;
 };
 
+// ============== Step Result Detail Types ==============
+
+export type StepResultHttpRequest = {
+  method: string | null;
+  url: string | null;
+  headers: Record<string, unknown> | null;
+  body: unknown;
+};
+
+export type StepResultHttpResponse = {
+  status_code: number | null;
+  headers: Record<string, unknown> | null;
+  body: unknown;
+  raw_body: string | null;
+  duration_ms: number | null;
+};
+
+export type StepResultAssertionResult = {
+  id: string;
+  step_result_id: string;
+  assertion_id: string;
+  status: string;
+  actual: unknown;
+  expected: unknown;
+  message: string | null;
+  created_at: string;
+};
+
+export type StepResultFullDetail = {
+  id: string;
+  case_result_id: string;
+  test_step_id: string;
+  status: string;
+  started_at: string;
+  finished_at: string | null;
+  error: string | null;
+  request: StepResultHttpRequest | null;
+  response: StepResultHttpResponse | null;
+  assertion_results: StepResultAssertionResult[];
+};
+
 // ============== API functions ==============
 
 export async function fetchEnvironments(accountId: string, token: string): Promise<Environment[]> {
@@ -480,6 +521,22 @@ export async function deleteAssertion(assertionId: string, token: string): Promi
   if (!response.ok) {
     throw await buildApiError(response, "Failed to delete assertion");
   }
+}
+
+export async function fetchStepResultDetails(
+  stepResultId: string,
+  token: string
+): Promise<StepResultFullDetail> {
+  const response = await fetch(
+    `${BASE_API_URL}/v1.0/executions/step-results/${stepResultId}/details`,
+    { headers: getAuthHeaders(token) }
+  );
+
+  if (!response.ok) {
+    throw await buildApiError(response, "Failed to load step result details");
+  }
+
+  return (await response.json()) as StepResultFullDetail;
 }
 
 async function buildApiError(response: Response, prefix: string): Promise<Error> {

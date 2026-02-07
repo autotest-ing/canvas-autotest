@@ -14,6 +14,13 @@ export interface RunTestStep {
   duration?: string;
   assertionsPassed: number;
   assertionsTotal: number;
+  stepResultId?: string;
+  assertionResults?: Array<{
+    status: string;
+    message: string;
+    actual?: unknown;
+    expected?: unknown;
+  }>;
 }
 
 export interface RunTestCase {

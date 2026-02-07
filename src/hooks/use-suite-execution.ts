@@ -177,6 +177,7 @@ export function useSuiteExecution({
             duration: undefined,
             assertionsPassed: 0,
             assertionsTotal: 0,
+            stepResultId: event.step_result_id,
           };
           updateTestCases((prev) =>
             prev.map((tc) =>
@@ -208,6 +209,8 @@ export function useSuiteExecution({
                             endpoint: event.endpoint || step.endpoint,
                             assertionsPassed: event.passed_assertions,
                             assertionsTotal: event.total_assertions,
+                            stepResultId: event.step_result_id,
+                            assertionResults: event.assertion_results,
                           }
                         : step
                     ),
