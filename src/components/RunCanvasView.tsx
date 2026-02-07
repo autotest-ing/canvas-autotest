@@ -192,18 +192,18 @@ export function RunCanvasView({ runId, suiteId, environmentId, variables }: RunC
   }, []);
 
   // Calculate node positions based on real data
+  // Dynamically space test cases so their step nodes never overlap
   const nodePositions = useMemo(() => {
-    const positions: {
-      suite: { x: number; y: number };
-      cases: Array<{ id: string; x: number; y: number; steps: Array<{ id: string; x: number; y: number }> }>;
-    } = {
-      suite: { x: SUITE_X, y: SUITE_Y },
-      cases: [],
-    };
+    const cases: Array<{ id: string; x: number; y: number; steps: Array<{ id: string; x: number; y: number }> }> = [];
 
-    testCases.forEach((testCase, caseIndex) => {
-      const caseY = CASE_START_Y + caseIndex * CASE_SPACING_Y;
-      const casePosition = {
+    const CASE_GAP = 60; // minimum gap between the last step of one case and the first step of the next
+    let nextCaseY = CASE_START_Y;
+
+    testCases.forEach((testCase) => {
+      const caseY = nextCaseY;
+      const stepCount = Math.max(testCase.steps.length, 1);
+
+      cases.push({
         id: testCase.id,
         x: CASE_X,
         y: caseY,
@@ -212,16 +212,30 @@ export function RunCanvasView({ runId, suiteId, environmentId, variables }: RunC
           x: STEP_X,
           y: caseY + STEP_START_OFFSET_Y + stepIndex * STEP_SPACING_Y,
         })),
-      };
-      positions.cases.push(casePosition);
+      });
+
+      // The last step Y for this case
+      const lastStepY = caseY + STEP_START_OFFSET_Y + (stepCount - 1) * STEP_SPACING_Y;
+      // Next case starts so its first step won't overlap with this case's last step
+      // First step of next case will be at nextCaseY + STEP_START_OFFSET_Y
+      // We need: nextCaseY + STEP_START_OFFSET_Y > lastStepY + CASE_GAP
+      nextCaseY = lastStepY + CASE_GAP - STEP_START_OFFSET_Y;
     });
 
-    return positions;
+    // Center the suite node vertically relative to test cases
+    let suiteY = SUITE_Y;
+    if (cases.length > 0) {
+      const firstCaseY = cases[0].y;
+      const lastCaseY = cases[cases.length - 1].y;
+      suiteY = (firstCaseY + lastCaseY) / 2;
+    }
+
+    return { suite: { x: SUITE_X, y: suiteY }, cases };
   }, [testCases]);
 
   // Calculate total canvas dimensions needed
   const canvasDimensions = useMemo(() => {
-    let maxY = SUITE_Y + 100;
+    let maxY = nodePositions.suite.y + 100;
     let maxX = STEP_X + 150;
     nodePositions.cases.forEach((c) => {
       c.steps.forEach((s) => {
