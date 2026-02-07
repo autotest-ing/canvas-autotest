@@ -221,6 +221,49 @@ export type CreateTestCaseResponse = {
   updated_at?: string;
 };
 
+// ============== All Runs Types ==============
+
+export type RunStatus = "running" | "success" | "failed" | "canceled";
+
+export type AllRunsItem = {
+  id: string;
+  suite_id: string;
+  suite_name: string;
+  environment_id: string | null;
+  status: RunStatus;
+  started_at: string;
+  finished_at: string | null;
+  summary: {
+    total_cases?: number;
+    passed_cases?: number;
+    failed_cases?: number;
+    skipped_cases?: number;
+    total_steps?: number;
+    passed_steps?: number;
+    failed_steps?: number;
+    total_assertions?: number;
+    passed_assertions?: number;
+    failed_assertions?: number;
+  };
+  created_at: string;
+  created_by: string | null;
+};
+
+export type AllRunsListResponse = {
+  items: AllRunsItem[];
+  total: number;
+  next_cursor: string | null;
+};
+
+export type FetchAllRunsParams = {
+  search?: string;
+  status?: RunStatus;
+  sort_by?: "started_at" | "finished_at" | "status" | "created_at";
+  sort_desc?: boolean;
+  limit?: number;
+  cursor?: string;
+};
+
 // ============== Step Result Detail Types ==============
 
 export type StepResultHttpRequest = {
@@ -595,6 +638,44 @@ export async function fetchLatestStepResult(
   }
 
   return (await response.json()) as StepResultFullDetail;
+}
+
+export async function fetchAllRuns(
+  accountId: string,
+  token: string,
+  params?: FetchAllRunsParams
+): Promise<AllRunsListResponse> {
+  const url = new URL(`${BASE_API_URL}/v1.0/executions/runs/all`);
+  url.searchParams.set("account_id", accountId);
+
+  const limit = Math.min(100, Math.max(1, params?.limit ?? 20));
+  url.searchParams.set("limit", String(limit));
+
+  if (params?.search?.trim()) {
+    url.searchParams.set("search", params.search.trim());
+  }
+  if (params?.status) {
+    url.searchParams.set("status", params.status);
+  }
+  if (params?.sort_by) {
+    url.searchParams.set("sort_by", params.sort_by);
+  }
+  if (params?.sort_desc !== undefined) {
+    url.searchParams.set("sort_desc", String(params.sort_desc));
+  }
+  if (params?.cursor?.trim()) {
+    url.searchParams.set("cursor", params.cursor.trim());
+  }
+
+  const response = await fetch(url.toString(), {
+    headers: getAuthHeaders(token),
+  });
+
+  if (!response.ok) {
+    throw await buildApiError(response, "Failed to load runs");
+  }
+
+  return (await response.json()) as AllRunsListResponse;
 }
 
 async function buildApiError(response: Response, prefix: string): Promise<Error> {
