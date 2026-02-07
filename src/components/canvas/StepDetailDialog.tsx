@@ -9,6 +9,11 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import {
   CheckCircle2,
@@ -16,6 +21,7 @@ import {
   AlertTriangle,
   Clock,
   Loader2,
+  ChevronDown,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import type { RunTestStep } from "@/components/RunTestCaseList";
@@ -229,6 +235,34 @@ function KeyValueTable({ data }: { data: Record<string, unknown> | null }) {
   );
 }
 
+function HeadersSection({ headers }: { headers: Record<string, unknown> | null }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} className="space-y-2">
+      <CollapsibleTrigger asChild>
+        <button
+          type="button"
+          className="w-full flex items-center justify-between rounded-lg border border-border/60 px-3 py-2 hover:bg-muted/30 transition-colors"
+        >
+          <span className="text-xs font-medium text-muted-foreground">
+            Headers
+          </span>
+          <ChevronDown
+            className={cn(
+              "w-4 h-4 text-muted-foreground transition-transform",
+              open && "rotate-180"
+            )}
+          />
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <KeyValueTable data={headers} />
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 function RequestTab({
   request,
   loading,
@@ -283,13 +317,7 @@ function RequestTab({
           </div>
         </div>
 
-        {/* Headers */}
-        <div>
-          <h4 className="text-xs font-medium text-muted-foreground mb-1">
-            Headers
-          </h4>
-          <KeyValueTable data={request.headers} />
-        </div>
+        <HeadersSection headers={request.headers} />
 
         {/* Body */}
         <div>
@@ -373,13 +401,7 @@ function ResponseTab({
           )}
         </div>
 
-        {/* Headers */}
-        <div>
-          <h4 className="text-xs font-medium text-muted-foreground mb-1">
-            Headers
-          </h4>
-          <KeyValueTable data={response.headers} />
-        </div>
+        <HeadersSection headers={response.headers} />
 
         {/* Body */}
         <div>
@@ -412,6 +434,13 @@ export function StepDetailDialog({
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("response");
+
+  useEffect(() => {
+    if (open) {
+      setActiveTab("response");
+    }
+  }, [open, step?.id, step?.stepResultId]);
 
   // Fetch full details when dialog opens
   useEffect(() => {
@@ -467,7 +496,7 @@ export function StepDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col p-0 gap-0">
+      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto flex flex-col p-0 gap-0">
         {/* Header */}
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/50">
           <div className="flex items-center gap-3">
@@ -511,7 +540,11 @@ export function StepDetailDialog({
         </DialogHeader>
 
         {/* Tabbed Content */}
-        <Tabs defaultValue="assertions" className="flex-1 flex flex-col min-h-0">
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="flex-1 flex flex-col min-h-0"
+        >
           <TabsList className="mx-6 mt-4 w-fit">
             <TabsTrigger value="assertions">
               Assertions ({assertions.length})
