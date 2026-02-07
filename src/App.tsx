@@ -21,6 +21,7 @@ import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
 import MagicLink from "./pages/MagicLink";
 import AuthCallback from "./pages/AuthCallback";
+import Schedules from "./pages/Schedules";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -46,6 +47,8 @@ const App = () => (
                 <Route path="/runs" element={<Runs />} />
                 <Route path="/runs/:runId" element={<RunDetail />} />
                 <Route path="/runs/:runId/canvas" element={<RunCanvas />} />
+                <Route path="/schedules" element={<Schedules />} />
+                <Route path="/schedules/:scheduleId" element={<Schedules />} />
                 <Route path="/sources" element={<Sources />} />
                 <Route path="/environments" element={<Environments />} />
                 <Route path="/integrations" element={<Integrations />} />
