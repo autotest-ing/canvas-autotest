@@ -4,10 +4,12 @@ import {
   createTestStep,
   deleteAssertion,
   fetchRequests,
+  fetchTestCasesTable,
   getAssertion,
   updateAssertion,
   type CreateAssertionPayload,
   type CreateTestStepPayload,
+  type TestCaseTableStatus,
   type UpdateAssertionPayload,
 } from "@/lib/api/suites";
 
@@ -342,6 +344,107 @@ describe("request API client", () => {
         }),
       })
     );
+  });
+});
+
+describe("test case table API client", () => {
+  it("fetchTestCasesTable sends account_id/search/status/limit/cursor params and returns parsed response", async () => {
+    const responseBody = {
+      items: [
+        {
+          id: "test-case-1",
+          suite_id: "suite-1",
+          suite_name: "Auth Suite",
+          name: "User can login",
+          step_count: 5,
+          status: "passed" as TestCaseTableStatus,
+          last_run: "2026-02-07T00:00:00Z",
+        },
+      ],
+      next_cursor: "cursor-2",
+      total: 1,
+    };
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(responseBody), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+
+    const result = await fetchTestCasesTable("account-1", "jwt-token", {
+      search: "login",
+      status: "failed",
+      limit: 20,
+      cursor: "cursor-1",
+    });
+
+    const [requestUrl, requestOptions] = fetchSpy.mock.calls[0];
+    const parsedUrl = new URL(String(requestUrl));
+    expect(parsedUrl.origin + parsedUrl.pathname).toBe("https://internal-api.autotest.ing/v1.0/test-cases/table");
+    expect(parsedUrl.searchParams.get("account_id")).toBe("account-1");
+    expect(parsedUrl.searchParams.get("search")).toBe("login");
+    expect(parsedUrl.searchParams.get("status")).toBe("failed");
+    expect(parsedUrl.searchParams.get("limit")).toBe("20");
+    expect(parsedUrl.searchParams.get("cursor")).toBe("cursor-1");
+    expect(requestOptions).toEqual(
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer jwt-token",
+        }),
+      })
+    );
+    expect(result).toEqual(responseBody);
+  });
+
+  it("fetchTestCasesTable throws descriptive error from backend message", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ message: "Missing account_id" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+
+    await expect(fetchTestCasesTable("account-1", "jwt-token")).rejects.toThrow(
+      "Failed to load test cases: Missing account_id"
+    );
+  });
+
+  it("fetchTestCasesTable normalizes legacy test case fields", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          items: [
+            {
+              test_case_id: "test-case-legacy",
+              suite: { id: "suite-legacy", name: "Legacy Suite" },
+              test_case_name: "Legacy test case",
+              steps_count: 3,
+              status: "unknown",
+              last_run_at: "2026-02-07T00:03:00Z",
+            },
+          ],
+          next_cursor: null,
+          total: 1,
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      )
+    );
+
+    const result = await fetchTestCasesTable("account-1", "jwt-token");
+
+    expect(result.items[0]).toEqual({
+      id: "test-case-legacy",
+      suite_id: "suite-legacy",
+      suite_name: "Legacy Suite",
+      name: "Legacy test case",
+      step_count: 3,
+      status: "pending",
+      last_run: "2026-02-07T00:03:00Z",
+    });
   });
 });
 

@@ -94,6 +94,31 @@ export type FetchRequestsParams = {
   cursor?: string;
 };
 
+export type TestCaseTableStatus = "passed" | "failed" | "running" | "pending";
+
+export type TestCaseTableItem = {
+  id: string;
+  suite_id: string;
+  suite_name: string;
+  name: string;
+  step_count: number;
+  status: TestCaseTableStatus;
+  last_run: string | null;
+};
+
+export type TestCaseTableResponse = {
+  items: TestCaseTableItem[];
+  next_cursor: string | null;
+  total: number;
+};
+
+export type FetchTestCasesTableParams = {
+  search?: string;
+  status?: TestCaseTableStatus;
+  limit?: number;
+  cursor?: string;
+};
+
 export type TestStepNested = {
   id: string;
   test_case_id: string;
@@ -247,6 +272,48 @@ export async function fetchRequests(
   };
 }
 
+export async function fetchTestCasesTable(
+  accountId: string,
+  token: string,
+  params?: FetchTestCasesTableParams
+): Promise<TestCaseTableResponse> {
+  const limit = Math.min(100, Math.max(1, params?.limit ?? 20));
+  const url = new URL(`${BASE_API_URL}/v1.0/test-cases/table`);
+  url.searchParams.set("account_id", accountId);
+  url.searchParams.set("limit", String(limit));
+
+  if (params?.search?.trim()) {
+    url.searchParams.set("search", params.search.trim());
+  }
+
+  if (params?.cursor?.trim()) {
+    url.searchParams.set("cursor", params.cursor.trim());
+  }
+
+  if (params?.status) {
+    url.searchParams.set("status", params.status);
+  }
+
+  const response = await fetch(url.toString(), {
+    headers: getAuthHeaders(token),
+  });
+
+  if (!response.ok) {
+    throw await buildApiError(response, "Failed to load test cases");
+  }
+
+  const data = (await response.json()) as Partial<TestCaseTableResponse>;
+  const rawItems = Array.isArray(data.items) ? data.items : [];
+
+  return {
+    items: rawItems
+      .map((item) => normalizeTestCaseTableItem(item))
+      .filter((item): item is TestCaseTableItem => item !== null),
+    next_cursor: typeof data.next_cursor === "string" ? data.next_cursor : null,
+    total: typeof data.total === "number" ? data.total : 0,
+  };
+}
+
 export async function executeSuite(
   suiteId: string,
   token: string,
@@ -381,6 +448,14 @@ function pickString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null;
 }
 
+function pickNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function isTestCaseTableStatus(value: unknown): value is TestCaseTableStatus {
+  return value === "passed" || value === "failed" || value === "running" || value === "pending";
+}
+
 function normalizeRequestPayload(item: Record<string, unknown>): RequestPayload {
   const nestedRequest = isRecord(item.request) ? item.request : {};
   const nestedHeaders = nestedRequest.headers;
@@ -419,5 +494,47 @@ function normalizeRequestListItem(rawItem: unknown): RequestListItem | null {
     created_at: pickString(rawItem.created_at) ?? "",
     updated_at: pickString(rawItem.updated_at) ?? "",
     is_assigned_to_test_step: Boolean(rawItem.is_assigned_to_test_step),
+  };
+}
+
+function normalizeTestCaseTableItem(rawItem: unknown): TestCaseTableItem | null {
+  if (!isRecord(rawItem)) {
+    return null;
+  }
+
+  const suiteRecord = isRecord(rawItem.suite) ? rawItem.suite : null;
+
+  const id = pickString(rawItem.id) ?? pickString(rawItem.test_case_id);
+  if (!id) {
+    return null;
+  }
+
+  const suiteId =
+    pickString(rawItem.suite_id) ?? pickString(rawItem.test_suite_id) ?? pickString(suiteRecord?.id) ?? "";
+  const suiteName =
+    pickString(rawItem.suite_name) ??
+    pickString(rawItem.test_suite_name) ??
+    pickString(suiteRecord?.name) ??
+    "Unknown suite";
+
+  const statusValue = pickString(rawItem.status);
+  const stepCount =
+    pickNumber(rawItem.step_count) ??
+    pickNumber(rawItem.steps_count) ??
+    pickNumber(rawItem.total_steps) ??
+    (Array.isArray(rawItem.steps) ? rawItem.steps.length : 0);
+
+  return {
+    id,
+    suite_id: suiteId,
+    suite_name: suiteName,
+    name: pickString(rawItem.name) ?? pickString(rawItem.test_case_name) ?? "Untitled test case",
+    step_count: stepCount,
+    status: isTestCaseTableStatus(statusValue) ? statusValue : "pending",
+    last_run:
+      pickString(rawItem.last_run) ??
+      pickString(rawItem.last_run_at) ??
+      pickString(rawItem.last_executed_at) ??
+      pickString(rawItem.updated_at),
   };
 }
