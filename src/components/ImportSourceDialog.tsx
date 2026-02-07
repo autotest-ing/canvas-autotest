@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,7 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileJson, FileCode, Upload, Link, Loader2 } from "lucide-react";
+import { FileJson, FileCode, Upload, Link, Loader2, File } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ImportSourceDialogProps {
@@ -25,6 +25,8 @@ export function ImportSourceDialog({ open, onOpenChange, onImport }: ImportSourc
   const [url, setUrl] = useState("");
   const [isImporting, setIsImporting] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImport = () => {
     if (!name) return;
@@ -34,6 +36,7 @@ export function ImportSourceDialog({ open, onOpenChange, onImport }: ImportSourc
       setIsImporting(false);
       setName("");
       setUrl("");
+      setSelectedFile(null);
       onOpenChange(false);
     }, 1500);
   };
@@ -55,8 +58,31 @@ export function ImportSourceDialog({ open, onOpenChange, onImport }: ImportSourc
     
     const file = e.dataTransfer.files[0];
     if (file) {
-      setName(file.name.replace(/\.(json|yaml|yml)$/, ""));
+      setSelectedFile(file);
+      if (!name) {
+        setName(file.name.replace(/\.(json|yaml|yml)$/, ""));
+      }
     }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      if (!name) {
+        setName(file.name.replace(/\.(json|yaml|yml)$/, ""));
+      }
+    }
+  };
+
+  const handleDropZoneClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const getAcceptTypes = () => {
+    return activeTab === "postman" 
+      ? ".json" 
+      : ".json,.yaml,.yml";
   };
 
   return (
@@ -92,25 +118,47 @@ export function ImportSourceDialog({ open, onOpenChange, onImport }: ImportSourc
               />
             </div>
 
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={getAcceptTypes()}
+              onChange={handleFileSelect}
+              className="hidden"
+            />
             <div
               onDragEnter={handleDrag}
               onDragLeave={handleDrag}
               onDragOver={handleDrag}
               onDrop={handleDrop}
+              onClick={handleDropZoneClick}
               className={cn(
-                "border-2 border-dashed rounded-xl p-8 text-center transition-colors",
+                "border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer",
                 dragActive 
                   ? "border-primary bg-primary/5" 
                   : "border-border hover:border-primary/50"
               )}
             >
-              <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-3" />
-              <p className="text-sm text-foreground font-medium">
-                Drop your Postman collection here
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                or click to browse (.json)
-              </p>
+              {selectedFile ? (
+                <>
+                  <File className="w-8 h-8 mx-auto text-primary mb-3" />
+                  <p className="text-sm text-foreground font-medium">
+                    {selectedFile.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Click to change file
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-3" />
+                  <p className="text-sm text-foreground font-medium">
+                    Drop your Postman collection here
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    or click to browse (.json)
+                  </p>
+                </>
+              )}
             </div>
 
             <div className="relative">
@@ -155,20 +203,35 @@ export function ImportSourceDialog({ open, onOpenChange, onImport }: ImportSourc
               onDragLeave={handleDrag}
               onDragOver={handleDrag}
               onDrop={handleDrop}
+              onClick={handleDropZoneClick}
               className={cn(
-                "border-2 border-dashed rounded-xl p-8 text-center transition-colors",
+                "border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer",
                 dragActive 
                   ? "border-primary bg-primary/5" 
                   : "border-border hover:border-primary/50"
               )}
             >
-              <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-3" />
-              <p className="text-sm text-foreground font-medium">
-                Drop your OpenAPI spec here
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Supports JSON or YAML (.json, .yaml, .yml)
-              </p>
+              {selectedFile ? (
+                <>
+                  <File className="w-8 h-8 mx-auto text-primary mb-3" />
+                  <p className="text-sm text-foreground font-medium">
+                    {selectedFile.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Click to change file
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-3" />
+                  <p className="text-sm text-foreground font-medium">
+                    Drop your OpenAPI spec here
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Supports JSON or YAML (.json, .yaml, .yml)
+                  </p>
+                </>
+              )}
             </div>
 
             <div className="relative">
