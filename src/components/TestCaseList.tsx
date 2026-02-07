@@ -1,7 +1,8 @@
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChevronRight, FileText } from "lucide-react";
+import { ChevronRight, FileText, Plus } from "lucide-react";
 
 export interface TestStep {
   id: string;
@@ -37,6 +38,7 @@ export interface TestCase {
   name: string;
   description?: string;
   status?: "pass" | "fail" | "pending" | "mixed";
+  sortOrder?: number;
   steps: TestStep[];
 }
 
@@ -44,6 +46,8 @@ interface TestCaseListProps {
   testCases: TestCase[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  onCreateNew?: () => void;
+  isCreatingNew?: boolean;
 }
 
 function getStatusColor(status?: TestCase["status"]) {
@@ -59,14 +63,28 @@ function getStatusColor(status?: TestCase["status"]) {
   }
 }
 
-export function TestCaseList({ testCases, selectedId, onSelect }: TestCaseListProps) {
+export function TestCaseList({
+  testCases,
+  selectedId,
+  onSelect,
+  onCreateNew,
+  isCreatingNew = false,
+}: TestCaseListProps) {
   const passCount = testCases.filter(tc => tc.status === "pass").length;
   const failCount = testCases.filter(tc => tc.status === "fail").length;
 
   return (
     <div className="h-full flex flex-col bg-card/50">
       <div className="p-4 border-b border-border/50">
-        <h3 className="text-sm font-medium text-foreground">Test Cases</h3>
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-medium text-foreground">Test Cases</h3>
+          {onCreateNew ? (
+            <Button size="sm" variant="outline" className="gap-2" onClick={onCreateNew} disabled={isCreatingNew}>
+              <Plus className="h-4 w-4" />
+              Create new Test case
+            </Button>
+          ) : null}
+        </div>
         <div className="flex items-center gap-2 mt-1">
           <p className="text-xs text-muted-foreground">{testCases.length} cases</p>
           {passCount > 0 && (

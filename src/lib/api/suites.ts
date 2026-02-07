@@ -199,6 +199,28 @@ export type CreateTestStepResponse = {
   created_at: string;
 };
 
+export type CreateTestCasePayload = {
+  suite_id: string;
+  name: string;
+  description?: string;
+  tags: string[];
+  is_enabled: boolean;
+  sort_order: number;
+};
+
+export type CreateTestCaseResponse = {
+  id: string;
+  suite_id: string;
+  name: string;
+  description?: string | null;
+  tags: string[];
+  is_enabled: boolean;
+  sort_order: number;
+  steps?: TestStepNested[];
+  created_at?: string;
+  updated_at?: string;
+};
+
 // ============== API functions ==============
 
 export async function fetchEnvironments(accountId: string, token: string): Promise<Environment[]> {
@@ -363,6 +385,26 @@ export async function createTestStep(
   }
 
   return (await response.json()) as CreateTestStepResponse;
+}
+
+export async function createTestCase(
+  payload: CreateTestCasePayload,
+  token: string
+): Promise<CreateTestCaseResponse> {
+  const response = await fetch(`${BASE_API_URL}/v1.0/test-cases`, {
+    method: "POST",
+    headers: {
+      ...getAuthHeaders(token),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (response.status !== 201 && !response.ok) {
+    throw await buildApiError(response, "Failed to create test case");
+  }
+
+  return (await response.json()) as CreateTestCaseResponse;
 }
 
 export async function deleteTestStep(stepId: string, token: string): Promise<void> {

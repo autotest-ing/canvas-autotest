@@ -5,6 +5,7 @@ import { TestCaseList, type TestCase, type TestStep, type Assertion } from "./Te
 import { SuiteCanvas } from "./SuiteCanvas";
 import { AddAssertionDialog } from "./AddAssertionDialog";
 import { AddTestStepDialog, type AddTestStepFormValues } from "./AddTestStepDialog";
+import { CreateTestCaseDialog, type CreateTestCaseFormValues } from "./CreateTestCaseDialog";
 import { MobileBottomSpacer } from "./LeftRail";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -13,6 +14,7 @@ import { List } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
   createAssertion,
+  createTestCase,
   createTestStep,
   deleteAssertion,
   deleteTestStep,
@@ -127,14 +129,34 @@ function deriveEndpoint(step: {
   );
 }
 
-// Transform backend response to frontend TestCase[] format
-function transformSuiteData(data: TestSuiteFullResponse): TestCase[] {
-  return data.test_cases.map((tc) => ({
+function mapBackendTestCase(tc: {
+  id: string;
+  name: string;
+  description?: string | null;
+  sort_order?: number | null;
+  steps?: Array<{
+    id: string;
+    name: string;
+    method?: string | null;
+    endpoint?: string | null;
+    url?: string | null;
+    full_url?: string | null;
+    request?: { method?: string | null; url?: string | null; full_url?: string | null } | null;
+    step_type: string;
+    request_id?: string | null;
+    collection_id?: string | null;
+    sort_order: number;
+    config: Record<string, unknown>;
+    assertions?: AssertionNested[];
+  }>;
+}): TestCase {
+  return {
     id: tc.id,
     name: tc.name,
     description: tc.description ?? undefined,
-    status: undefined, // No last-run status on the definition itself
-    steps: tc.steps.map((step) => ({
+    status: undefined,
+    sortOrder: tc.sort_order ?? undefined,
+    steps: (tc.steps ?? []).map((step) => ({
       id: step.id,
       name: step.name,
       method: deriveMethod(step),
@@ -145,11 +167,16 @@ function transformSuiteData(data: TestSuiteFullResponse): TestCase[] {
       collectionId: step.collection_id ?? null,
       sortOrder: step.sort_order,
       config: step.config,
-      assertions: step.assertions.map((a) => ({
+      assertions: (step.assertions ?? []).map((a) => ({
         ...mapBackendAssertion(a),
       })),
     })),
-  }));
+  };
+}
+
+// Transform backend response to frontend TestCase[] format
+function transformSuiteData(data: TestSuiteFullResponse): TestCase[] {
+  return data.test_cases.map((tc) => mapBackendTestCase(tc));
 }
 
 const mockSuggestions = [
@@ -248,6 +275,8 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
   const [creatingAssertionStepId, setCreatingAssertionStepId] = useState<string | null>(null);
   const [isAddTestStepDialogOpen, setIsAddTestStepDialogOpen] = useState(false);
   const [isCreatingTestStep, setIsCreatingTestStep] = useState(false);
+  const [isCreateTestCaseDialogOpen, setIsCreateTestCaseDialogOpen] = useState(false);
+  const [isCreatingTestCase, setIsCreatingTestCase] = useState(false);
   const [isEditAssertionDialogOpen, setIsEditAssertionDialogOpen] = useState(false);
   const [editAssertionContext, setEditAssertionContext] = useState<{
     stepId: string;
@@ -333,6 +362,7 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
     setTestCases([]);
     setSelectedTestCaseId(null);
     setIsAddTestStepDialogOpen(false);
+    setIsCreateTestCaseDialogOpen(false);
     setIsEditAssertionDialogOpen(false);
     setEditAssertionContext(null);
 
@@ -506,6 +536,65 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
     }
   };
 
+  const handleCreateTestCase = async (formValues: CreateTestCaseFormValues) => {
+    if (!token) {
+      const missingAuthError = new Error("Missing auth token.");
+      toast.error("Failed to create test case", {
+        description: missingAuthError.message,
+      });
+      throw missingAuthError;
+    }
+
+    if (!resolvedSuiteId) {
+      const missingSuiteError = new Error("Missing suite ID.");
+      toast.error("Failed to create test case", {
+        description: missingSuiteError.message,
+      });
+      throw missingSuiteError;
+    }
+
+    const nextSortOrder = testCases.reduce((maxSort, testCase) => {
+      const currentSort = testCase.sortOrder ?? 0;
+      return currentSort > maxSort ? currentSort : maxSort;
+    }, 0) + 1;
+
+    setIsCreatingTestCase(true);
+
+    try {
+      const createdCase = await createTestCase(
+        {
+          suite_id: resolvedSuiteId,
+          name: formValues.name,
+          description: formValues.description || undefined,
+          tags: formValues.tags,
+          is_enabled: formValues.isEnabled,
+          sort_order: nextSortOrder,
+        },
+        token
+      );
+
+      const mappedTestCase = mapBackendTestCase({
+        ...createdCase,
+        steps: createdCase.steps ?? [],
+      });
+
+      setTestCases((prevCases) => {
+        const nextCases = [...prevCases, mappedTestCase];
+        nextCases.sort((a, b) => (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER));
+        return nextCases;
+      });
+      setSelectedTestCaseId(mappedTestCase.id);
+
+      toast.success("Test case created");
+    } catch (error) {
+      const description = error instanceof Error ? error.message : "Please try again.";
+      toast.error("Failed to create test case", { description });
+      throw error instanceof Error ? error : new Error("Failed to create test case");
+    } finally {
+      setIsCreatingTestCase(false);
+    }
+  };
+
   const handleOpenEditAssertion = (stepId: string, assertionId: string) => {
     setEditAssertionContext({ stepId, assertionId });
     setIsEditAssertionDialogOpen(true);
@@ -654,6 +743,15 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
     />
   ) : null;
 
+  const createTestCaseDialog = (
+    <CreateTestCaseDialog
+      open={isCreateTestCaseDialogOpen}
+      onOpenChange={setIsCreateTestCaseDialogOpen}
+      isSubmitting={isCreatingTestCase}
+      onSubmit={handleCreateTestCase}
+    />
+  );
+
   // Mobile layout
   if (isMobile) {
     return (
@@ -675,6 +773,8 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
                   testCases={testCases}
                   selectedId={selectedTestCaseId}
                   onSelect={handleSelectTestCase}
+                  onCreateNew={() => setIsCreateTestCaseDialogOpen(true)}
+                  isCreatingNew={isCreatingTestCase}
                 />
               )}
             </SheetContent>
@@ -711,6 +811,7 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
           )}
         </div>
         {addTestStepDialog}
+        {createTestCaseDialog}
         {editAssertionDialog}
         <MobileBottomSpacer />
       </div>
@@ -730,6 +831,8 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
                 testCases={testCases}
                 selectedId={selectedTestCaseId}
                 onSelect={handleSelectTestCase}
+                onCreateNew={() => setIsCreateTestCaseDialogOpen(true)}
+                isCreatingNew={isCreatingTestCase}
               />
             )}
           </ResizablePanel>
@@ -762,6 +865,7 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
         </ResizablePanelGroup>
       </div>
       {addTestStepDialog}
+      {createTestCaseDialog}
       {editAssertionDialog}
     </div>
   );
