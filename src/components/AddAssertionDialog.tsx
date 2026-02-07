@@ -316,7 +316,7 @@ export function AddAssertionDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className={showCodePanel ? "sm:max-w-5xl" : "sm:max-w-2xl"}>
+      <DialogContent className={showCodePanel ? "sm:max-w-7xl" : "sm:max-w-2xl"}>
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -339,7 +339,7 @@ export function AddAssertionDialog({
           </div>
         </DialogHeader>
 
-        <div className={showCodePanel ? "flex gap-4" : undefined}>
+        <div className={showCodePanel ? "flex flex-col gap-4 lg:flex-row" : undefined}>
           <div className={showCodePanel ? "flex-1 min-w-0" : undefined}>
             {isEditMode && isLoadingAssertion ? (
               <div className="flex items-center justify-center py-10">
@@ -517,7 +517,7 @@ export function AddAssertionDialog({
           </div>
 
           {showCodePanel && (
-            <div className="w-[320px] shrink-0">
+            <div className="w-full lg:w-[640px] lg:shrink-0">
               {isLoadingLatestResult ? (
                 <div className="flex items-center justify-center py-10 border-l border-border/60 pl-4">
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />

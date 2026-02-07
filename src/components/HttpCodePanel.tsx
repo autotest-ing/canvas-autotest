@@ -46,8 +46,8 @@ function RequestBlock({ request }: { request: RequestPayload }) {
             <span className="text-foreground/80">{url}</span>
           </code>
         </div>
-        <ScrollArea className="max-h-[200px]">
-          <pre className="px-3 py-2 text-xs font-mono text-foreground/70 whitespace-pre-wrap break-all">
+        <div className="max-h-[200px] overflow-auto">
+          <pre className="px-3 py-2 text-xs font-mono text-foreground/70 whitespace-pre">
             {headers && (
               <>
                 {headers}
@@ -62,7 +62,7 @@ function RequestBlock({ request }: { request: RequestPayload }) {
             )}
             {!headers && !body && <span className="text-muted-foreground italic">No headers or body</span>}
           </pre>
-        </ScrollArea>
+        </div>
       </div>
     </div>
   );
@@ -95,8 +95,8 @@ function ResponseBlock({ response }: { response: StepResultHttpResponse }) {
             <span className="text-[10px] text-muted-foreground">{duration}ms</span>
           )}
         </div>
-        <ScrollArea className="max-h-[200px]">
-          <pre className="px-3 py-2 text-xs font-mono text-foreground/70 whitespace-pre-wrap break-all">
+        <div className="max-h-[200px] overflow-auto">
+          <pre className="px-3 py-2 text-xs font-mono text-foreground/70 whitespace-pre">
             {headers && (
               <>
                 {headers}
@@ -111,7 +111,7 @@ function ResponseBlock({ response }: { response: StepResultHttpResponse }) {
             )}
             {!headers && !body && <span className="text-muted-foreground italic">No response body</span>}
           </pre>
-        </ScrollArea>
+        </div>
       </div>
     </div>
   );
