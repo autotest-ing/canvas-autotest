@@ -34,7 +34,9 @@ interface SuiteCanvasProps {
   onViewRuns?: () => void;
   onCreateAssertion?: (stepId: string, payload: CreateAssertionPayload) => Promise<void>;
   onEditAssertion?: (stepId: string, assertionId: string) => void;
+  onDeleteStep?: (stepId: string) => Promise<void>;
   creatingAssertionStepId?: string | null;
+  deletingStepId?: string | null;
   onOpenAddTestStep?: () => void;
   isCreatingTestStep?: boolean;
 }
@@ -52,7 +54,9 @@ export function SuiteCanvas({
   onViewRuns,
   onCreateAssertion,
   onEditAssertion,
+  onDeleteStep,
   creatingAssertionStepId,
+  deletingStepId,
   onOpenAddTestStep,
   isCreatingTestStep = false,
 }: SuiteCanvasProps) {
@@ -145,7 +149,9 @@ export function SuiteCanvas({
                       isExpanded={index === 0}
                       onCreateAssertion={onCreateAssertion}
                       onEditAssertion={onEditAssertion}
+                      onDeleteStep={onDeleteStep}
                       isCreatingAssertion={creatingAssertionStepId === step.id}
+                      isDeletingStep={deletingStepId === step.id}
                     />
                   ))}
                 </div>

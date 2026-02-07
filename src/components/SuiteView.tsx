@@ -15,6 +15,7 @@ import {
   createAssertion,
   createTestStep,
   deleteAssertion,
+  deleteTestStep,
   fetchSuitesFull,
   fetchSuites,
   fetchEnvironments,
@@ -225,6 +226,7 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
   } | null>(null);
   const [isUpdatingAssertion, setIsUpdatingAssertion] = useState(false);
   const [deletingAssertionId, setDeletingAssertionId] = useState<string | null>(null);
+  const [deletingTestStepId, setDeletingTestStepId] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
   // Resolve suiteId: if it's already a UUID use it directly,
@@ -561,6 +563,41 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
     }
   };
 
+  const handleDeleteTestStep = async (stepId: string) => {
+    if (!token) {
+      const missingAuthError = new Error("Missing auth token.");
+      toast.error("Failed to delete test step", {
+        description: missingAuthError.message,
+      });
+      throw missingAuthError;
+    }
+
+    setDeletingTestStepId(stepId);
+
+    try {
+      await deleteTestStep(stepId, token);
+      setTestCases((prevCases) =>
+        prevCases.map((testCase) => ({
+          ...testCase,
+          steps: testCase.steps.filter((step) => step.id !== stepId),
+        }))
+      );
+
+      if (editAssertionContext?.stepId === stepId) {
+        setIsEditAssertionDialogOpen(false);
+        setEditAssertionContext(null);
+      }
+
+      toast.success("Test step deleted");
+    } catch (error) {
+      const description = error instanceof Error ? error.message : "Please try again.";
+      toast.error("Failed to delete test step", { description });
+      throw error instanceof Error ? error : new Error("Failed to delete test step");
+    } finally {
+      setDeletingTestStepId((currentId) => (currentId === stepId ? null : currentId));
+    }
+  };
+
   const editAssertionDialog = editAssertionContext ? (
     <AddAssertionDialog
       mode="edit"
@@ -635,7 +672,9 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
               onViewRuns={handleViewRuns}
               onCreateAssertion={handleCreateAssertion}
               onEditAssertion={handleOpenEditAssertion}
+              onDeleteStep={handleDeleteTestStep}
               creatingAssertionStepId={creatingAssertionStepId}
+              deletingStepId={deletingTestStepId}
               onOpenAddTestStep={() => setIsAddTestStepDialogOpen(true)}
               isCreatingTestStep={isCreatingTestStep}
             />
@@ -682,7 +721,9 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
                 onViewRuns={handleViewRuns}
                 onCreateAssertion={handleCreateAssertion}
                 onEditAssertion={handleOpenEditAssertion}
+                onDeleteStep={handleDeleteTestStep}
                 creatingAssertionStepId={creatingAssertionStepId}
+                deletingStepId={deletingTestStepId}
                 onOpenAddTestStep={() => setIsAddTestStepDialogOpen(true)}
                 isCreatingTestStep={isCreatingTestStep}
               />

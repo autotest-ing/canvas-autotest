@@ -4,7 +4,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, CheckCircle2, AlertCircle, Clock, Plus } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { ChevronDown, CheckCircle2, AlertCircle, Clock, Loader2, Plus, Trash2 } from "lucide-react";
 import type { TestStep, Assertion } from "./TestCaseList";
 import { AddAssertionDialog } from "@/components/AddAssertionDialog";
 import type { CreateAssertionPayload } from "@/lib/api/suites";
@@ -15,7 +24,9 @@ interface TestStepCardProps {
   isExpanded?: boolean;
   onCreateAssertion?: (stepId: string, payload: CreateAssertionPayload) => Promise<void>;
   onEditAssertion?: (stepId: string, assertionId: string) => void;
+  onDeleteStep?: (stepId: string) => Promise<void>;
   isCreatingAssertion?: boolean;
+  isDeletingStep?: boolean;
 }
 
 const methodColors: Record<TestStep["method"], string> = {
@@ -66,18 +77,39 @@ export function TestStepCard({
   isExpanded = false,
   onCreateAssertion,
   onEditAssertion,
+  onDeleteStep,
   isCreatingAssertion = false,
+  isDeletingStep = false,
 }: TestStepCardProps) {
   const [open, setOpen] = useState(isExpanded);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const passedAssertions = step.assertions.filter(a => a.status === "pass").length;
   const totalAssertions = step.assertions.length;
+  const isStepBusy = isDeletingStep;
+
+  const handleDeleteStep = async () => {
+    if (!onDeleteStep) {
+      return;
+    }
+
+    try {
+      await onDeleteStep(step.id);
+      setIsDeleteConfirmOpen(false);
+    } catch {
+      // Error toast is handled in parent.
+    }
+  };
 
   return (
     <Card className="border-border/50 overflow-hidden">
       <Collapsible open={open} onOpenChange={setOpen}>
         <CollapsibleTrigger asChild>
-          <button className="w-full p-4 flex items-center gap-4 hover:bg-accent/30 transition-colors text-left">
+          <button
+            type="button"
+            className="w-full p-4 flex items-center gap-4 hover:bg-accent/30 transition-colors text-left"
+            disabled={isStepBusy}
+          >
             <div className="flex items-center gap-3 shrink-0">
               <span className="text-xs font-medium text-muted-foreground w-6">
                 #{stepNumber}
@@ -132,10 +164,32 @@ export function TestStepCard({
                     variant="outline"
                     className="h-7 px-2 text-xs"
                     onClick={() => setDialogOpen(true)}
-                    disabled={isCreatingAssertion}
+                    disabled={isCreatingAssertion || isStepBusy}
                   >
                     <Plus className="mr-1 h-3.5 w-3.5" />
                     Add Assertion
+                  </Button>
+                )}
+                {onDeleteStep && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setIsDeleteConfirmOpen(true)}
+                    disabled={isStepBusy}
+                  >
+                    {isStepBusy ? (
+                      <>
+                        <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                        Deleting...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="mr-1 h-3.5 w-3.5" />
+                        Delete Step
+                      </>
+                    )}
                   </Button>
                 )}
               </div>
@@ -157,7 +211,7 @@ export function TestStepCard({
                           : "bg-muted/30 hover:bg-muted/50"
                       )}
                       onClick={() => onEditAssertion?.(step.id, assertion.id)}
-                      disabled={!onEditAssertion}
+                      disabled={!onEditAssertion || isStepBusy}
                     >
                       <div
                         className={cn(
@@ -210,6 +264,32 @@ export function TestStepCard({
           isSubmitting={isCreatingAssertion}
           onSubmit={onCreateAssertion}
         />
+      )}
+
+      {onDeleteStep && (
+        <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete test step?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action is irreversible. The step and all of its assertions will be removed.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isStepBusy}>Cancel</AlertDialogCancel>
+              <Button variant="destructive" onClick={() => void handleDeleteStep()} disabled={isStepBusy}>
+                {isStepBusy ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  "Delete Step"
+                )}
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
     </Card>
   );

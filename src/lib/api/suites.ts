@@ -360,6 +360,17 @@ export async function createTestStep(
   return (await response.json()) as CreateTestStepResponse;
 }
 
+export async function deleteTestStep(stepId: string, token: string): Promise<void> {
+  const response = await fetch(`${BASE_API_URL}/v1.0/test-steps/${stepId}`, {
+    method: "DELETE",
+    headers: getAuthHeaders(token),
+  });
+
+  if (!response.ok) {
+    throw await buildApiError(response, "Failed to delete test step");
+  }
+}
+
 export async function createAssertion(
   payload: CreateAssertionPayload,
   token: string

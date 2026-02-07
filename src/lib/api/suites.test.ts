@@ -3,6 +3,7 @@ import {
   createAssertion,
   createTestStep,
   deleteAssertion,
+  deleteTestStep,
   fetchRequests,
   fetchTestCasesTable,
   getAssertion,
@@ -521,6 +522,38 @@ describe("test step API client", () => {
 
     await expect(createTestStep(payload, "jwt-token")).rejects.toThrow(
       "Failed to create test step: Invalid request_id"
+    );
+  });
+
+  it("deleteTestStep sends DELETE and resolves on 204", async () => {
+    const stepId = "test-step-1";
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(null, { status: 204 }));
+
+    await expect(deleteTestStep(stepId, "jwt-token")).resolves.toBeUndefined();
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      `https://internal-api.autotest.ing/v1.0/test-steps/${stepId}`,
+      expect.objectContaining({
+        method: "DELETE",
+        headers: expect.objectContaining({
+          Authorization: "Bearer jwt-token",
+        }),
+      })
+    );
+  });
+
+  it("deleteTestStep throws descriptive error from backend detail", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ detail: "Cannot delete test step" }), {
+        status: 409,
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+
+    await expect(deleteTestStep("test-step-1", "jwt-token")).rejects.toThrow(
+      "Failed to delete test step: Cannot delete test step"
     );
   });
 });
