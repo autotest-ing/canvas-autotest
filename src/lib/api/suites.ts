@@ -523,6 +523,44 @@ export async function deleteAssertion(assertionId: string, token: string): Promi
   }
 }
 
+// ============== Step Exports (Variable Extraction) ==============
+
+export type StepExportPayload = {
+  test_step_id: string;
+  var_key: string;
+  extractor: { type: string; path?: string; source?: string };
+  is_secret?: boolean;
+};
+
+export type StepExportResponse = {
+  id: string;
+  test_step_id: string;
+  var_key: string;
+  extractor: Record<string, unknown>;
+  is_secret: boolean;
+};
+
+export async function createStepExport(
+  stepId: string,
+  payload: StepExportPayload,
+  token: string
+): Promise<StepExportResponse> {
+  const response = await fetch(`${BASE_API_URL}/v1.0/test-steps/${stepId}/exports`, {
+    method: "POST",
+    headers: {
+      ...getAuthHeaders(token),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw await buildApiError(response, "Failed to create step export");
+  }
+
+  return (await response.json()) as StepExportResponse;
+}
+
 export async function fetchStepResultDetails(
   stepResultId: string,
   token: string

@@ -31,6 +31,7 @@ import {
   type StepResultHttpRequest,
   type StepResultHttpResponse,
 } from "@/lib/api/suites";
+import { JsonResponseExporter } from "./JsonResponseExporter";
 
 // ============== Types ==============
 
@@ -341,10 +342,12 @@ function ResponseTab({
   response,
   loading,
   error,
+  testStepId,
 }: {
   response: StepResultHttpResponse | null;
   loading: boolean;
   error: string | null;
+  testStepId: string;
 }) {
   if (loading) {
     return (
@@ -409,9 +412,10 @@ function ResponseTab({
             Body
           </h4>
           {response.body || response.raw_body ? (
-            <pre className="font-mono text-xs bg-muted/30 p-3 rounded-lg overflow-auto max-h-64 border border-border/50">
-              {formatJson(response.body ?? response.raw_body)}
-            </pre>
+            <JsonResponseExporter
+              body={response.body ?? response.raw_body}
+              testStepId={testStepId}
+            />
           ) : (
             <p className="text-sm text-muted-foreground">No body</p>
           )}
@@ -569,6 +573,7 @@ export function StepDetailDialog({
                 response={fullDetail?.response ?? null}
                 loading={loading}
                 error={error}
+                testStepId={step.id}
               />
             </TabsContent>
           </div>
