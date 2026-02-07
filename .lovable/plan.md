@@ -1,53 +1,88 @@
 
-# Fix Canvas Node Connector Alignment
+
+# Add Dedicated Test Cases Page
 
 ## Overview
-Fix the connection lines on the Run Canvas page so they properly connect from the center/edge of each node to the center/edge of the next node. Currently the lines use hardcoded offset values that don't match the actual node sizes.
+Create a new dedicated page for Test Cases with a link in the side navigation menu. This page will display all test cases across suites in a centralized list view, following the existing UI patterns and architecture.
 
-## Problem Analysis
-Looking at the screenshot, the connection lines don't align properly with the nodes because:
-1. All nodes are positioned using their center point (x, y) with `transform: translate(-50%, -50%)`
-2. The connector offsets are hardcoded values that don't match actual node radii
+## Changes Required
 
-**Current node sizes:**
-- Suite Node: `w-24 h-24` = 96px diameter, radius = 48px
-- Test Case Node: `w-16 h-16` = 64px diameter, radius = 32px  
-- Test Step Node: `w-12 h-12` = 48px diameter, radius = 24px
+### 1. Create Test Cases Page Component
+**File: `src/pages/TestCases.tsx`** (new file)
 
-**Current connector offsets (incorrect):**
-- Suite to Case: `startX + 50` (should be +48), `endX - 35` (should be -32)
-- Case to Step: `startX + 35` (should be +32), `endX - 30` (should be -24)
+Create a new page component following the pattern from `Runs.tsx`:
+- Import and use `LeftRail` with `activeItem="testcases"`
+- Wrap with `AuthGate` and `TooltipProvider`
+- Render the main `TestCasesListView` component
 
-## Solution
-Update `RunCanvasView.tsx` to use the correct node radii as constants and calculate connector positions accurately so lines connect edge-to-edge.
+### 2. Create Test Cases List View Component
+**File: `src/components/TestCasesListView.tsx`** (new file)
 
-## Changes
+Create a list view component following the pattern from `RunsListView.tsx`:
+- Header with title "Test Cases" and count
+- Mobile-responsive layout (cards on mobile, table on desktop)
+- Show test case name, associated suite, step count, and status
+- Clickable rows that navigate to the suite with the test case selected
+- Filter/search functionality
+- Status badges for pass/fail/pending states
 
-### File: `src/components/RunCanvasView.tsx`
+### 3. Update Left Rail Navigation
+**File: `src/components/LeftRail.tsx`**
 
-**Add node size constants:**
-```typescript
-// Node sizes (diameter in pixels based on Tailwind classes)
-const SUITE_NODE_RADIUS = 48;    // w-24 = 96px / 2
-const CASE_NODE_RADIUS = 32;     // w-16 = 64px / 2
-const STEP_NODE_RADIUS = 24;     // w-12 = 48px / 2
+Add the Test Cases item to navigation arrays:
+- Add `FileText` icon import from lucide-react
+- Add to `topItems` array between Suites and Runs:
+  ```typescript
+  { icon: FileText, label: "Test Cases", id: "testcases", path: "/test-cases" }
+  ```
+
+### 4. Update App Router
+**File: `src/App.tsx`**
+
+Add routes for the Test Cases page:
+- Import the new `TestCases` page component
+- Add route: `<Route path="/test-cases" element={<TestCases />} />`
+- Add route with optional case ID: `<Route path="/test-cases/:caseId" element={<TestCases />} />`
+
+## Data Structure
+
+The Test Cases page will display:
+
+| Column | Description |
+|--------|-------------|
+| Name | Test case name |
+| Suite | Parent suite name with link |
+| Steps | Number of test steps |
+| Status | Last run status (pass/fail/pending) |
+| Last Run | Timestamp of last execution |
+
+## Technical Details
+
+### Navigation Flow
+- Click on test case row navigates to `/suites/:suiteId?selectedCase=:caseId`
+- This allows viewing the test case in context of its parent suite
+
+### Component Hierarchy
+```text
+TestCases (page)
+  +-- LeftRail
+  +-- TestCasesListView
+        +-- Header (title, count, filters)
+        +-- ScrollArea
+              +-- Table (desktop) / Cards (mobile)
 ```
 
-**Update Suite to Test Case connectors (around line 352-361):**
-- Start X: `nodePositions.suite.x + SUITE_NODE_RADIUS` (right edge of suite)
-- Start Y: `nodePositions.suite.y` (center Y)
-- End X: `casePos.x - CASE_NODE_RADIUS` (left edge of case)
-- End Y: `casePos.y` (center Y)
+### API Integration
+For now, use mock data similar to `RunsListView`. The component will be structured to easily integrate with the real API when available:
+- Aggregate test cases from multiple suites
+- Include suite reference for navigation
 
-**Update Test Case to Test Step connectors (around line 364-379):**
-- Start X: `casePos.x + CASE_NODE_RADIUS` (right edge of case)
-- Start Y: `casePos.y` (center Y)
-- End X: `stepPos.x - STEP_NODE_RADIUS` (left edge of step)
-- End Y: `stepPos.y` (center Y)
+## Files to Create/Modify
 
-## Visual Result
-After this fix, connection lines will:
-- Start from the exact right edge of the source node
-- End at the exact left edge of the target node
-- Pass through the horizontal center (Y) of both nodes
-- Create smooth curved bezier paths between nodes
+| File | Action |
+|------|--------|
+| `src/pages/TestCases.tsx` | Create |
+| `src/components/TestCasesListView.tsx` | Create |
+| `src/components/LeftRail.tsx` | Modify (add nav item) |
+| `src/App.tsx` | Modify (add route) |
+
