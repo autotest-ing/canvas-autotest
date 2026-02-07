@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -13,10 +14,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ChevronDown, CheckCircle2, AlertCircle, Clock, Loader2, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, CheckCircle2, AlertCircle, Clock, Loader2, MoreVertical, Plus } from "lucide-react";
 import type { TestStep, Assertion } from "./TestCaseList";
 import { AddAssertionDialog } from "@/components/AddAssertionDialog";
 import type { CreateAssertionPayload } from "@/lib/api/suites";
+import { toast } from "sonner";
 
 interface TestStepCardProps {
   step: TestStep;
@@ -104,51 +106,87 @@ export function TestStepCard({
   return (
     <Card className="border-border/50 overflow-hidden">
       <Collapsible open={open} onOpenChange={setOpen}>
-        <CollapsibleTrigger asChild>
-          <button
-            type="button"
-            className="w-full p-4 flex items-center gap-4 hover:bg-accent/30 transition-colors text-left"
-            disabled={isStepBusy}
-          >
-            <div className="flex items-center gap-3 shrink-0">
-              <span className="text-xs font-medium text-muted-foreground w-6">
-                #{stepNumber}
-              </span>
-              <StepStatusIcon status={step.status} />
-            </div>
-            
-            <Badge
-              variant="outline"
-              className={cn(
-                "text-[10px] font-semibold px-1.5 py-0 h-5 rounded-md shrink-0",
-                methodColors[step.method]
-              )}
+        <div className="flex items-center gap-1">
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className="flex-1 p-4 flex items-center gap-4 hover:bg-accent/30 transition-colors text-left"
+              disabled={isStepBusy}
             >
-              {step.method}
-            </Badge>
-            
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground truncate">
-                {step.name}
-              </p>
-              <p className="text-xs text-muted-foreground font-mono truncate">
-                {step.endpoint}
-              </p>
-            </div>
-            
-            <div className="flex items-center gap-3 shrink-0">
-              <Badge variant="secondary" className="text-[10px]">
-                {passedAssertions}/{totalAssertions} assertions
-              </Badge>
-              <ChevronDown
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="text-xs font-medium text-muted-foreground w-6">
+                  #{stepNumber}
+                </span>
+                <StepStatusIcon status={step.status} />
+              </div>
+
+              <Badge
+                variant="outline"
                 className={cn(
-                  "w-4 h-4 text-muted-foreground transition-transform",
-                  open && "rotate-180"
+                  "text-[10px] font-semibold px-1.5 py-0 h-5 rounded-md shrink-0",
+                  methodColors[step.method]
                 )}
-              />
+              >
+                {step.method}
+              </Badge>
+
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">
+                  {step.name}
+                </p>
+                <p className="text-xs text-muted-foreground font-mono truncate">
+                  {step.endpoint}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0">
+                <Badge variant="secondary" className="text-[10px]">
+                  {passedAssertions}/{totalAssertions} assertions
+                </Badge>
+                <ChevronDown
+                  className={cn(
+                    "w-4 h-4 text-muted-foreground transition-transform",
+                    open && "rotate-180"
+                  )}
+                />
+              </div>
+            </button>
+          </CollapsibleTrigger>
+
+          {onDeleteStep && (
+            <div className="pr-3">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    aria-label="Step actions"
+                    disabled={isStepBusy}
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    disabled={isStepBusy}
+                    onClick={() => toast.info("Edit step is not available yet")}
+                  >
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={isStepBusy}
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => setIsDeleteConfirmOpen(true)}
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
-          </button>
-        </CollapsibleTrigger>
+          )}
+        </div>
         
         <CollapsibleContent>
           <div className="px-4 pb-4 pt-0">
@@ -168,28 +206,6 @@ export function TestStepCard({
                   >
                     <Plus className="mr-1 h-3.5 w-3.5" />
                     Add Assertion
-                  </Button>
-                )}
-                {onDeleteStep && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="destructive"
-                    className="h-7 px-2 text-xs"
-                    onClick={() => setIsDeleteConfirmOpen(true)}
-                    disabled={isStepBusy}
-                  >
-                    {isStepBusy ? (
-                      <>
-                        <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                        Deleting...
-                      </>
-                    ) : (
-                      <>
-                        <Trash2 className="mr-1 h-3.5 w-3.5" />
-                        Delete Step
-                      </>
-                    )}
                   </Button>
                 )}
               </div>
