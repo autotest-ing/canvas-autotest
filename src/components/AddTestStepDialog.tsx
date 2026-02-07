@@ -41,8 +41,9 @@ type AddTestStepDialogProps = {
 };
 
 function formatRequestLabel(item: RequestListItem): string {
-  const method = (item.request.method ?? "GET").toUpperCase();
-  const endpoint = item.request.url ?? item.request.full_url ?? "/";
+  const request = item.request ?? {};
+  const method = (request.method ?? item.method ?? "GET").toUpperCase();
+  const endpoint = request.url ?? request.full_url ?? item.url ?? item.full_url ?? "/";
   return `${method} ${endpoint}`;
 }
 

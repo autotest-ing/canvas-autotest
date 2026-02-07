@@ -301,6 +301,48 @@ describe("request API client", () => {
       "Failed to load requests: Access denied"
     );
   });
+
+  it("fetchRequests normalizes items when request payload is missing", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          items: [
+            {
+              id: "request-legacy",
+              method: "POST",
+              url: "/users",
+              full_url: "https://api.example.com/users",
+              created_at: "2026-02-07T00:03:00Z",
+              updated_at: "2026-02-07T00:03:00Z",
+              is_assigned_to_test_step: false,
+            },
+          ],
+          next_cursor: null,
+          total: 1,
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      )
+    );
+
+    const result = await fetchRequests("account-1", "jwt-token");
+
+    expect(result.items[0]).toEqual(
+      expect.objectContaining({
+        id: "request-legacy",
+        method: "POST",
+        url: "/users",
+        full_url: "https://api.example.com/users",
+        request: expect.objectContaining({
+          method: "POST",
+          url: "/users",
+          full_url: "https://api.example.com/users",
+        }),
+      })
+    );
+  });
 });
 
 describe("test step API client", () => {

@@ -82,6 +82,16 @@ function normalizeMethod(method?: string | null): TestStep["method"] {
   return "GET";
 }
 
+function resolveSelectedRequestData(selectedRequest: AddTestStepFormValues["selectedRequest"]) {
+  const request = selectedRequest.request ?? {};
+
+  return {
+    method: request.method ?? selectedRequest.method ?? null,
+    url: request.url ?? selectedRequest.url ?? null,
+    fullUrl: request.full_url ?? selectedRequest.full_url ?? null,
+  };
+}
+
 // Derive endpoint from step config
 function deriveEndpoint(config: Record<string, unknown>): string {
   return (config?.url as string) || (config?.endpoint as string) || (config?.path as string) || "/";
@@ -422,11 +432,9 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
         token
       );
 
-      const mappedMethod = normalizeMethod(formValues.selectedRequest.request.method);
-      const mappedEndpoint =
-        formValues.selectedRequest.request.url ??
-        formValues.selectedRequest.request.full_url ??
-        deriveEndpoint(createdStep.config);
+      const selectedRequestData = resolveSelectedRequestData(formValues.selectedRequest);
+      const mappedMethod = normalizeMethod(selectedRequestData.method);
+      const mappedEndpoint = selectedRequestData.url ?? selectedRequestData.fullUrl ?? deriveEndpoint(createdStep.config);
 
       setTestCases((prevCases) =>
         prevCases.map((testCase) => {

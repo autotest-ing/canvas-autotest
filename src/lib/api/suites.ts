@@ -73,7 +73,10 @@ export type RequestPayload = {
 
 export type RequestListItem = {
   id: string;
-  request: RequestPayload;
+  request?: RequestPayload | null;
+  method?: string | null;
+  url?: string | null;
+  full_url?: string | null;
   created_at: string;
   updated_at: string;
   is_assigned_to_test_step: boolean;
@@ -233,8 +236,12 @@ export async function fetchRequests(
   }
 
   const data = (await response.json()) as Partial<RequestListResponse>;
+  const rawItems = Array.isArray(data.items) ? data.items : [];
+
   return {
-    items: Array.isArray(data.items) ? data.items : [],
+    items: rawItems
+      .map((item) => normalizeRequestListItem(item))
+      .filter((item): item is RequestListItem => item !== null),
     next_cursor: typeof data.next_cursor === "string" ? data.next_cursor : null,
     total: typeof data.total === "number" ? data.total : 0,
   };
@@ -364,4 +371,53 @@ async function buildApiError(response: Response, prefix: string): Promise<Error>
   }
 
   return new Error(message);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function pickString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function normalizeRequestPayload(item: Record<string, unknown>): RequestPayload {
+  const nestedRequest = isRecord(item.request) ? item.request : {};
+  const nestedHeaders = nestedRequest.headers;
+  const nestedPathParams = nestedRequest.path_params;
+
+  return {
+    method: pickString(nestedRequest.method) ?? pickString(item.method),
+    url: pickString(nestedRequest.url) ?? pickString(item.url),
+    full_url: pickString(nestedRequest.full_url) ?? pickString(item.full_url),
+    headers: isRecord(nestedHeaders) ? nestedHeaders : null,
+    path_params: isRecord(nestedPathParams) ? nestedPathParams : null,
+    payload: nestedRequest.payload ?? null,
+  };
+}
+
+function normalizeRequestListItem(rawItem: unknown): RequestListItem | null {
+  if (!isRecord(rawItem)) {
+    return null;
+  }
+
+  const id = pickString(rawItem.id);
+  if (!id) {
+    return null;
+  }
+
+  const method = pickString(rawItem.method);
+  const url = pickString(rawItem.url);
+  const fullUrl = pickString(rawItem.full_url);
+
+  return {
+    id,
+    request: normalizeRequestPayload(rawItem),
+    ...(method ? { method } : {}),
+    ...(url ? { url } : {}),
+    ...(fullUrl ? { full_url: fullUrl } : {}),
+    created_at: pickString(rawItem.created_at) ?? "",
+    updated_at: pickString(rawItem.updated_at) ?? "",
+    is_assigned_to_test_step: Boolean(rawItem.is_assigned_to_test_step),
+  };
 }

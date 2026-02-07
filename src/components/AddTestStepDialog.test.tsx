@@ -235,4 +235,39 @@ describe("AddTestStepDialog", () => {
       })
     );
   });
+
+  it("renders request labels when method/url are only available at item root", async () => {
+    vi.spyOn(suitesApi, "fetchRequests").mockResolvedValue({
+      items: [
+        {
+          id: "request-legacy",
+          method: "DELETE",
+          url: "/users/legacy",
+          request: null,
+          created_at: "2026-02-07T00:02:00Z",
+          updated_at: "2026-02-07T00:02:00Z",
+          is_assigned_to_test_step: false,
+        },
+      ],
+      next_cursor: null,
+      total: 1,
+    });
+
+    render(
+      <AddTestStepDialog
+        open
+        onOpenChange={vi.fn()}
+        token="jwt-token"
+        accountId="account-1"
+        onSubmit={vi.fn().mockResolvedValue(undefined)}
+      />
+    );
+
+    await waitFor(() => {
+      expect(suitesApi.fetchRequests).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getByRole("combobox"));
+    await screen.findByText("DELETE /users/legacy");
+  });
 });
