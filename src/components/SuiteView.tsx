@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { TestCaseList, type TestCase, type TestStep, type Assertion } from "./TestCaseList";
 import { SuiteCanvas } from "./SuiteCanvas";
+import { AddAssertionDialog } from "./AddAssertionDialog";
 import { MobileBottomSpacer } from "./LeftRail";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -11,13 +12,17 @@ import { List } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
   createAssertion,
+  deleteAssertion,
   fetchSuitesFull,
   fetchSuites,
   fetchEnvironments,
+  getAssertion,
+  updateAssertion,
   type TestSuiteFullResponse,
   type Environment,
   type AssertionNested,
   type CreateAssertionPayload,
+  type UpdateAssertionPayload,
 } from "@/lib/api/suites";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -186,6 +191,13 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
   const [environments, setEnvironments] = useState<Environment[]>([]);
   const [selectedEnvironmentId, setSelectedEnvironmentId] = useState<string | null>(null);
   const [creatingAssertionStepId, setCreatingAssertionStepId] = useState<string | null>(null);
+  const [isEditAssertionDialogOpen, setIsEditAssertionDialogOpen] = useState(false);
+  const [editAssertionContext, setEditAssertionContext] = useState<{
+    stepId: string;
+    assertionId: string;
+  } | null>(null);
+  const [isUpdatingAssertion, setIsUpdatingAssertion] = useState(false);
+  const [deletingAssertionId, setDeletingAssertionId] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
   // Resolve suiteId: if it's already a UUID use it directly,
@@ -262,6 +274,8 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
     setSuiteDescription("");
     setTestCases([]);
     setSelectedTestCaseId(null);
+    setIsEditAssertionDialogOpen(false);
+    setEditAssertionContext(null);
 
     (async () => {
       try {
@@ -350,6 +364,108 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
     }
   };
 
+  const handleOpenEditAssertion = (stepId: string, assertionId: string) => {
+    setEditAssertionContext({ stepId, assertionId });
+    setIsEditAssertionDialogOpen(true);
+  };
+
+  const handleEditDialogOpenChange = (open: boolean) => {
+    setIsEditAssertionDialogOpen(open);
+    if (!open) {
+      setEditAssertionContext(null);
+    }
+  };
+
+  const handleFetchAssertion = async (assertionId: string) => {
+    if (!token) {
+      throw new Error("Missing auth token.");
+    }
+    return getAssertion(assertionId, token);
+  };
+
+  const handleUpdateAssertion = async (assertionId: string, payload: UpdateAssertionPayload) => {
+    if (!token) {
+      const missingAuthError = new Error("Missing auth token.");
+      toast.error("Failed to update assertion", {
+        description: missingAuthError.message,
+      });
+      throw missingAuthError;
+    }
+
+    setIsUpdatingAssertion(true);
+
+    try {
+      const updatedAssertion = await updateAssertion(assertionId, payload, token);
+
+      setTestCases((prevCases) =>
+        prevCases.map((testCase) => ({
+          ...testCase,
+          steps: testCase.steps.map((step) => ({
+            ...step,
+            assertions: step.assertions.map((assertion) =>
+              assertion.id === assertionId ? mapBackendAssertion(updatedAssertion) : assertion
+            ),
+          })),
+        }))
+      );
+
+      toast.success("Assertion updated");
+    } catch (error) {
+      const description = error instanceof Error ? error.message : "Please try again.";
+      toast.error("Failed to update assertion", { description });
+      throw error instanceof Error ? error : new Error("Failed to update assertion");
+    } finally {
+      setIsUpdatingAssertion(false);
+    }
+  };
+
+  const handleDeleteAssertion = async (assertionId: string) => {
+    if (!token) {
+      const missingAuthError = new Error("Missing auth token.");
+      toast.error("Failed to delete assertion", {
+        description: missingAuthError.message,
+      });
+      throw missingAuthError;
+    }
+
+    setDeletingAssertionId(assertionId);
+
+    try {
+      await deleteAssertion(assertionId, token);
+      setTestCases((prevCases) =>
+        prevCases.map((testCase) => ({
+          ...testCase,
+          steps: testCase.steps.map((step) => ({
+            ...step,
+            assertions: step.assertions.filter((assertion) => assertion.id !== assertionId),
+          })),
+        }))
+      );
+      toast.success("Assertion deleted");
+    } catch (error) {
+      const description = error instanceof Error ? error.message : "Please try again.";
+      toast.error("Failed to delete assertion", { description });
+      throw error instanceof Error ? error : new Error("Failed to delete assertion");
+    } finally {
+      setDeletingAssertionId((currentId) => (currentId === assertionId ? null : currentId));
+    }
+  };
+
+  const editAssertionDialog = editAssertionContext ? (
+    <AddAssertionDialog
+      mode="edit"
+      open={isEditAssertionDialogOpen}
+      onOpenChange={handleEditDialogOpenChange}
+      stepId={editAssertionContext.stepId}
+      assertionId={editAssertionContext.assertionId}
+      isSubmitting={isUpdatingAssertion}
+      isDeleting={deletingAssertionId === editAssertionContext.assertionId}
+      onFetchAssertion={handleFetchAssertion}
+      onUpdate={handleUpdateAssertion}
+      onDelete={handleDeleteAssertion}
+    />
+  ) : null;
+
   // Mobile layout
   if (isMobile) {
     return (
@@ -397,10 +513,12 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
               onAskAI={handleAskAI}
               onViewRuns={handleViewRuns}
               onCreateAssertion={handleCreateAssertion}
+              onEditAssertion={handleOpenEditAssertion}
               creatingAssertionStepId={creatingAssertionStepId}
             />
           )}
         </div>
+        {editAssertionDialog}
         <MobileBottomSpacer />
       </div>
     );
@@ -439,12 +557,14 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
                 onAskAI={handleAskAI}
                 onViewRuns={handleViewRuns}
                 onCreateAssertion={handleCreateAssertion}
+                onEditAssertion={handleOpenEditAssertion}
                 creatingAssertionStepId={creatingAssertionStepId}
               />
             )}
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>
+      {editAssertionDialog}
     </div>
   );
 }

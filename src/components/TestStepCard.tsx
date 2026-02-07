@@ -14,6 +14,7 @@ interface TestStepCardProps {
   stepNumber: number;
   isExpanded?: boolean;
   onCreateAssertion?: (stepId: string, payload: CreateAssertionPayload) => Promise<void>;
+  onEditAssertion?: (stepId: string, assertionId: string) => void;
   isCreatingAssertion?: boolean;
 }
 
@@ -64,6 +65,7 @@ export function TestStepCard({
   stepNumber,
   isExpanded = false,
   onCreateAssertion,
+  onEditAssertion,
   isCreatingAssertion = false,
 }: TestStepCardProps) {
   const [open, setOpen] = useState(isExpanded);
@@ -142,9 +144,12 @@ export function TestStepCard({
                 <p className="text-sm text-muted-foreground">No assertions yet.</p>
               ) : (
                 step.assertions.map((assertion) => (
-                  <div
+                  <button
                     key={assertion.id}
-                    className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/30"
+                    type="button"
+                    className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-muted/30 text-left transition-colors hover:bg-muted/50"
+                    onClick={() => onEditAssertion?.(step.id, assertion.id)}
+                    disabled={!onEditAssertion}
                   >
                     <div
                       className={cn(
@@ -164,7 +169,7 @@ export function TestStepCard({
                     <Badge variant="outline" className="text-[10px] shrink-0">
                       {assertion.type}
                     </Badge>
-                  </div>
+                  </button>
                 ))
               )}
             </div>

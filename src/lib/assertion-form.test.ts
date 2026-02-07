@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   buildCreateAssertionPayload,
+  buildUpdateAssertionPayload,
   getDefaultOperator,
   getNextSortOrder,
+  mapAssertionToFormValues,
   type AddAssertionFormValues,
 } from "@/lib/assertion-form";
 
@@ -16,6 +18,7 @@ function baseValues(overrides: Partial<AddAssertionFormValues> = {}): AddAsserti
     expectedText: "",
     expectedNumber: "200",
     expectedJson: "",
+    isEnabled: true,
     ...overrides,
   };
 }
@@ -167,5 +170,176 @@ describe("getNextSortOrder", () => {
   it("returns max + 1 and defaults to 1", () => {
     expect(getNextSortOrder([])).toBe(1);
     expect(getNextSortOrder([{ sortOrder: 1 }, { sortOrder: 4 }, { sortOrder: 2 }])).toBe(5);
+  });
+});
+
+describe("mapAssertionToFormValues", () => {
+  it("maps expected fields for supported assertion types", () => {
+    const statusAssertion = mapAssertionToFormValues({
+      id: "a1",
+      test_step_id: "step-1",
+      name: "Status 200",
+      assertion_type: "status_code",
+      operator: "equals",
+      extractor: null,
+      expected: 200,
+      expected_template: null,
+      severity: "error",
+      is_enabled: true,
+      sort_order: 1,
+      created_at: "2024-01-01T00:00:00Z",
+      updated_at: "2024-01-01T00:00:00Z",
+    });
+    expect(statusAssertion.expectedNumber).toBe("200");
+    expect(statusAssertion.isEnabled).toBe(true);
+
+    const headerAssertion = mapAssertionToFormValues({
+      id: "a2",
+      test_step_id: "step-1",
+      name: "Header",
+      assertion_type: "header",
+      operator: "equals",
+      extractor: { type: "header", key: "content-type", source: "response_headers" },
+      expected: "application/json",
+      expected_template: null,
+      severity: "error",
+      is_enabled: false,
+      sort_order: 2,
+      created_at: "2024-01-01T00:00:00Z",
+      updated_at: "2024-01-01T00:00:00Z",
+    });
+    expect(headerAssertion.headerKey).toBe("content-type");
+    expect(headerAssertion.expectedText).toBe("application/json");
+    expect(headerAssertion.isEnabled).toBe(false);
+
+    const jsonPathIsInAssertion = mapAssertionToFormValues({
+      id: "a3",
+      test_step_id: "step-1",
+      name: "JSONPath in",
+      assertion_type: "jsonpath",
+      operator: "is_in",
+      extractor: { type: "jsonpath", path: "$.domain", source: "response_body" },
+      expected: ["a.com", "b.com"],
+      expected_template: null,
+      severity: "error",
+      is_enabled: true,
+      sort_order: 3,
+      created_at: "2024-01-01T00:00:00Z",
+      updated_at: "2024-01-01T00:00:00Z",
+    });
+    expect(jsonPathIsInAssertion.jsonPath).toBe("$.domain");
+    expect(jsonPathIsInAssertion.expectedJson).toContain("a.com");
+    expect(jsonPathIsInAssertion.expectedText).toBe("");
+
+    const bodyEqualsAssertion = mapAssertionToFormValues({
+      id: "a4",
+      test_step_id: "step-1",
+      name: "Body equals",
+      assertion_type: "body_equals",
+      operator: "equals",
+      extractor: null,
+      expected: { ok: true, value: 1 },
+      expected_template: null,
+      severity: "error",
+      is_enabled: true,
+      sort_order: 4,
+      created_at: "2024-01-01T00:00:00Z",
+      updated_at: "2024-01-01T00:00:00Z",
+    });
+    expect(bodyEqualsAssertion.expectedJson).toContain('"ok": true');
+
+    const schemaAssertion = mapAssertionToFormValues({
+      id: "a5",
+      test_step_id: "step-1",
+      name: "Schema",
+      assertion_type: "schema",
+      operator: "matches",
+      extractor: { type: "jsonpath", path: "$", source: "response_body" },
+      expected: { type: "object", required: ["id"] },
+      expected_template: null,
+      severity: "error",
+      is_enabled: true,
+      sort_order: 5,
+      created_at: "2024-01-01T00:00:00Z",
+      updated_at: "2024-01-01T00:00:00Z",
+    });
+    expect(schemaAssertion.expectedJson).toContain('"required"');
+  });
+});
+
+describe("buildUpdateAssertionPayload", () => {
+  it("returns empty payload when form matches original assertion", () => {
+    const originalAssertion = {
+      id: "a1",
+      test_step_id: "step-1",
+      name: "Status 200",
+      assertion_type: "status_code" as const,
+      operator: "equals",
+      extractor: null,
+      expected: 200,
+      expected_template: null,
+      severity: "error",
+      is_enabled: true,
+      sort_order: 1,
+      created_at: "2024-01-01T00:00:00Z",
+      updated_at: "2024-01-01T00:00:00Z",
+    };
+
+    const formValues = mapAssertionToFormValues(originalAssertion);
+    const result = buildUpdateAssertionPayload({
+      originalAssertion,
+      formValues,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      payload: {},
+      hasChanges: false,
+    });
+  });
+
+  it("builds changed PATCH payload with extractor and expected", () => {
+    const originalAssertion = {
+      id: "a2",
+      test_step_id: "step-1",
+      name: "Check domain",
+      assertion_type: "jsonpath" as const,
+      operator: "equals",
+      extractor: { type: "jsonpath", path: "$.domain", source: "response_body" },
+      expected: "old-value",
+      expected_template: null,
+      severity: "error",
+      is_enabled: true,
+      sort_order: 2,
+      created_at: "2024-01-01T00:00:00Z",
+      updated_at: "2024-01-01T00:00:00Z",
+    };
+
+    const formValues = baseValues({
+      name: "Check updated domain",
+      assertionType: "jsonpath",
+      operator: "is_in",
+      jsonPath: "$.domain",
+      expectedText: "",
+      expectedJson: '["new-value","backup"]',
+      expectedNumber: "",
+      isEnabled: false,
+    });
+
+    const result = buildUpdateAssertionPayload({
+      originalAssertion,
+      formValues,
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.hasChanges).toBe(true);
+      expect(result.payload).toEqual({
+        name: "Check updated domain",
+        operator: "is_in",
+        expected: ["new-value", "backup"],
+        is_enabled: false,
+      });
+    }
   });
 });

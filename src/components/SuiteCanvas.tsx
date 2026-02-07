@@ -33,6 +33,7 @@ interface SuiteCanvasProps {
   onAskAI: () => void;
   onViewRuns?: () => void;
   onCreateAssertion?: (stepId: string, payload: CreateAssertionPayload) => Promise<void>;
+  onEditAssertion?: (stepId: string, assertionId: string) => void;
   creatingAssertionStepId?: string | null;
 }
 
@@ -48,6 +49,7 @@ export function SuiteCanvas({
   onAskAI,
   onViewRuns,
   onCreateAssertion,
+  onEditAssertion,
   creatingAssertionStepId,
 }: SuiteCanvasProps) {
   return (
@@ -123,6 +125,7 @@ export function SuiteCanvas({
                       stepNumber={index + 1}
                       isExpanded={index === 0}
                       onCreateAssertion={onCreateAssertion}
+                      onEditAssertion={onEditAssertion}
                       isCreatingAssertion={creatingAssertionStepId === step.id}
                     />
                   ))}

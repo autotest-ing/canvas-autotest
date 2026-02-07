@@ -53,6 +53,15 @@ export type CreateAssertionResponse = AssertionNested & {
   created_at?: string;
 };
 
+export type AssertionDetailResponse = AssertionNested & {
+  created_at: string;
+  updated_at: string;
+};
+
+export type UpdateAssertionPayload = Partial<
+  Pick<CreateAssertionPayload, "name" | "assertion_type" | "operator" | "extractor" | "expected" | "is_enabled">
+>;
+
 export type TestStepNested = {
   id: string;
   test_case_id: string;
@@ -184,19 +193,68 @@ export async function createAssertion(
   });
 
   if (response.status !== 201 && !response.ok) {
-    let message = "Failed to create assertion";
-    try {
-      const data = (await response.json()) as { message?: string; detail?: string };
-      if (typeof data?.message === "string" && data.message.trim()) {
-        message = `${message}: ${data.message}`;
-      } else if (typeof data?.detail === "string" && data.detail.trim()) {
-        message = `${message}: ${data.detail}`;
-      }
-    } catch {
-      // keep default error
-    }
-    throw new Error(message);
+    throw await buildApiError(response, "Failed to create assertion");
   }
 
   return (await response.json()) as CreateAssertionResponse;
+}
+
+export async function getAssertion(assertionId: string, token: string): Promise<AssertionDetailResponse> {
+  const response = await fetch(`${BASE_API_URL}/v1.0/assertions/${assertionId}`, {
+    headers: getAuthHeaders(token),
+  });
+
+  if (!response.ok) {
+    throw await buildApiError(response, "Failed to load assertion");
+  }
+
+  return (await response.json()) as AssertionDetailResponse;
+}
+
+export async function updateAssertion(
+  assertionId: string,
+  payload: UpdateAssertionPayload,
+  token: string
+): Promise<AssertionDetailResponse> {
+  const response = await fetch(`${BASE_API_URL}/v1.0/assertions/${assertionId}`, {
+    method: "PATCH",
+    headers: {
+      ...getAuthHeaders(token),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw await buildApiError(response, "Failed to update assertion");
+  }
+
+  return (await response.json()) as AssertionDetailResponse;
+}
+
+export async function deleteAssertion(assertionId: string, token: string): Promise<void> {
+  const response = await fetch(`${BASE_API_URL}/v1.0/assertions/${assertionId}`, {
+    method: "DELETE",
+    headers: getAuthHeaders(token),
+  });
+
+  if (!response.ok) {
+    throw await buildApiError(response, "Failed to delete assertion");
+  }
+}
+
+async function buildApiError(response: Response, prefix: string): Promise<Error> {
+  let message = prefix;
+  try {
+    const data = (await response.json()) as { message?: string; detail?: string };
+    if (typeof data?.message === "string" && data.message.trim()) {
+      message = `${prefix}: ${data.message}`;
+    } else if (typeof data?.detail === "string" && data.detail.trim()) {
+      message = `${prefix}: ${data.detail}`;
+    }
+  } catch {
+    // Keep default fallback error message.
+  }
+
+  return new Error(message);
 }
