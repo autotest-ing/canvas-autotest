@@ -66,21 +66,22 @@ function mapBackendAssertion(assertion: AssertionNested): Assertion {
   };
 }
 
-// Derive method from step config or default to GET
-function deriveMethod(config: Record<string, unknown>): TestStep["method"] {
-  const method = (config?.method as string)?.toUpperCase();
-  if (method && ["GET", "POST", "PUT", "PATCH", "DELETE"].includes(method)) {
-    return method as TestStep["method"];
-  }
-  return "GET";
-}
-
 function normalizeMethod(method?: string | null): TestStep["method"] {
   const normalizedMethod = method?.toUpperCase();
   if (normalizedMethod && ["GET", "POST", "PUT", "PATCH", "DELETE"].includes(normalizedMethod)) {
     return normalizedMethod as TestStep["method"];
   }
   return "GET";
+}
+
+function firstNonEmptyString(...values: Array<string | null | undefined>): string | null {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value;
+    }
+  }
+
+  return null;
 }
 
 function resolveSelectedRequestData(selectedRequest: AddTestStepFormValues["selectedRequest"]) {
@@ -94,8 +95,36 @@ function resolveSelectedRequestData(selectedRequest: AddTestStepFormValues["sele
 }
 
 // Derive endpoint from step config
-function deriveEndpoint(config: Record<string, unknown>): string {
+function deriveEndpointFromConfig(config: Record<string, unknown>): string {
   return (config?.url as string) || (config?.endpoint as string) || (config?.path as string) || "/";
+}
+
+function deriveMethod(step: {
+  method?: string | null;
+  request?: { method?: string | null } | null;
+  config: Record<string, unknown>;
+}): TestStep["method"] {
+  const configMethod = typeof step.config?.method === "string" ? step.config.method : null;
+  return normalizeMethod(step.method ?? step.request?.method ?? configMethod);
+}
+
+function deriveEndpoint(step: {
+  endpoint?: string | null;
+  url?: string | null;
+  full_url?: string | null;
+  request?: { url?: string | null; full_url?: string | null } | null;
+  config: Record<string, unknown>;
+}): string {
+  return (
+    firstNonEmptyString(
+      step.endpoint,
+      step.url,
+      step.full_url,
+      step.request?.url,
+      step.request?.full_url,
+      deriveEndpointFromConfig(step.config)
+    ) ?? "/"
+  );
 }
 
 // Transform backend response to frontend TestCase[] format
@@ -108,8 +137,8 @@ function transformSuiteData(data: TestSuiteFullResponse): TestCase[] {
     steps: tc.steps.map((step) => ({
       id: step.id,
       name: step.name,
-      method: deriveMethod(step.config),
-      endpoint: deriveEndpoint(step.config),
+      method: deriveMethod(step),
+      endpoint: deriveEndpoint(step),
       status: undefined,
       stepType: step.step_type,
       requestId: step.request_id ?? null,
@@ -436,7 +465,8 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
 
       const selectedRequestData = resolveSelectedRequestData(formValues.selectedRequest);
       const mappedMethod = normalizeMethod(selectedRequestData.method);
-      const mappedEndpoint = selectedRequestData.url ?? selectedRequestData.fullUrl ?? deriveEndpoint(createdStep.config);
+      const mappedEndpoint =
+        selectedRequestData.url ?? selectedRequestData.fullUrl ?? deriveEndpointFromConfig(createdStep.config);
 
       setTestCases((prevCases) =>
         prevCases.map((testCase) => {

@@ -124,6 +124,11 @@ export type TestStepNested = {
   test_case_id: string;
   name: string;
   step_type: string;
+  method?: string | null;
+  url?: string | null;
+  endpoint?: string | null;
+  full_url?: string | null;
+  request?: RequestPayload | null;
   request_id?: string | null;
   collection_id?: string | null;
   sort_order: number;
