@@ -154,7 +154,7 @@ export function PromptInput({ onSubmit, onPlan, isLoading }: PromptInputProps) {
         return;
       }
     }
-    
+
     if (e.key === "Enter" && !e.shiftKey && !showSlashMenu) {
       e.preventDefault();
       handleSubmit();
@@ -164,12 +164,12 @@ export function PromptInput({ onSubmit, onPlan, isLoading }: PromptInputProps) {
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
     setValue(newValue);
-    
+
     // Check if "/" was just typed at start or after space
     const cursorPos = e.target.selectionStart;
     const charBefore = newValue[cursorPos - 2];
     const charTyped = newValue[cursorPos - 1];
-    
+
     if (charTyped === "/" && (cursorPos === 1 || charBefore === " " || charBefore === "\n")) {
       setShowSlashMenu(true);
       setSlashFilter("");
@@ -195,18 +195,18 @@ export function PromptInput({ onSubmit, onPlan, isLoading }: PromptInputProps) {
       setActiveSubmenu(command.id);
       return;
     }
-    
+
     if (command.prompt) {
       // Remove the slash and any filter text, then insert the prompt
       const slashIndex = value.lastIndexOf("/");
-      const newValue = slashIndex !== -1 
+      const newValue = slashIndex !== -1
         ? value.slice(0, slashIndex) + command.prompt
         : command.prompt;
       setValue(newValue);
       setShowSlashMenu(false);
       setActiveSubmenu(null);
       setSlashFilter("");
-      
+
       // Focus textarea and move cursor to end
       setTimeout(() => {
         textareaRef.current?.focus();
@@ -238,12 +238,12 @@ export function PromptInput({ onSubmit, onPlan, isLoading }: PromptInputProps) {
         setSlashFilter("");
       }
     };
-    
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showSlashMenu]);
 
-  const filteredCommands = slashCommands.filter(cmd => 
+  const filteredCommands = slashCommands.filter(cmd =>
     cmd.label.toLowerCase().includes(slashFilter.toLowerCase()) ||
     cmd.children?.some(child => child.label.toLowerCase().includes(slashFilter.toLowerCase()))
   );
@@ -427,7 +427,7 @@ export function PromptInput({ onSubmit, onPlan, isLoading }: PromptInputProps) {
       {/* Example prompts (only shown when not loading) */}
       {!isLoading && (
         <div className="mt-4 flex flex-wrap justify-center gap-2">
-          {placeholders.slice(1).map((prompt, i) => (
+          {placeholders.slice(0).map((prompt, i) => (
             <button
               key={i}
               onClick={() => setValue(prompt)}
