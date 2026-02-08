@@ -149,7 +149,7 @@ export function SuiteCanvas({
             value={selectedEnvironmentId ?? "none"}
             onValueChange={(val) => onEnvironmentChange(val === "none" ? null : val)}
           >
-            <SelectTrigger className="h-8 w-[140px] text-sm">
+            <SelectTrigger className="h-9 w-[140px] text-sm">
               <SelectValue placeholder="Environment" />
             </SelectTrigger>
             <SelectContent>
@@ -331,23 +331,21 @@ export function SuiteCanvas({
               {suggestions.map((suggestion) => (
                 <div
                   key={suggestion.id}
-                  className={`p-4 rounded-xl border ${
-                    suggestion.type === "warning"
-                      ? "bg-amber-500/5 border-amber-500/20"
-                      : suggestion.type === "improvement"
+                  className={`p-4 rounded-xl border ${suggestion.type === "warning"
+                    ? "bg-amber-500/5 border-amber-500/20"
+                    : suggestion.type === "improvement"
                       ? "bg-primary/5 border-primary/20"
                       : "bg-accent/50 border-border/50"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-start gap-3">
                     <div
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                        suggestion.type === "warning"
-                          ? "bg-amber-500/15 text-amber-600"
-                          : suggestion.type === "improvement"
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${suggestion.type === "warning"
+                        ? "bg-amber-500/15 text-amber-600"
+                        : suggestion.type === "improvement"
                           ? "bg-primary/15 text-primary"
                           : "bg-muted text-muted-foreground"
-                      }`}
+                        }`}
                     >
                       <Sparkles className="w-4 h-4" />
                     </div>

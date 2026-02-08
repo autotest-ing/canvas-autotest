@@ -61,7 +61,7 @@ export function SourceCard({ source, onCreateSuite, onResync, onDelete }: Source
   const TypeIcon = typeInfo.icon;
 
   return (
-    <div className="bg-card rounded-2xl p-4 md:p-5 shadow-soft border border-border/50 hover:shadow-hover transition-all duration-200">
+    <div className="bg-card rounded-2xl p-4 md:p-5 shadow-sm border border-border/50 hover:shadow-hover transition-all duration-200">
       <div className="flex flex-col sm:flex-row sm:items-start gap-4">
         {/* Type Icon & Content Row for Mobile */}
         <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -114,7 +114,7 @@ export function SourceCard({ source, onCreateSuite, onResync, onDelete }: Source
             <Layers className="w-3.5 h-3.5" />
             Create Suite
           </Button>
-          
+
           {/* Mobile buttons */}
           <Button
             variant="outline"
@@ -144,7 +144,7 @@ export function SourceCard({ source, onCreateSuite, onResync, onDelete }: Source
               <DropdownMenuItem onClick={() => onResync(source.id)}>
                 Re-sync source
               </DropdownMenuItem>
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 onClick={() => onDelete(source.id)}
                 className="text-destructive focus:text-destructive"
               >
