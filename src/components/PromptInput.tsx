@@ -1,6 +1,122 @@
-import { useRef, useState } from "react";
-import { Paperclip, Sparkles, Play, X, FileJson, Loader2 } from "lucide-react";
+import { useRef, useState, useEffect, useCallback } from "react";
+import { Paperclip, Sparkles, Play, X, FileJson, Loader2, FolderPlus, TestTube, Footprints, Import, ChevronRight, FileCode, FileType, Braces, ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+
+interface SlashCommand {
+  id: string;
+  label: string;
+  description?: string;
+  icon: React.ElementType;
+  prompt?: string;
+  children?: SlashCommand[];
+}
+
+const slashCommands: SlashCommand[] = [
+  {
+    id: "create-test-plan",
+    label: "Create test plan",
+    description: "Generate a comprehensive test plan",
+    icon: ClipboardList,
+    prompt: "Create a test plan for ",
+  },
+  {
+    id: "suites",
+    label: "Suites",
+    icon: FolderPlus,
+    children: [
+      {
+        id: "create-suite",
+        label: "Create Suite",
+        description: "Create a new test suite for organizing test cases",
+        icon: FolderPlus,
+        prompt: "Create a new test suite called ",
+      },
+      {
+        id: "update-suite",
+        label: "Update Suite",
+        description: "Update an existing test suite",
+        icon: FolderPlus,
+        prompt: "Update the test suite ",
+      },
+    ],
+  },
+  {
+    id: "test-cases",
+    label: "Test Cases",
+    icon: TestTube,
+    children: [
+      {
+        id: "create-test-case",
+        label: "Create Test Case",
+        description: "Create a new test case within a test suite",
+        icon: TestTube,
+        prompt: "Create a new test case for ",
+      },
+    ],
+  },
+  {
+    id: "test-steps",
+    label: "Test Steps",
+    icon: Footprints,
+    children: [
+      {
+        id: "create-test-step",
+        label: "Create Test Step",
+        description: "Create a new test step within a test case. A step represents a single HTTP request.",
+        icon: Footprints,
+        prompt: "Create a new test step that ",
+      },
+    ],
+  },
+  {
+    id: "import",
+    label: "Import",
+    icon: Import,
+    children: [
+      {
+        id: "import-curl",
+        label: "cURL",
+        description: "Import from a cURL command",
+        icon: FileCode,
+        prompt: "Import from cURL: ",
+      },
+      {
+        id: "import-postman",
+        label: "Postman",
+        description: "Import from Postman collection",
+        icon: FileJson,
+        prompt: "Import my Postman collection ",
+      },
+      {
+        id: "import-openapi",
+        label: "OpenAPI",
+        description: "Import from OpenAPI specification",
+        icon: Braces,
+        prompt: "Import from OpenAPI spec ",
+      },
+      {
+        id: "import-swagger",
+        label: "Swagger",
+        description: "Import from Swagger specification",
+        icon: FileType,
+        prompt: "Import from Swagger spec ",
+      },
+    ],
+  },
+];
 
 interface PromptInputProps {
   onSubmit: (prompt: string, attachedFile?: File | null) => void;
@@ -12,7 +128,12 @@ export function PromptInput({ onSubmit, onPlan, isLoading }: PromptInputProps) {
   const [value, setValue] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [showSlashMenu, setShowSlashMenu] = useState(false);
+  const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
+  const [slashFilter, setSlashFilter] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const menuAnchorRef = useRef<HTMLDivElement>(null);
 
   const handleSubmit = () => {
     if (isLoading) return;
@@ -24,18 +145,81 @@ export function PromptInput({ onSubmit, onPlan, isLoading }: PromptInputProps) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (showSlashMenu) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setShowSlashMenu(false);
+        setActiveSubmenu(null);
+        setSlashFilter("");
+        return;
+      }
+    }
+    
+    if (e.key === "Enter" && !e.shiftKey && !showSlashMenu) {
       e.preventDefault();
       handleSubmit();
     }
   };
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    setValue(newValue);
+    
+    // Check if "/" was just typed at start or after space
+    const cursorPos = e.target.selectionStart;
+    const charBefore = newValue[cursorPos - 2];
+    const charTyped = newValue[cursorPos - 1];
+    
+    if (charTyped === "/" && (cursorPos === 1 || charBefore === " " || charBefore === "\n")) {
+      setShowSlashMenu(true);
+      setSlashFilter("");
+      setActiveSubmenu(null);
+    } else if (showSlashMenu) {
+      // Extract filter text after the slash
+      const slashIndex = newValue.lastIndexOf("/");
+      if (slashIndex !== -1) {
+        const filterText = newValue.slice(slashIndex + 1);
+        if (filterText.includes(" ") || filterText.includes("\n")) {
+          setShowSlashMenu(false);
+          setActiveSubmenu(null);
+          setSlashFilter("");
+        } else {
+          setSlashFilter(filterText);
+        }
+      }
+    }
+  };
+
+  const handleCommandSelect = useCallback((command: SlashCommand) => {
+    if (command.children) {
+      setActiveSubmenu(command.id);
+      return;
+    }
+    
+    if (command.prompt) {
+      // Remove the slash and any filter text, then insert the prompt
+      const slashIndex = value.lastIndexOf("/");
+      const newValue = slashIndex !== -1 
+        ? value.slice(0, slashIndex) + command.prompt
+        : command.prompt;
+      setValue(newValue);
+      setShowSlashMenu(false);
+      setActiveSubmenu(null);
+      setSlashFilter("");
+      
+      // Focus textarea and move cursor to end
+      setTimeout(() => {
+        textareaRef.current?.focus();
+        textareaRef.current?.setSelectionRange(newValue.length, newValue.length);
+      }, 0);
+    }
+  }, [value]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setAttachedFile(file);
     }
-    // Reset input so re-selecting same file works
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -44,6 +228,27 @@ export function PromptInput({ onSubmit, onPlan, isLoading }: PromptInputProps) {
   const removeFile = () => {
     setAttachedFile(null);
   };
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (showSlashMenu && !menuAnchorRef.current?.contains(e.target as Node)) {
+        setShowSlashMenu(false);
+        setActiveSubmenu(null);
+        setSlashFilter("");
+      }
+    };
+    
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showSlashMenu]);
+
+  const filteredCommands = slashCommands.filter(cmd => 
+    cmd.label.toLowerCase().includes(slashFilter.toLowerCase()) ||
+    cmd.children?.some(child => child.label.toLowerCase().includes(slashFilter.toLowerCase()))
+  );
+
+  const activeParent = slashCommands.find(c => c.id === activeSubmenu);
 
   const placeholders = [
     "Import my Postman collection and create regression tests",
@@ -65,6 +270,7 @@ export function PromptInput({ onSubmit, onPlan, isLoading }: PromptInputProps) {
           "relative bg-card rounded-2xl shadow-soft transition-all duration-300",
           isFocused && "shadow-prompt ring-2 ring-primary/20"
         )}
+        ref={menuAnchorRef}
       >
         {/* Attached file indicator */}
         {attachedFile && (
@@ -85,8 +291,9 @@ export function PromptInput({ onSubmit, onPlan, isLoading }: PromptInputProps) {
         {/* Input area */}
         <div className="p-4 pb-3">
           <textarea
+            ref={textareaRef}
             value={value}
-            onChange={(e) => setValue(e.target.value)}
+            onChange={handleChange}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
             onKeyDown={handleKeyDown}
@@ -96,6 +303,70 @@ export function PromptInput({ onSubmit, onPlan, isLoading }: PromptInputProps) {
             className="w-full bg-transparent text-foreground placeholder:text-muted-foreground resize-none focus:outline-none text-base leading-relaxed disabled:opacity-50"
           />
         </div>
+
+        {/* Slash command menu */}
+        {showSlashMenu && (
+          <div className="absolute bottom-full left-4 mb-2 z-50 flex gap-1">
+            {/* Main menu */}
+            <div className="bg-popover border border-border rounded-lg shadow-lg overflow-hidden min-w-[220px]">
+              <Command className="bg-transparent">
+                <CommandList>
+                  <CommandEmpty>No commands found.</CommandEmpty>
+                  <CommandGroup>
+                    {filteredCommands.map((command) => (
+                      <CommandItem
+                        key={command.id}
+                        value={command.label}
+                        onSelect={() => handleCommandSelect(command)}
+                        onMouseEnter={() => command.children && setActiveSubmenu(command.id)}
+                        className={cn(
+                          "flex items-center gap-2 px-3 py-2 cursor-pointer",
+                          activeSubmenu === command.id && "bg-accent"
+                        )}
+                      >
+                        <command.icon className="w-4 h-4 text-muted-foreground" />
+                        <span className="flex-1">{command.label}</span>
+                        {command.children && (
+                          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                        )}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </div>
+
+            {/* Submenu */}
+            {activeParent?.children && (
+              <div className="bg-popover border border-border rounded-lg shadow-lg overflow-hidden min-w-[280px]">
+                <Command className="bg-transparent">
+                  <CommandList>
+                    <CommandGroup>
+                      {activeParent.children.map((child) => (
+                        <CommandItem
+                          key={child.id}
+                          value={child.label}
+                          onSelect={() => handleCommandSelect(child)}
+                          className="flex flex-col items-start gap-0.5 px-3 py-2 cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2">
+                            <child.icon className="w-4 h-4 text-muted-foreground" />
+                            <span className="font-medium">{child.label}</span>
+                          </div>
+                          {child.description && (
+                            <span className="text-xs text-muted-foreground pl-6">
+                              {child.description}
+                            </span>
+                          )}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Actions bar */}
         <div className="flex items-center justify-between px-4 pb-4">
