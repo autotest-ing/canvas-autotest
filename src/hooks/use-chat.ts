@@ -1,0 +1,238 @@
+import { useCallback, useRef, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
+import {
+  sendChatMessage,
+  type ChatSSEEvent,
+  type ChatHistoryMessage,
+  type HintButton,
+} from "@/lib/api/chat";
+
+export type ToolCallEvent = {
+  tool: string;
+  args: Record<string, unknown>;
+};
+
+export type ToolResultEvent = {
+  tool: string;
+  result: { success: boolean; data?: unknown; error?: string };
+};
+
+export type ChatMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  toolCalls: ToolCallEvent[];
+  toolResults: ToolResultEvent[];
+  hintButtons: HintButton[];
+  isStreaming: boolean;
+};
+
+export type UseChat = {
+  messages: ChatMessage[];
+  isLoading: boolean;
+  error: string | null;
+  sendMessage: (text: string, attachedFile?: File | null) => Promise<void>;
+  handleHintAction: (button: HintButton) => void;
+  clearMessages: () => void;
+};
+
+let msgCounter = 0;
+function nextId() {
+  return `msg-${++msgCounter}-${Date.now()}`;
+}
+
+export function useChat(): UseChat {
+  const { token, currentUser } = useAuth();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const buildHistory = useCallback((msgs: ChatMessage[]): ChatHistoryMessage[] => {
+    return msgs.map((m) => {
+      const histMsg: ChatHistoryMessage = {
+        role: m.role,
+        content: m.content,
+      };
+
+      if (m.role === "assistant" && m.toolCalls.length > 0) {
+        histMsg.tool_calls = m.toolCalls.map((tc, i) => ({
+          id: `tc_${i}`,
+          name: tc.tool,
+          args: tc.args,
+        }));
+        histMsg.tool_results = m.toolResults.map((tr, i) => ({
+          tool: tr.tool,
+          tool_call_id: `tc_${i}`,
+          result: tr.result,
+        }));
+      }
+
+      return histMsg;
+    });
+  }, []);
+
+  const sendMessage = useCallback(
+    async (text: string, attachedFile?: File | null) => {
+      if (!token || !currentUser?.default_account_id) return;
+      if (!text.trim() && !attachedFile) return;
+
+      setError(null);
+      setIsLoading(true);
+
+      // Read file content if provided
+      let fileContent: string | null = null;
+      let fileName: string | null = null;
+      if (attachedFile) {
+        try {
+          fileContent = await attachedFile.text();
+          fileName = attachedFile.name;
+        } catch {
+          setError("Failed to read attached file");
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // Add user message
+      const userMsg: ChatMessage = {
+        id: nextId(),
+        role: "user",
+        content: text.trim(),
+        toolCalls: [],
+        toolResults: [],
+        hintButtons: [],
+        isStreaming: false,
+      };
+
+      const assistantId = nextId();
+      const assistantMsg: ChatMessage = {
+        id: assistantId,
+        role: "assistant",
+        content: "",
+        toolCalls: [],
+        toolResults: [],
+        hintButtons: [],
+        isStreaming: true,
+      };
+
+      setMessages((prev) => [...prev, userMsg, assistantMsg]);
+
+      // Build history from previous messages (not including the new ones)
+      const previousMessages = messages;
+      const history = buildHistory(previousMessages);
+
+      const abortController = new AbortController();
+      abortRef.current = abortController;
+
+      const handleEvent = (event: ChatSSEEvent) => {
+        setMessages((prev) => {
+          const updated = [...prev];
+          const idx = updated.findIndex((m) => m.id === assistantId);
+          if (idx === -1) return prev;
+
+          const current = { ...updated[idx] };
+
+          switch (event.type) {
+            case "text":
+              current.content += event.content;
+              break;
+
+            case "tool_call":
+              current.toolCalls = [
+                ...current.toolCalls,
+                { tool: event.tool, args: event.args },
+              ];
+              break;
+
+            case "tool_result":
+              current.toolResults = [
+                ...current.toolResults,
+                { tool: event.tool, result: event.result },
+              ];
+              break;
+
+            case "hint_buttons":
+              current.hintButtons = event.buttons;
+              break;
+
+            case "error":
+              current.content += `\n\n**Error:** ${event.content}`;
+              break;
+
+            case "done":
+              current.isStreaming = false;
+              break;
+          }
+
+          updated[idx] = current;
+          return updated;
+        });
+      };
+
+      try {
+        await sendChatMessage({
+          message: text.trim(),
+          history,
+          accountId: currentUser.default_account_id,
+          token,
+          attachedFile: fileContent,
+          attachedFileName: fileName,
+          onEvent: handleEvent,
+          signal: abortController.signal,
+        });
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          const msg = err instanceof Error ? err.message : "Chat request failed";
+          setError(msg);
+          // Mark assistant message as done with error
+          setMessages((prev) => {
+            const updated = [...prev];
+            const idx = updated.findIndex((m) => m.id === assistantId);
+            if (idx !== -1) {
+              updated[idx] = {
+                ...updated[idx],
+                content: updated[idx].content + `\n\n**Error:** ${msg}`,
+                isStreaming: false,
+              };
+            }
+            return updated;
+          });
+        }
+      } finally {
+        setIsLoading(false);
+        abortRef.current = null;
+      }
+    },
+    [token, currentUser, messages, buildHistory]
+  );
+
+  const handleHintAction = useCallback(
+    (button: HintButton) => {
+      if (button.action === "prompt" && button.text) {
+        void sendMessage(button.text);
+      } else if (button.action === "navigate" && button.href) {
+        window.location.href = button.href;
+      }
+    },
+    [sendMessage]
+  );
+
+  const clearMessages = useCallback(() => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+    }
+    setMessages([]);
+    setError(null);
+    setIsLoading(false);
+  }, []);
+
+  return {
+    messages,
+    isLoading,
+    error,
+    sendMessage,
+    handleHintAction,
+    clearMessages,
+  };
+}
