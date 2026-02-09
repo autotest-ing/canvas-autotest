@@ -12,6 +12,7 @@ import {
   Rocket,
   Bell, 
   Settings,
+  LogOut,
   ChevronRight,
   Menu,
   X
@@ -25,6 +26,7 @@ import {
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "@/context/AuthContext";
 
 // Mock unread count - in a real app, this would come from a context/store
 const UNREAD_NOTIFICATION_COUNT = 3;
@@ -34,6 +36,8 @@ interface NavItem {
   label: string;
   id: string;
   path: string;
+  action?: () => void;
+  isAction?: boolean;
 }
 
 const topItems: NavItem[] = [
@@ -72,15 +76,26 @@ export function LeftRail({ activeItem, onItemClick }: LeftRailProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
+  const { logout } = useAuth();
+
+  const signOutItem: NavItem = {
+    icon: LogOut,
+    label: "Sign out",
+    id: "signout",
+    path: "/",
+    action: logout,
+    isAction: true,
+  };
 
   const handleNavClick = (item: NavItem) => {
+    item.action?.();
     navigate(item.path);
     onItemClick?.(item.id);
     setMobileMenuOpen(false);
   };
 
   const NavButton = ({ item, showLabel = false }: { item: NavItem; showLabel?: boolean }) => {
-    const isActive = activeItem === item.id || location.pathname === item.path;
+    const isActive = !item.isAction && (activeItem === item.id || location.pathname === item.path);
     const Icon = item.icon;
     const showBadge = item.id === "notifications" && UNREAD_NOTIFICATION_COUNT > 0;
 
@@ -149,7 +164,7 @@ export function LeftRail({ activeItem, onItemClick }: LeftRailProps) {
               ))}
             </nav>
             <nav className="p-2 space-y-1 border-t border-border">
-              {bottomItems.map((item) => (
+              {[...bottomItems, signOutItem].map((item) => (
                 <NavButton key={item.id} item={item} showLabel />
               ))}
             </nav>
@@ -230,7 +245,7 @@ export function LeftRail({ activeItem, onItemClick }: LeftRailProps) {
 
       {/* Bottom nav */}
       <nav className="p-2 space-y-1 border-t border-sidebar-border">
-        {bottomItems.map((item) => (
+        {[...bottomItems, signOutItem].map((item) => (
           <NavButton key={item.id} item={item} />
         ))}
       </nav>
