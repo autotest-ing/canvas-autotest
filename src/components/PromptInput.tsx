@@ -122,9 +122,15 @@ interface PromptInputProps {
   onSubmit: (prompt: string, attachedFile?: File | null) => void;
   onPlan?: () => void;
   isLoading?: boolean;
+  showExamplePrompts?: boolean;
 }
 
-export function PromptInput({ onSubmit, onPlan, isLoading }: PromptInputProps) {
+export function PromptInput({
+  onSubmit,
+  onPlan,
+  isLoading,
+  showExamplePrompts = true,
+}: PromptInputProps) {
   const [value, setValue] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
@@ -425,7 +431,7 @@ export function PromptInput({ onSubmit, onPlan, isLoading }: PromptInputProps) {
       </div>
 
       {/* Example prompts (only shown when not loading) */}
-      {!isLoading && (
+      {!isLoading && showExamplePrompts && (
         <div className="mt-4 flex flex-wrap justify-center gap-2">
           {placeholders.slice(0).map((prompt, i) => (
             <button
