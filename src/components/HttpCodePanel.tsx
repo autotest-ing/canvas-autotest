@@ -1,10 +1,16 @@
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { RequestPayload, StepResultHttpResponse } from "@/lib/api/suites";
+import type {
+  RequestPayload,
+  StepResultHttpRequest,
+  StepResultHttpResponse,
+} from "@/lib/api/suites";
+
+type HttpRequestDetails = RequestPayload | StepResultHttpRequest;
 
 interface HttpCodePanelProps {
-  request?: RequestPayload | null;
+  request?: HttpRequestDetails | null;
   response?: StepResultHttpResponse | null;
   onClose: () => void;
 }
@@ -19,6 +25,10 @@ function formatHeaders(headers: Record<string, unknown> | null | undefined): str
 function formatBody(body: unknown): string {
   if (body === null || body === undefined) return "";
   if (typeof body === "string") {
+    if (body === "") {
+      return "\"\"";
+    }
+
     try {
       return JSON.stringify(JSON.parse(body), null, 2);
     } catch {
@@ -28,11 +38,29 @@ function formatBody(body: unknown): string {
   return JSON.stringify(body, null, 2);
 }
 
-function RequestBlock({ request }: { request: RequestPayload }) {
+function resolveRequestBody(request: HttpRequestDetails): unknown {
+  if ("payload" in request && request.payload !== undefined) {
+    return request.payload;
+  }
+
+  if ("body" in request) {
+    return request.body;
+  }
+
+  return undefined;
+}
+
+function hasBodyValue(body: unknown): boolean {
+  return body !== null && body !== undefined;
+}
+
+function RequestBlock({ request }: { request: HttpRequestDetails }) {
   const method = (request.method ?? "GET").toUpperCase();
-  const url = request.full_url || request.url || "/";
+  const url = ("full_url" in request && request.full_url) || request.url || "/";
   const headers = formatHeaders(request.headers);
-  const body = formatBody(request.payload);
+  const requestBody = resolveRequestBody(request);
+  const hasBody = hasBodyValue(requestBody);
+  const body = hasBody ? formatBody(requestBody) : "";
 
   return (
     <div className="space-y-1.5">
@@ -51,16 +79,16 @@ function RequestBlock({ request }: { request: RequestPayload }) {
             {headers && (
               <>
                 {headers}
-                {body && "\n"}
+                {hasBody && "\n"}
               </>
             )}
-            {body && (
+            {hasBody && (
               <>
                 {headers && "\n"}
                 {body}
               </>
             )}
-            {!headers && !body && <span className="text-muted-foreground italic">No headers or body</span>}
+            {!headers && !hasBody && <span className="text-muted-foreground italic">No headers or body</span>}
           </pre>
         </div>
       </div>
@@ -118,7 +146,14 @@ function ResponseBlock({ response }: { response: StepResultHttpResponse }) {
 }
 
 export function HttpCodePanel({ request, response, onClose }: HttpCodePanelProps) {
-  const hasRequest = request && (request.method || request.url || request.full_url || request.headers || request.payload);
+  const requestBody = request ? resolveRequestBody(request) : undefined;
+  const hasRequest =
+    request &&
+    (request.method ||
+      request.url ||
+      ("full_url" in request && request.full_url) ||
+      request.headers ||
+      hasBodyValue(requestBody));
   const hasResponse = response != null;
 
   return (

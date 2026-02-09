@@ -28,6 +28,7 @@ import type {
   CreateAssertionPayload,
   RequestPayload,
   StepResultFullDetail,
+  StepResultHttpRequest,
   StepResultHttpResponse,
   UpdateAssertionPayload,
 } from "@/lib/api/suites";
@@ -102,7 +103,7 @@ export function AddAssertionDialog({
 
   const [showCodePanel, setShowCodePanel] = useState(false);
   const [latestResponse, setLatestResponse] = useState<StepResultHttpResponse | null>(null);
-  const [latestRequest, setLatestRequest] = useState<RequestPayload | null>(null);
+  const [latestRequest, setLatestRequest] = useState<RequestPayload | StepResultHttpRequest | null>(null);
   const [isLoadingLatestResult, setIsLoadingLatestResult] = useState(false);
   const [hasFetchedLatestResult, setHasFetchedLatestResult] = useState(false);
 
@@ -168,7 +169,7 @@ export function AddAssertionDialog({
       const result = await onFetchLatestResult(stepId);
       if (result) {
         setLatestResponse(result.response ?? null);
-        setLatestRequest(result.request as RequestPayload | null);
+        setLatestRequest(result.request ?? null);
       }
     } catch {
       // Silently fail — response panel just won't show
