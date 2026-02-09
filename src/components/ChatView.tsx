@@ -20,6 +20,7 @@ export function ChatView({ chat }: ChatViewProps) {
           <PromptInput
             onSubmit={chat.sendMessage}
             isLoading={chat.isLoading}
+            showExamplePrompts={chat.messages.length === 0}
           />
         </div>
         <MobileBottomSpacer />
