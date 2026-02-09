@@ -40,6 +40,7 @@ export type UseChat = {
   clearMessages: () => void;
   loadConversation: (conversationId: string) => Promise<void>;
   onConversationCreated?: (id: string, title: string) => void;
+  setConversationId: (id: string | null) => void;
 };
 
 let msgCounter = 0;
@@ -301,5 +302,6 @@ export function useChat(options?: {
     handleHintAction,
     clearMessages,
     loadConversation,
+    setConversationId,
   };
 }

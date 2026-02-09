@@ -405,12 +405,26 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
 
   const handleRunSuite = () => {
     if (!resolvedSuiteId) return;
-    // Navigate to canvas page — the WebSocket hook will handle execution
-    const params = new URLSearchParams({ autorun: "true" });
+
+    // Generate a new conversation ID for this run
+    const conversationId = crypto.randomUUID();
+
+    // Navigate to chat with autorun params
+    const params = new URLSearchParams({
+      autorun: "true",
+      suiteId: resolvedSuiteId,
+      suiteName: suiteName || "Untitled Suite",
+    });
+
     if (selectedEnvironmentId) {
       params.set("environmentId", selectedEnvironmentId);
+      const envName = environments.find(e => e.id === selectedEnvironmentId)?.name;
+      if (envName) params.set("environmentName", envName);
     }
-    navigate(`/suites/${resolvedSuiteId}/runs/live/canvas?${params.toString()}`);
+
+    navigate(`/chat/${conversationId}?${params.toString()}`, {
+      state: { isNew: true }
+    });
   };
 
   const handleOverrideVariableChange = (id: string, field: "key" | "value", value: string) => {
@@ -418,9 +432,9 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
       prev.map((variable) =>
         variable.id === id
           ? {
-              ...variable,
-              [field]: value,
-            }
+            ...variable,
+            [field]: value,
+          }
           : variable
       )
     );
@@ -894,9 +908,9 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
 
   const editStepRequest = editAssertionContext
     ? testCases
-        .flatMap((tc) => tc.steps)
-        .find((s) => s.id === editAssertionContext.stepId)
-        ?.request as RequestPayload | null | undefined
+      .flatMap((tc) => tc.steps)
+      .find((s) => s.id === editAssertionContext.stepId)
+      ?.request as RequestPayload | null | undefined
     : null;
 
   const editAssertionDialog = editAssertionContext ? (

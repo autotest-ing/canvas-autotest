@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { PromptInput } from "./PromptInput";
 import { ChatView } from "./ChatView";
 import { ChatHistorySidebar } from "./ChatHistorySidebar";
@@ -17,7 +17,10 @@ export function HomeCanvas({ initialConversationId }: HomeCanvasProps) {
   const convState = useConversations();
   const isMobile = useIsMobile();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const initialLoadDone = useRef(false);
+  const autoRunTriggered = useRef(false);
 
   // Push URL immediately when the backend assigns a conversation_id
   const onConversationStarted = useCallback(
@@ -45,9 +48,33 @@ export function HomeCanvas({ initialConversationId }: HomeCanvasProps) {
   useEffect(() => {
     if (initialConversationId && !initialLoadDone.current) {
       initialLoadDone.current = true;
-      void chat.loadConversation(initialConversationId);
+      if (location.state?.isNew) {
+        chat.setConversationId(initialConversationId);
+      } else {
+        void chat.loadConversation(initialConversationId);
+      }
     }
-  }, [initialConversationId, chat]);
+  }, [initialConversationId, chat, location.state]);
+
+  // Handle auto-run prompt
+  useEffect(() => {
+    const autorun = searchParams.get("autorun");
+    if (autorun && !autoRunTriggered.current && chat.messages.length === 0) {
+      autoRunTriggered.current = true;
+
+      const suiteName = searchParams.get("suiteName");
+      const suiteId = searchParams.get("suiteId");
+      const envName = searchParams.get("environmentName");
+
+      if (suiteName && suiteId) {
+        let message = `Run test suite "${suiteName}" (ID: ${suiteId})`;
+        if (envName) {
+          message += ` in environment "${envName}"`;
+        }
+        void chat.sendMessage(message);
+      }
+    }
+  }, [searchParams, chat]);
 
   const handleSelectConversation = useCallback(
     (id: string) => {
