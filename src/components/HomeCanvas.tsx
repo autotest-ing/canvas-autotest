@@ -1,4 +1,5 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { PromptInput } from "./PromptInput";
 import { ChatView } from "./ChatView";
 import { ChatHistorySidebar } from "./ChatHistorySidebar";
@@ -8,10 +9,25 @@ import { useChat } from "@/hooks/use-chat";
 import { useConversations } from "@/hooks/use-conversations";
 import { useIsMobile } from "@/hooks/use-mobile";
 
-export function HomeCanvas() {
+interface HomeCanvasProps {
+  initialConversationId?: string;
+}
+
+export function HomeCanvas({ initialConversationId }: HomeCanvasProps) {
   const convState = useConversations();
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
+  const initialLoadDone = useRef(false);
 
+  // Push URL immediately when the backend assigns a conversation_id
+  const onConversationStarted = useCallback(
+    (id: string) => {
+      navigate(`/chat/${id}`, { replace: true });
+    },
+    [navigate],
+  );
+
+  // Add/update the sidebar entry once the title is derived
   const onConversationCreated = useCallback(
     (id: string, title: string) => {
       convState.addOrUpdate({
@@ -23,18 +39,28 @@ export function HomeCanvas() {
     [convState],
   );
 
-  const chat = useChat({ onConversationCreated });
+  const chat = useChat({ onConversationStarted, onConversationCreated });
+
+  // Auto-load conversation from URL param on mount
+  useEffect(() => {
+    if (initialConversationId && !initialLoadDone.current) {
+      initialLoadDone.current = true;
+      void chat.loadConversation(initialConversationId);
+    }
+  }, [initialConversationId, chat]);
 
   const handleSelectConversation = useCallback(
     (id: string) => {
+      navigate(`/chat/${id}`);
       void chat.loadConversation(id);
     },
-    [chat],
+    [chat, navigate],
   );
 
   const handleNewChat = useCallback(() => {
     chat.clearMessages();
-  }, [chat]);
+    navigate("/");
+  }, [chat, navigate]);
 
   const handleRename = useCallback(
     async (id: string, title: string) => {
@@ -48,9 +74,10 @@ export function HomeCanvas() {
       await convState.deleteConversation(id);
       if (chat.conversationId === id) {
         chat.clearMessages();
+        navigate("/");
       }
     },
-    [convState, chat],
+    [convState, chat, navigate],
   );
 
   const sidebar = !isMobile && (

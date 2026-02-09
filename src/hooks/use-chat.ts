@@ -48,6 +48,7 @@ function nextId() {
 }
 
 export function useChat(options?: {
+  onConversationStarted?: (id: string) => void;
   onConversationCreated?: (id: string, title: string) => void;
 }): UseChat {
   const { token, currentUser } = useAuth();
@@ -170,6 +171,10 @@ export function useChat(options?: {
         if (event.type === "conversation_id") {
           receivedConversationId = event.conversation_id;
           setConversationId(event.conversation_id);
+          // Notify parent immediately so URL can update
+          if (!conversationId) {
+            options?.onConversationStarted?.(event.conversation_id);
+          }
           return;
         }
 
