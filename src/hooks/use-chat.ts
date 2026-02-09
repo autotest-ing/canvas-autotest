@@ -2,9 +2,11 @@ import { useCallback, useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import {
   sendChatMessage,
+  fetchConversationMessages,
   type ChatSSEEvent,
   type ChatHistoryMessage,
   type HintButton,
+  type ConversationMessage,
 } from "@/lib/api/chat";
 
 export type ToolCallEvent = {
@@ -31,9 +33,13 @@ export type UseChat = {
   messages: ChatMessage[];
   isLoading: boolean;
   error: string | null;
+  conversationId: string | null;
+  conversationTitle: string | null;
   sendMessage: (text: string, attachedFile?: File | null) => Promise<void>;
   handleHintAction: (button: HintButton) => void;
   clearMessages: () => void;
+  loadConversation: (conversationId: string) => Promise<void>;
+  onConversationCreated?: (id: string, title: string) => void;
 };
 
 let msgCounter = 0;
@@ -41,11 +47,15 @@ function nextId() {
   return `msg-${++msgCounter}-${Date.now()}`;
 }
 
-export function useChat(): UseChat {
+export function useChat(options?: {
+  onConversationCreated?: (id: string, title: string) => void;
+}): UseChat {
   const { token, currentUser } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversationTitle, setConversationTitle] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const buildHistory = useCallback((msgs: ChatMessage[]): ChatHistoryMessage[] => {
@@ -71,6 +81,34 @@ export function useChat(): UseChat {
       return histMsg;
     });
   }, []);
+
+  const loadConversation = useCallback(
+    async (convId: string) => {
+      if (!token) return;
+      setIsLoading(true);
+      setError(null);
+      setConversationId(convId);
+
+      try {
+        const { items } = await fetchConversationMessages(token, convId);
+        const loaded: ChatMessage[] = items.map((msg: ConversationMessage) => ({
+          id: msg.id,
+          role: msg.role,
+          content: msg.content,
+          toolCalls: msg.tool_calls ?? [],
+          toolResults: msg.tool_results ?? [],
+          hintButtons: msg.hint_buttons ?? [],
+          isStreaming: false,
+        }));
+        setMessages(loaded);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load conversation");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [token],
+  );
 
   const sendMessage = useCallback(
     async (text: string, attachedFile?: File | null) => {
@@ -125,7 +163,25 @@ export function useChat(): UseChat {
       const abortController = new AbortController();
       abortRef.current = abortController;
 
+      // Track conversation_id received from SSE
+      let receivedConversationId = conversationId;
+
       const handleEvent = (event: ChatSSEEvent) => {
+        if (event.type === "conversation_id") {
+          receivedConversationId = event.conversation_id;
+          setConversationId(event.conversation_id);
+          return;
+        }
+
+        if (event.type === "title_update") {
+          const title = (event as { type: "title_update"; title: string }).title;
+          setConversationTitle(title);
+          if (receivedConversationId) {
+            options?.onConversationCreated?.(receivedConversationId, title);
+          }
+          return;
+        }
+
         setMessages((prev) => {
           const updated = [...prev];
           const idx = updated.findIndex((m) => m.id === assistantId);
@@ -176,6 +232,7 @@ export function useChat(): UseChat {
           history,
           accountId: currentUser.default_account_id,
           token,
+          conversationId,
           attachedFile: fileContent,
           attachedFileName: fileName,
           onEvent: handleEvent,
@@ -204,7 +261,7 @@ export function useChat(): UseChat {
         abortRef.current = null;
       }
     },
-    [token, currentUser, messages, buildHistory]
+    [token, currentUser, messages, buildHistory, conversationId, options],
   );
 
   const handleHintAction = useCallback(
@@ -215,7 +272,7 @@ export function useChat(): UseChat {
         window.location.href = button.href;
       }
     },
-    [sendMessage]
+    [sendMessage],
   );
 
   const clearMessages = useCallback(() => {
@@ -223,6 +280,8 @@ export function useChat(): UseChat {
       abortRef.current.abort();
     }
     setMessages([]);
+    setConversationId(null);
+    setConversationTitle(null);
     setError(null);
     setIsLoading(false);
   }, []);
@@ -231,8 +290,11 @@ export function useChat(): UseChat {
     messages,
     isLoading,
     error,
+    conversationId,
+    conversationTitle,
     sendMessage,
     handleHintAction,
     clearMessages,
+    loadConversation,
   };
 }

@@ -5,6 +5,8 @@ export type ChatSSEEvent =
   | { type: "tool_call"; tool: string; args: Record<string, unknown> }
   | { type: "tool_result"; tool: string; result: { success: boolean; data?: unknown; error?: string } }
   | { type: "hint_buttons"; buttons: HintButton[] }
+  | { type: "conversation_id"; conversation_id: string }
+  | { type: "title_update"; title: string }
   | { type: "done" }
   | { type: "error"; content: string };
 
@@ -28,6 +30,7 @@ export type SendChatParams = {
   history: ChatHistoryMessage[];
   accountId: string;
   token: string;
+  conversationId?: string | null;
   attachedFile?: string | null;
   attachedFileName?: string | null;
   onEvent: (event: ChatSSEEvent) => void;
@@ -39,6 +42,7 @@ export async function sendChatMessage({
   history,
   accountId,
   token,
+  conversationId,
   attachedFile,
   attachedFileName,
   onEvent,
@@ -54,6 +58,7 @@ export async function sendChatMessage({
       message,
       history,
       account_id: accountId,
+      conversation_id: conversationId ?? null,
       attached_file: attachedFile ?? null,
       attached_file_name: attachedFileName ?? null,
     }),
@@ -117,4 +122,87 @@ export async function sendChatMessage({
   } finally {
     reader.releaseLock();
   }
+}
+
+// --- Conversations API ---
+
+export type Conversation = {
+  id: string;
+  account_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  created_by: string | null;
+};
+
+export type ConversationMessage = {
+  id: string;
+  conversation_id: string;
+  role: "user" | "assistant";
+  content: string;
+  tool_calls: Array<{ tool: string; args: Record<string, unknown> }> | null;
+  tool_results: Array<{ tool: string; result: { success: boolean; data?: unknown; error?: string } }> | null;
+  hint_buttons: HintButton[] | null;
+  attached_file_name: string | null;
+  sort_order: number;
+  created_at: string;
+};
+
+async function apiFetch<T>(path: string, token: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(`${BASE_API_URL}${path}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      ...options?.headers,
+    },
+  });
+  if (!res.ok) {
+    let detail = "Request failed";
+    try {
+      const body = await res.json();
+      if (body.detail) detail = body.detail;
+    } catch { /* ignore */ }
+    throw new Error(detail);
+  }
+  return res.json() as Promise<T>;
+}
+
+export async function fetchConversations(
+  token: string,
+  accountId: string,
+  limit = 50,
+  offset = 0,
+): Promise<{ items: Conversation[] }> {
+  return apiFetch(
+    `/v1.0/conversations?account_id=${accountId}&limit=${limit}&offset=${offset}`,
+    token,
+  );
+}
+
+export async function fetchConversationMessages(
+  token: string,
+  conversationId: string,
+): Promise<{ items: ConversationMessage[] }> {
+  return apiFetch(`/v1.0/conversations/${conversationId}/messages`, token);
+}
+
+export async function renameConversation(
+  token: string,
+  conversationId: string,
+  title: string,
+): Promise<Conversation> {
+  return apiFetch(`/v1.0/conversations/${conversationId}`, token, {
+    method: "PATCH",
+    body: JSON.stringify({ title }),
+  });
+}
+
+export async function deleteConversation(
+  token: string,
+  conversationId: string,
+): Promise<{ deleted: boolean }> {
+  return apiFetch(`/v1.0/conversations/${conversationId}`, token, {
+    method: "DELETE",
+  });
 }
