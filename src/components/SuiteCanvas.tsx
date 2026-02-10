@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Play, Sparkles, BookOpen, Plus, Check, X, Calendar, ChevronDown } from "lucide-react";
+import { Play, Sparkles, BookOpen, Plus, Check, X, Calendar, ChevronDown, MoreVertical, Edit2, Trash2 } from "lucide-react";
 import { TestStepCard } from "./TestStepCard";
 import type { TestCase, TestStep } from "./TestCaseList";
 import type { Environment } from "@/lib/api/suites";
@@ -65,6 +65,8 @@ interface SuiteCanvasProps {
   isCreatingTestStep?: boolean;
   onReorderSteps?: (testCaseId: string, reorderedSteps: TestStep[]) => Promise<void>;
   onSchedule?: () => void;
+  onEditTestCase?: (testCaseId: string) => void;
+  onDeleteTestCase?: (testCaseId: string) => void;
 }
 
 export function SuiteCanvas({
@@ -89,6 +91,8 @@ export function SuiteCanvas({
   isCreatingTestStep = false,
   onReorderSteps,
   onSchedule,
+  onEditTestCase,
+  onDeleteTestCase,
 }: SuiteCanvasProps) {
   const [isDragMode, setIsDragMode] = useState(false);
   const [localSteps, setLocalSteps] = useState<TestStep[]>([]);
@@ -203,11 +207,42 @@ export function SuiteCanvas({
             <>
               {/* Test Case Header */}
               <div className="space-y-2">
-                <h3 className="text-base font-semibold text-foreground">
-                  {selectedTestCase.name}
-                </h3>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base font-semibold text-foreground truncate">
+                      {selectedTestCase.name}
+                    </h3>
+                  </div>
+                  {(onEditTestCase || onDeleteTestCase) && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                          <MoreVertical className="w-4 h-4" />
+                          <span className="sr-only">Test case actions</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-40">
+                        {onEditTestCase && (
+                          <DropdownMenuItem onClick={() => onEditTestCase(selectedTestCase.id)} className="gap-2">
+                            <Edit2 className="w-4 h-4" />
+                            Edit Details
+                          </DropdownMenuItem>
+                        )}
+                        {onDeleteTestCase && (
+                          <DropdownMenuItem
+                            onClick={() => onDeleteTestCase(selectedTestCase.id)}
+                            className="text-destructive focus:text-destructive gap-2"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Delete Case
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
                 {selectedTestCase.description && (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground mt-1">
                     {selectedTestCase.description}
                   </p>
                 )}
