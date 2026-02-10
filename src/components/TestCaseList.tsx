@@ -41,6 +41,8 @@ export interface TestCase {
   status?: "pass" | "fail" | "pending" | "mixed";
   sortOrder?: number;
   steps: TestStep[];
+  tags?: string[];
+  isEnabled?: boolean;
 }
 
 interface TestCaseListProps {

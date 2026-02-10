@@ -6,6 +6,7 @@ import { SuiteCanvas } from "./SuiteCanvas";
 import { AddAssertionDialog } from "./AddAssertionDialog";
 import { AddTestStepDialog, type AddTestStepFormValues } from "./AddTestStepDialog";
 import { CreateTestCaseDialog, type CreateTestCaseFormValues } from "./CreateTestCaseDialog";
+import { EditTestCaseDialog, type EditTestCaseFormValues } from "./EditTestCaseDialog";
 import { RunWithOverridesDialog, type OverrideVariableRow } from "./RunWithOverridesDialog";
 import { MobileBottomSpacer } from "./LeftRail";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -19,6 +20,8 @@ import {
   createTestStep,
   deleteAssertion,
   deleteTestStep,
+  deleteTestCase,
+  updateTestCase,
   fetchLatestStepResult,
   fetchSuitesFull,
   fetchSuites,
@@ -140,6 +143,8 @@ function mapBackendTestCase(tc: {
   name: string;
   description?: string | null;
   sort_order?: number | null;
+  tags?: string[];
+  is_enabled?: boolean;
   steps?: Array<{
     id: string;
     name: string;
@@ -178,6 +183,8 @@ function mapBackendTestCase(tc: {
         ...mapBackendAssertion(a),
       })),
     })),
+    tags: tc.tags ?? [],
+    isEnabled: tc.is_enabled ?? true,
   };
 }
 
@@ -284,6 +291,8 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
   const [isCreatingTestStep, setIsCreatingTestStep] = useState(false);
   const [isCreateTestCaseDialogOpen, setIsCreateTestCaseDialogOpen] = useState(false);
   const [isCreatingTestCase, setIsCreatingTestCase] = useState(false);
+  const [isEditTestCaseDialogOpen, setIsEditTestCaseDialogOpen] = useState(false);
+  const [isUpdatingTestCase, setIsUpdatingTestCase] = useState(false);
   const [isEditAssertionDialogOpen, setIsEditAssertionDialogOpen] = useState(false);
   const [editAssertionContext, setEditAssertionContext] = useState<{
     stepId: string;
@@ -737,6 +746,73 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
     }
   };
 
+  const handleUpdateTestCase = async (formValues: EditTestCaseFormValues) => {
+    if (!token || !selectedTestCaseId) {
+      toast.error("Missing auth token or test case ID.");
+      return;
+    }
+
+    setIsUpdatingTestCase(true);
+
+    try {
+      const updatedCase = await updateTestCase(
+        selectedTestCaseId,
+        {
+          name: formValues.name,
+          description: formValues.description || undefined,
+          tags: formValues.tags,
+          is_enabled: formValues.isEnabled,
+        },
+        token
+      );
+
+      setTestCases((prevCases) =>
+        prevCases.map((testCase) =>
+          testCase.id === selectedTestCaseId
+            ? mapBackendTestCase({
+              ...updatedCase,
+              steps: updatedCase.steps ?? [],
+            })
+            : testCase
+        )
+      );
+
+      toast.success("Test case updated");
+    } catch (error) {
+      const description = error instanceof Error ? error.message : "Please try again.";
+      toast.error("Failed to update test case", { description });
+      throw error instanceof Error ? error : new Error("Failed to update test case");
+    } finally {
+      setIsUpdatingTestCase(false);
+    }
+  };
+
+  const handleDeleteTestCase = async (testCaseId: string) => {
+    if (!token) {
+      toast.error("Missing auth token.");
+      return;
+    }
+
+    if (!confirm("Are you sure you want to delete this test case? All steps and results will be removed.")) {
+      return;
+    }
+
+    try {
+      await deleteTestCase(testCaseId, token);
+      setTestCases((prevCases) => {
+        const nextCases = prevCases.filter((tc) => tc.id !== testCaseId);
+        if (selectedTestCaseId === testCaseId) {
+          setSelectedTestCaseId(nextCases[0]?.id ?? null);
+        }
+        return nextCases;
+      });
+      toast.success("Test case deleted");
+    } catch (error) {
+      const description = error instanceof Error ? error.message : "Please try again.";
+      toast.error("Failed to delete test case", { description });
+    }
+  };
+
   const handleOpenEditAssertion = (stepId: string, assertionId: string) => {
     setEditAssertionContext({ stepId, assertionId });
     setIsEditAssertionDialogOpen(true);
@@ -950,6 +1026,21 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
     />
   );
 
+  const editTestCaseDialog = (
+    <EditTestCaseDialog
+      open={isEditTestCaseDialogOpen}
+      onOpenChange={setIsEditTestCaseDialogOpen}
+      isSubmitting={isUpdatingTestCase}
+      initialValues={selectedTestCase ? {
+        name: selectedTestCase.name,
+        description: selectedTestCase.description,
+        tags: selectedTestCase.tags,
+        isEnabled: selectedTestCase.isEnabled,
+      } : null}
+      onSubmit={handleUpdateTestCase}
+    />
+  );
+
   const runWithOverridesDialog = (
     <RunWithOverridesDialog
       open={isRunWithOverridesOpen}
@@ -1020,11 +1111,14 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
               onOpenAddTestStep={() => setIsAddTestStepDialogOpen(true)}
               isCreatingTestStep={isCreatingTestStep}
               onReorderSteps={handleReorderSteps}
+              onEditTestCase={() => setIsEditTestCaseDialogOpen(true)}
+              onDeleteTestCase={handleDeleteTestCase}
             />
           )}
         </div>
         {addTestStepDialog}
         {createTestCaseDialog}
+        {editTestCaseDialog}
         {editAssertionDialog}
         {runWithOverridesDialog}
         <MobileBottomSpacer />
@@ -1075,6 +1169,8 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
                 onOpenAddTestStep={() => setIsAddTestStepDialogOpen(true)}
                 isCreatingTestStep={isCreatingTestStep}
                 onReorderSteps={handleReorderSteps}
+                onEditTestCase={() => setIsEditTestCaseDialogOpen(true)}
+                onDeleteTestCase={handleDeleteTestCase}
               />
             )}
           </ResizablePanel>
@@ -1082,6 +1178,7 @@ export function SuiteView({ suiteId }: SuiteViewProps) {
       </div>
       {addTestStepDialog}
       {createTestCaseDialog}
+      {editTestCaseDialog}
       {editAssertionDialog}
       {runWithOverridesDialog}
     </div>

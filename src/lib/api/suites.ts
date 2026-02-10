@@ -262,6 +262,10 @@ export type CreateTestCaseResponse = {
   updated_at?: string;
 };
 
+export type UpdateTestCasePayload = Partial<
+  Pick<CreateTestCasePayload, "name" | "description" | "tags" | "is_enabled">
+>;
+
 // ============== All Runs Types ==============
 
 export type RunStatus = "running" | "success" | "failed" | "canceled";
@@ -545,6 +549,38 @@ export async function createTestCase(
   }
 
   return (await response.json()) as CreateTestCaseResponse;
+}
+
+export async function updateTestCase(
+  testCaseId: string,
+  payload: UpdateTestCasePayload,
+  token: string
+): Promise<CreateTestCaseResponse> {
+  const response = await fetch(`${BASE_API_URL}/v1.0/test-cases/${testCaseId}`, {
+    method: "PATCH",
+    headers: {
+      ...getAuthHeaders(token),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw await buildApiError(response, "Failed to update test case");
+  }
+
+  return (await response.json()) as CreateTestCaseResponse;
+}
+
+export async function deleteTestCase(testCaseId: string, token: string): Promise<void> {
+  const response = await fetch(`${BASE_API_URL}/v1.0/test-cases/${testCaseId}`, {
+    method: "DELETE",
+    headers: getAuthHeaders(token),
+  });
+
+  if (!response.ok) {
+    throw await buildApiError(response, "Failed to delete test case");
+  }
 }
 
 export async function updateTestStep(
