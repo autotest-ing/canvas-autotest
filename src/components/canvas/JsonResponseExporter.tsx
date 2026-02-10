@@ -236,8 +236,8 @@ function ExistingExportsDropdown({
           exports.map((item) => (
             <DropdownMenuItem
               key={item.id}
-              disabled
-              className="flex flex-col items-start gap-0.5 py-2"
+              onClick={() => onSelect(item.id)}
+              className="flex flex-col items-start gap-0.5 py-2 cursor-pointer"
             >
               <span className="text-xs font-medium text-foreground">
                 {item.key}
