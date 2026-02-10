@@ -51,6 +51,10 @@ export function HomeCanvas({ initialConversationId }: HomeCanvasProps) {
       if (location.state?.isNew) {
         chat.setConversationId(initialConversationId);
       } else {
+        // If we already have this conversation loaded (e.g. from just creating it), don't reload
+        if (chat.conversationId === initialConversationId && chat.messages.length > 0) {
+          return;
+        }
         void chat.loadConversation(initialConversationId);
       }
     }

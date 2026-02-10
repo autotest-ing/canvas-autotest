@@ -172,10 +172,6 @@ export function useChat(options?: {
         if (event.type === "conversation_id") {
           receivedConversationId = event.conversation_id;
           setConversationId(event.conversation_id);
-          // Notify parent immediately so URL can update
-          if (!conversationId) {
-            options?.onConversationStarted?.(event.conversation_id);
-          }
           return;
         }
 
@@ -224,6 +220,9 @@ export function useChat(options?: {
 
             case "done":
               current.isStreaming = false;
+              if (receivedConversationId) {
+                options?.onConversationStarted?.(receivedConversationId);
+              }
               break;
           }
 
