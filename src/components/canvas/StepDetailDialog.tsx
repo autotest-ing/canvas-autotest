@@ -32,11 +32,15 @@ import {
   fetchEnvironmentDetail,
   applyStepExportToUrl,
   applyEnvironmentVariableToUrl,
+  applyAssertionActualValue,
+  getAssertion,
+  type AssertionDetailResponse,
   type StepResultFullDetail,
   type StepResultHttpRequest,
   type StepResultHttpResponse,
   type TestStepExportCompactResponse,
   type EnvironmentDetailVariable,
+  type AssertionType,
 } from "@/lib/api/suites";
 import { JsonResponseExporter, ExistingExportsDropdown, type ValidExistingExport } from "./JsonResponseExporter";
 import { toast } from "sonner";
@@ -108,6 +112,124 @@ function AssertionStatusIcon({ status }: { status: string }) {
   }
 }
 
+function AssertionRow({ assertion }: { assertion: AssertionItem }) {
+  const { token } = useAuth();
+  const [isApplying, setIsApplying] = useState(false);
+  const [assertionDetails, setAssertionDetails] = useState<AssertionDetailResponse | null>(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  // We use this local state to "optimistically" update the UI after a successful apply
+  // without needing a full refresh of the step results (though a refresh would be better).
+  // For now, we'll just show the button as "Applied" or similar.
+  const [justApplied, setJustApplied] = useState(false);
+
+  useEffect(() => {
+    // Only fetch details if failed and we need to check type
+    if (assertion.status === "fail" && !assertionDetails && !loadingDetails && token && !justApplied) {
+      setLoadingDetails(true);
+      getAssertion(assertion.id, token)
+        .then(setAssertionDetails)
+        .catch(() => {
+          // Ignore error, just won't show the button
+        })
+        .finally(() => setLoadingDetails(false));
+    }
+  }, [assertion.id, assertion.status, token, assertionDetails, loadingDetails, justApplied]);
+
+  const handleApplyActual = async () => {
+    if (!token) return;
+
+    setIsApplying(true);
+    try {
+      await applyAssertionActualValue(assertion.id, assertion.actual, token);
+      toast.success("Updated assertion expectation with actual value");
+      setJustApplied(true);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update assertion");
+    } finally {
+      setIsApplying(false);
+    }
+  };
+
+  const showApplyButton =
+    !justApplied &&
+    assertion.status === "fail" &&
+    assertionDetails &&
+    (assertionDetails.assertion_type === "status_code" ||
+      assertionDetails.assertion_type === "response_time");
+
+  return (
+    <div
+      className={cn(
+        "flex items-start gap-3 p-3 rounded-lg border",
+        assertion.status === "fail" &&
+        "bg-destructive/5 border-destructive/20",
+        assertion.status === "pass" &&
+        "bg-emerald-500/5 border-emerald-500/20",
+        assertion.status === "warn" &&
+        "bg-amber-500/5 border-amber-500/20",
+        assertion.status !== "fail" &&
+        assertion.status !== "pass" &&
+        assertion.status !== "warn" &&
+        "bg-muted/30 border-border/50"
+      )}
+    >
+      <AssertionStatusIcon status={assertion.status} />
+      <div className="flex-1 min-w-0 space-y-1">
+        {assertion.message && (
+          <p className="text-sm font-medium text-foreground">
+            {assertion.message}
+          </p>
+        )}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+          <span className="text-muted-foreground">
+            Expected:{" "}
+            <code className="px-1 py-0.5 bg-muted/50 rounded text-foreground">
+              {formatValue(assertion.expected)}
+            </code>
+          </span>
+          <span className="text-muted-foreground">
+            Actual:{" "}
+            <code
+              className={cn(
+                "px-1 py-0.5 rounded",
+                assertion.status === "fail"
+                  ? "bg-destructive/10 text-destructive"
+                  : "bg-muted/50 text-foreground"
+              )}
+            >
+              {formatValue(assertion.actual)}
+            </code>
+          </span>
+
+          {showApplyButton && (
+            <button
+              onClick={handleApplyActual}
+              disabled={isApplying}
+              className="ml-auto text-xs font-medium text-primary hover:text-primary/80 disabled:opacity-50 transition-colors flex items-center gap-1 bg-primary/10 px-2 py-0.5 rounded"
+            >
+              {isApplying ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Applying...
+                </>
+              ) : (
+                "Apply Actual"
+              )}
+            </button>
+          )}
+
+          {justApplied && (
+            <span className="ml-auto text-xs font-medium text-emerald-600 flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded">
+              <CheckCircle2 className="w-3 h-3" />
+              Updated
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AssertionsTab({ assertions }: { assertions: AssertionItem[] }) {
   const passedCount = assertions.filter((a) => a.status === "pass").length;
   const failedCount = assertions.filter((a) => a.status === "fail").length;
@@ -143,52 +265,7 @@ function AssertionsTab({ assertions }: { assertions: AssertionItem[] }) {
             </p>
           ) : (
             assertions.map((assertion) => (
-              <div
-                key={assertion.id}
-                className={cn(
-                  "flex items-start gap-3 p-3 rounded-lg border",
-                  assertion.status === "fail" &&
-                  "bg-destructive/5 border-destructive/20",
-                  assertion.status === "pass" &&
-                  "bg-emerald-500/5 border-emerald-500/20",
-                  assertion.status === "warn" &&
-                  "bg-amber-500/5 border-amber-500/20",
-                  assertion.status !== "fail" &&
-                  assertion.status !== "pass" &&
-                  assertion.status !== "warn" &&
-                  "bg-muted/30 border-border/50"
-                )}
-              >
-                <AssertionStatusIcon status={assertion.status} />
-                <div className="flex-1 min-w-0 space-y-1">
-                  {assertion.message && (
-                    <p className="text-sm font-medium text-foreground">
-                      {assertion.message}
-                    </p>
-                  )}
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                    <span className="text-muted-foreground">
-                      Expected:{" "}
-                      <code className="px-1 py-0.5 bg-muted/50 rounded text-foreground">
-                        {formatValue(assertion.expected)}
-                      </code>
-                    </span>
-                    <span className="text-muted-foreground">
-                      Actual:{" "}
-                      <code
-                        className={cn(
-                          "px-1 py-0.5 rounded",
-                          assertion.status === "fail"
-                            ? "bg-destructive/10 text-destructive"
-                            : "bg-muted/50 text-foreground"
-                        )}
-                      >
-                        {formatValue(assertion.actual)}
-                      </code>
-                    </span>
-                  </div>
-                </div>
-              </div>
+              <AssertionRow key={assertion.id} assertion={assertion} />
             ))
           )}
         </div>

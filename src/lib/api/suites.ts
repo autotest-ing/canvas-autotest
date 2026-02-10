@@ -660,6 +660,27 @@ export async function deleteAssertion(assertionId: string, token: string): Promi
   }
 }
 
+export async function applyAssertionActualValue(
+  assertionId: string,
+  actualValue: unknown,
+  token: string
+): Promise<AssertionDetailResponse> {
+  const response = await fetch(`${BASE_API_URL}/v1.0/assertions/${assertionId}/apply-actual`, {
+    method: "PATCH",
+    headers: {
+      ...getAuthHeaders(token),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ actual_value: actualValue }),
+  });
+
+  if (!response.ok) {
+    throw await buildApiError(response, "Failed to apply actual value to assertion");
+  }
+
+  return (await response.json()) as AssertionDetailResponse;
+}
+
 // ============== Step Exports (Variable Extraction) ==============
 
 export type StepExportPayload = {
