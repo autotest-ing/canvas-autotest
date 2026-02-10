@@ -55,6 +55,7 @@ interface StepDetailDialogProps {
 
 interface AssertionItem {
   id: string;
+  assertionId?: string;
   status: string;
   actual?: unknown;
   expected?: unknown;
@@ -124,23 +125,23 @@ function AssertionRow({ assertion }: { assertion: AssertionItem }) {
 
   useEffect(() => {
     // Only fetch details if failed and we need to check type
-    if (assertion.status === "fail" && !assertionDetails && !loadingDetails && token && !justApplied) {
+    if (assertion.status === "fail" && !assertionDetails && !loadingDetails && token && !justApplied && assertion.assertionId) {
       setLoadingDetails(true);
-      getAssertion(assertion.id, token)
+      getAssertion(assertion.assertionId, token)
         .then(setAssertionDetails)
         .catch(() => {
           // Ignore error, just won't show the button
         })
         .finally(() => setLoadingDetails(false));
     }
-  }, [assertion.id, assertion.status, token, assertionDetails, loadingDetails, justApplied]);
+  }, [assertion.assertionId, assertion.status, token, assertionDetails, loadingDetails, justApplied]);
 
   const handleApplyActual = async () => {
-    if (!token) return;
+    if (!token || !assertion.assertionId) return;
 
     setIsApplying(true);
     try {
-      await applyAssertionActualValue(assertion.id, assertion.actual, token);
+      await applyAssertionActualValue(assertion.assertionId, assertion.actual, token);
       toast.success("Updated assertion expectation with actual value");
       setJustApplied(true);
     } catch (err) {
@@ -800,6 +801,7 @@ export function StepDetailDialog({
   const assertions: AssertionItem[] =
     fullDetail?.assertion_results.map((ar) => ({
       id: ar.id,
+      assertionId: ar.assertion_id,
       status: ar.status,
       actual: ar.actual,
       expected: ar.expected,
