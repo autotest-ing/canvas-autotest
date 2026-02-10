@@ -660,6 +660,14 @@ export type TestStepExportCompactResponse = {
   is_secret: boolean;
 };
 
+export type ApplyStepExportResponse = {
+  ok: boolean;
+  request_id: string;
+  path: string;
+  var_key: string;
+  new_payload: unknown;
+};
+
 export type FetchStepExportsByAccountParams = Record<string, never>;
 
 export async function createStepExport(
@@ -681,6 +689,26 @@ export async function createStepExport(
   }
 
   return (await response.json()) as StepExportResponse;
+}
+
+export async function applyStepExport(
+  stepId: string,
+  exportId: string,
+  token: string
+): Promise<ApplyStepExportResponse> {
+  const response = await fetch(
+    `${BASE_API_URL}/v1.0/test-steps/${stepId}/exports/${exportId}/apply`,
+    {
+      method: "POST",
+      headers: getAuthHeaders(token),
+    }
+  );
+
+  if (!response.ok) {
+    throw await buildApiError(response, "Failed to apply step export");
+  }
+
+  return (await response.json()) as ApplyStepExportResponse;
 }
 
 export async function fetchStepExportsByAccount(

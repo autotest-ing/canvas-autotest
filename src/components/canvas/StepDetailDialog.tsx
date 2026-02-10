@@ -262,6 +262,7 @@ function RequestTab({
   existingExports,
   exportsLoading,
   exportsError,
+  onApplyExport,
 }: {
   request: StepResultHttpRequest | null;
   loading: boolean;
@@ -270,6 +271,7 @@ function RequestTab({
   existingExports: TestStepExportCompactResponse[];
   exportsLoading: boolean;
   exportsError: string | null;
+  onApplyExport?: (varKey: string) => void;
 }) {
   if (loading) {
     return (
@@ -331,6 +333,7 @@ function RequestTab({
               existingExports={existingExports}
               existingExportsLoading={exportsLoading}
               existingExportsError={exportsError}
+              onApplyExport={onApplyExport}
             />
           ) : (
             <p className="text-sm text-muted-foreground">No body</p>
@@ -608,6 +611,13 @@ export function StepDetailDialog({
                 existingExports={existingExports}
                 exportsLoading={exportsLoading}
                 exportsError={exportsError}
+                onApplyExport={() => {
+                  if (step.stepResultId && token) {
+                    fetchStepResultDetails(step.stepResultId, token)
+                      .then((data) => setFullDetail(data))
+                      .catch((err) => console.error("Failed to reload step details:", err));
+                  }
+                }}
               />
             </TabsContent>
             <TabsContent value="response">

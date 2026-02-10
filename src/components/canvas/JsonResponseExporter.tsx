@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import {
   createStepExport,
+  applyStepExport,
   type TestStepExportCompactResponse,
 } from "@/lib/api/suites";
 
@@ -26,6 +27,7 @@ interface JsonResponseExporterProps {
   existingExports?: TestStepExportCompactResponse[];
   existingExportsLoading?: boolean;
   existingExportsError?: string | null;
+  onApplyExport?: (varKey: string) => void;
 }
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
@@ -193,12 +195,14 @@ function ExistingExportsDropdown({
   exports,
   loading,
   error,
+  onSelect,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   exports: ValidExistingExport[];
   loading: boolean;
   error: string | null;
+  onSelect: (id: string) => void;
 }) {
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
@@ -278,6 +282,7 @@ function renderValue(
   existingExportsError: string | null,
   activeField: string | null,
   setActiveField: (path: string | null) => void,
+  onApplyExport: (exportId: string) => void,
   indent: number
 ): React.ReactNode {
   const pad = "  ".repeat(indent);
@@ -321,6 +326,7 @@ function renderValue(
                 existingExportsError,
                 activeField,
                 setActiveField,
+                onApplyExport,
                 indent + 1
               )}
               {i < value.length - 1 ? "," : ""}
@@ -348,6 +354,10 @@ function renderValue(
                   exports={normalizedExports}
                   loading={existingExportsLoading}
                   error={existingExportsError}
+                  onSelect={(exportId) => {
+                    onApplyExport(exportId);
+                    setActiveField(null);
+                  }}
                 />
               ) : null}
               {"\n"}
@@ -390,6 +400,7 @@ function renderValue(
                 existingExportsError,
                 activeField,
                 setActiveField,
+                onApplyExport,
                 indent + 1
               )}
               {i < entries.length - 1 ? "," : ""}
@@ -413,6 +424,10 @@ function renderValue(
                   exports={normalizedExports}
                   loading={existingExportsLoading}
                   error={existingExportsError}
+                  onSelect={(exportId) => {
+                    onApplyExport(exportId);
+                    setActiveField(null);
+                  }}
                 />
               ) : null}
               {"\n"}
@@ -436,8 +451,30 @@ export function JsonResponseExporter({
   existingExports = [],
   existingExportsLoading = false,
   existingExportsError = null,
+  onApplyExport,
 }: JsonResponseExporterProps) {
+  const { token } = useAuth();
   const [activeField, setActiveField] = useState<string | null>(null);
+  const [isApplying, setIsApplying] = useState(false);
+
+  const handleApplyExport = useCallback(
+    async (exportId: string) => {
+      if (!token || isApplying) return;
+
+      setIsApplying(true);
+      try {
+        const result = await applyStepExport(testStepId, exportId, token);
+        if (result.ok && onApplyExport) {
+          onApplyExport(result.var_key);
+        }
+      } catch (err) {
+        console.error("Failed to apply export:", err);
+      } finally {
+        setIsApplying(false);
+      }
+    },
+    [testStepId, token, onApplyExport, isApplying]
+  );
   const normalizedExports = useMemo<ValidExistingExport[]>(() => {
     return existingExports
       .filter((item) => typeof item?.key === "string" && item.key.trim())
@@ -483,7 +520,13 @@ export function JsonResponseExporter({
         existingExportsError,
         activeField,
         setActiveField,
+        handleApplyExport,
         0
+      )}
+      {isApplying && (
+        <div className="absolute inset-0 bg-background/40 flex items-center justify-center rounded-lg backdrop-blur-[1px]">
+          <Loader2 className="w-6 h-6 animate-spin text-primary" />
+        </div>
       )}
     </pre>
   );
