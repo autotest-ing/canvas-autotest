@@ -652,6 +652,18 @@ export type StepExportResponse = {
   is_secret: boolean;
 };
 
+export type TestStepExportCompactResponse = {
+  id: string;
+  test_step: { name: string };
+  key: string;
+  extractor: Record<string, unknown>;
+  is_secret: boolean;
+};
+
+export type FetchStepExportsByAccountParams = {
+  testSuiteId?: string;
+};
+
 export async function createStepExport(
   stepId: string,
   payload: StepExportPayload,
@@ -671,6 +683,34 @@ export async function createStepExport(
   }
 
   return (await response.json()) as StepExportResponse;
+}
+
+export async function fetchStepExportsByAccount(
+  accountId: string,
+  token: string,
+  params?: FetchStepExportsByAccountParams
+): Promise<TestStepExportCompactResponse[]> {
+  const url = new URL(`${BASE_API_URL}/v1.0/test-steps/exports`);
+  url.searchParams.set("account_id", accountId);
+
+  if (params?.testSuiteId?.trim()) {
+    url.searchParams.set("test_suite_id", params.testSuiteId.trim());
+  }
+
+  const response = await fetch(url.toString(), {
+    headers: getAuthHeaders(token),
+  });
+
+  if (!response.ok) {
+    throw await buildApiError(response, "Failed to load step exports");
+  }
+
+  const data = (await response.json()) as unknown;
+  const rawItems = Array.isArray(data) ? data : [];
+
+  return rawItems
+    .map((item) => normalizeStepExportCompactResponse(item))
+    .filter((item): item is TestStepExportCompactResponse => item !== null);
 }
 
 export async function fetchStepResultDetails(
@@ -859,6 +899,32 @@ function normalizeTestCaseTableItem(rawItem: unknown): TestCaseTableItem | null 
       pickString(rawItem.last_run_at) ??
       pickString(rawItem.last_executed_at) ??
       pickString(rawItem.updated_at),
+  };
+}
+
+function normalizeStepExportCompactResponse(rawItem: unknown): TestStepExportCompactResponse | null {
+  if (!isRecord(rawItem)) {
+    return null;
+  }
+
+  const id = pickString(rawItem.id);
+  const key = pickString(rawItem.key);
+  const extractor = isRecord(rawItem.extractor) ? rawItem.extractor : null;
+  const testStepRecord = isRecord(rawItem.test_step) ? rawItem.test_step : null;
+  const stepName = pickString(testStepRecord?.name);
+
+  if (!id || !key || !extractor) {
+    return null;
+  }
+
+  return {
+    id,
+    key,
+    extractor,
+    is_secret: Boolean(rawItem.is_secret),
+    test_step: {
+      name: stepName ?? "",
+    },
   };
 }
 

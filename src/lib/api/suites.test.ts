@@ -4,6 +4,7 @@ import {
   createTestStep,
   deleteAssertion,
   deleteTestStep,
+  fetchStepExportsByAccount,
   fetchRequests,
   fetchTestCasesTable,
   getAssertion,
@@ -344,6 +345,105 @@ describe("request API client", () => {
           full_url: "https://api.example.com/users",
         }),
       })
+    );
+  });
+});
+
+describe("step export API client", () => {
+  it("fetchStepExportsByAccount sends account_id and optional test_suite_id params", async () => {
+    const responseBody = [
+      {
+        id: "exp-1",
+        test_step: { name: "Login step" },
+        key: "ACCESS_TOKEN",
+        extractor: { type: "jsonpath", path: "$.access_token" },
+        is_secret: true,
+      },
+    ];
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(responseBody), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+
+    const result = await fetchStepExportsByAccount("account-1", "jwt-token", {
+      testSuiteId: "suite-1",
+    });
+
+    const [requestUrl, requestOptions] = fetchSpy.mock.calls[0];
+    const parsedUrl = new URL(String(requestUrl));
+    expect(parsedUrl.origin + parsedUrl.pathname).toBe(
+      "https://internal-api.autotest.ing/v1.0/test-steps/exports"
+    );
+    expect(parsedUrl.searchParams.get("account_id")).toBe("account-1");
+    expect(parsedUrl.searchParams.get("test_suite_id")).toBe("suite-1");
+    expect(requestOptions).toEqual(
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer jwt-token",
+        }),
+      })
+    );
+    expect(result).toEqual(responseBody);
+  });
+
+  it("fetchStepExportsByAccount normalizes malformed items and drops invalid rows", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            id: "exp-valid",
+            test_step: { name: "Login step" },
+            key: "ACCESS_TOKEN",
+            extractor: { type: "jsonpath", path: "$.access_token" },
+            is_secret: false,
+          },
+          {
+            id: "exp-invalid-no-key",
+            test_step: { name: "Broken step" },
+            extractor: { type: "jsonpath", path: "$.missing" },
+            is_secret: false,
+          },
+          {
+            id: "exp-invalid-extractor",
+            test_step: { name: "Broken step 2" },
+            key: "BROKEN",
+            extractor: "invalid",
+            is_secret: false,
+          },
+        ]),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      )
+    );
+
+    const result = await fetchStepExportsByAccount("account-1", "jwt-token");
+
+    expect(result).toEqual([
+      {
+        id: "exp-valid",
+        test_step: { name: "Login step" },
+        key: "ACCESS_TOKEN",
+        extractor: { type: "jsonpath", path: "$.access_token" },
+        is_secret: false,
+      },
+    ]);
+  });
+
+  it("fetchStepExportsByAccount throws descriptive error from backend detail", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ detail: "Access denied" }), {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+
+    await expect(fetchStepExportsByAccount("account-1", "jwt-token")).rejects.toThrow(
+      "Failed to load step exports: Access denied"
     );
   });
 });

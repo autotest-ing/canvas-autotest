@@ -26,10 +26,12 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import type { RunTestStep } from "@/components/RunTestCaseList";
 import {
+  fetchStepExportsByAccount,
   fetchStepResultDetails,
   type StepResultFullDetail,
   type StepResultHttpRequest,
   type StepResultHttpResponse,
+  type TestStepExportCompactResponse,
 } from "@/lib/api/suites";
 import { JsonResponseExporter } from "./JsonResponseExporter";
 
@@ -37,6 +39,7 @@ import { JsonResponseExporter } from "./JsonResponseExporter";
 
 interface StepDetailDialogProps {
   step: RunTestStep | null;
+  suiteId?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -73,18 +76,6 @@ function getStatusCodeColor(code: number) {
   if (code >= 300 && code < 400) return "text-amber-600";
   if (code >= 400 && code < 500) return "text-orange-600";
   return "text-destructive";
-}
-
-function formatJson(value: unknown): string {
-  if (value === null || value === undefined) return "—";
-  if (typeof value === "string") {
-    try {
-      return JSON.stringify(JSON.parse(value), null, 2);
-    } catch {
-      return value;
-    }
-  }
-  return JSON.stringify(value, null, 2);
 }
 
 function formatValue(value: unknown): string {
@@ -268,10 +259,18 @@ function RequestTab({
   request,
   loading,
   error,
+  testStepId,
+  existingExports,
+  exportsLoading,
+  exportsError,
 }: {
   request: StepResultHttpRequest | null;
   loading: boolean;
   error: string | null;
+  testStepId: string;
+  existingExports: TestStepExportCompactResponse[];
+  exportsLoading: boolean;
+  exportsError: string | null;
 }) {
   if (loading) {
     return (
@@ -325,10 +324,15 @@ function RequestTab({
           <h4 className="text-xs font-medium text-muted-foreground mb-1">
             Body
           </h4>
-          {request.body ? (
-            <pre className="font-mono text-xs bg-muted/30 p-3 rounded-lg overflow-auto max-h-64 border border-border/50">
-              {formatJson(request.body)}
-            </pre>
+          {request.body !== null && request.body !== undefined ? (
+            <JsonResponseExporter
+              body={request.body}
+              testStepId={testStepId}
+              mode="displayExisting"
+              existingExports={existingExports}
+              existingExportsLoading={exportsLoading}
+              existingExportsError={exportsError}
+            />
           ) : (
             <p className="text-sm text-muted-foreground">No body</p>
           )}
@@ -429,16 +433,20 @@ function ResponseTab({
 
 export function StepDetailDialog({
   step,
+  suiteId,
   open,
   onOpenChange,
 }: StepDetailDialogProps) {
-  const { token } = useAuth();
+  const { token, currentUser } = useAuth();
   const [fullDetail, setFullDetail] = useState<StepResultFullDetail | null>(
     null
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("response");
+  const [existingExports, setExistingExports] = useState<TestStepExportCompactResponse[]>([]);
+  const [exportsLoading, setExportsLoading] = useState(false);
+  const [exportsError, setExportsError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -473,6 +481,40 @@ export function StepDetailDialog({
       cancelled = true;
     };
   }, [open, step?.stepResultId, token]);
+
+  useEffect(() => {
+    const accountId = currentUser?.default_account_id;
+    if (!open || !token || !accountId) {
+      setExistingExports([]);
+      setExportsError(null);
+      setExportsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setExportsLoading(true);
+    setExportsError(null);
+
+    fetchStepExportsByAccount(accountId, token, {
+      testSuiteId: suiteId,
+    })
+      .then((data) => {
+        if (!cancelled) setExistingExports(data);
+      })
+      .catch((err: Error) => {
+        if (!cancelled) {
+          setExistingExports([]);
+          setExportsError(err.message);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setExportsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.default_account_id, open, suiteId, token]);
 
   if (!step) return null;
 
@@ -566,6 +608,10 @@ export function StepDetailDialog({
                 request={fullDetail?.request ?? null}
                 loading={loading}
                 error={error}
+                testStepId={step.id}
+                existingExports={existingExports}
+                exportsLoading={exportsLoading}
+                exportsError={exportsError}
               />
             </TabsContent>
             <TabsContent value="response">

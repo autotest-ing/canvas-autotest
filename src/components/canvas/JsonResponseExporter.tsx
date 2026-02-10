@@ -1,16 +1,31 @@
-import { useState, useCallback } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Plus, Save, X, Check, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
-import { createStepExport } from "@/lib/api/suites";
+import {
+  createStepExport,
+  type TestStepExportCompactResponse,
+} from "@/lib/api/suites";
 
 // ============== Types ==============
+
+type ExporterMode = "create" | "displayExisting";
 
 interface JsonResponseExporterProps {
   body: unknown;
   testStepId: string;
+  mode?: ExporterMode;
+  existingExports?: TestStepExportCompactResponse[];
+  existingExportsLoading?: boolean;
+  existingExportsError?: string | null;
 }
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
@@ -19,6 +34,13 @@ interface ExportRowState {
   varKey: string;
   status: SaveStatus;
   error?: string;
+}
+
+interface ValidExistingExport {
+  id: string;
+  key: string;
+  stepName: string;
+  extractorPath: string | null;
 }
 
 // ============== Helpers ==============
@@ -143,7 +165,11 @@ function ExportInput({
 
 // ============== Add Variable Button ==============
 
-function AddVarButton({ onClick }: { onClick: () => void }) {
+function AddVarButton({
+  onClick,
+}: {
+  onClick?: () => void;
+}) {
   return (
     <button
       type="button"
@@ -158,6 +184,73 @@ function AddVarButton({ onClick }: { onClick: () => void }) {
       <Plus className="w-3 h-3" />
       <span className="hidden sm:inline">var</span>
     </button>
+  );
+}
+
+function ExistingExportsDropdown({
+  open,
+  onOpenChange,
+  exports,
+  loading,
+  error,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  exports: ValidExistingExport[];
+  loading: boolean;
+  error: string | null;
+}) {
+  return (
+    <DropdownMenu open={open} onOpenChange={onOpenChange}>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "inline-flex items-center gap-0.5 ml-1.5 align-middle",
+            "text-[10px] text-primary/60 hover:text-primary transition-colors",
+            "opacity-0 group-hover/json-line:opacity-100 focus:opacity-100"
+          )}
+          title="Add variable"
+        >
+          <Plus className="w-3 h-3" />
+          <span className="hidden sm:inline">var</span>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-72">
+        {loading ? (
+          <DropdownMenuItem disabled className="gap-2">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            Loading extracted variables...
+          </DropdownMenuItem>
+        ) : error ? (
+          <DropdownMenuItem disabled className="text-destructive text-xs">
+            Failed to load extracted variables
+          </DropdownMenuItem>
+        ) : exports.length === 0 ? (
+          <DropdownMenuItem disabled>No extracted variables</DropdownMenuItem>
+        ) : (
+          exports.map((item) => (
+            <DropdownMenuItem
+              key={item.id}
+              disabled
+              className="flex flex-col items-start gap-0.5 py-2"
+            >
+              <span className="text-xs font-medium text-foreground">
+                {item.key}
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                {item.stepName}
+              </span>
+              {item.extractorPath ? (
+                <span className="text-[10px] text-muted-foreground font-mono">
+                  {item.extractorPath}
+                </span>
+              ) : null}
+            </DropdownMenuItem>
+          ))
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -179,6 +272,10 @@ function renderValue(
   value: unknown,
   keys: string[],
   testStepId: string,
+  mode: ExporterMode,
+  normalizedExports: ValidExistingExport[],
+  existingExportsLoading: boolean,
+  existingExportsError: string | null,
   activeField: string | null,
   setActiveField: (path: string | null) => void,
   indent: number
@@ -218,22 +315,41 @@ function renderValue(
                 item,
                 itemKeys,
                 testStepId,
+                mode,
+                normalizedExports,
+                existingExportsLoading,
+                existingExportsError,
                 activeField,
                 setActiveField,
                 indent + 1
               )}
               {i < value.length - 1 ? "," : ""}
-              {!isObject && !isActive && (
+              {!isObject && mode === "create" && !isActive ? (
                 <AddVarButton onClick={() => setActiveField(jsonPath)} />
-              )}
-              {!isObject && isActive && (
+              ) : null}
+              {!isObject && mode === "create" && isActive ? (
                 <ExportInput
-                  fieldName={keys.length > 0 ? keys[keys.length - 1] + "_" + i : String(i)}
+                  fieldName={
+                    keys.length > 0
+                      ? keys[keys.length - 1] + "_" + i
+                      : String(i)
+                  }
                   jsonPath={jsonPath}
                   testStepId={testStepId}
                   onClose={() => setActiveField(null)}
                 />
-              )}
+              ) : null}
+              {!isObject && mode === "displayExisting" ? (
+                <ExistingExportsDropdown
+                  open={isActive}
+                  onOpenChange={(nextOpen) =>
+                    setActiveField(nextOpen ? jsonPath : null)
+                  }
+                  exports={normalizedExports}
+                  loading={existingExportsLoading}
+                  error={existingExportsError}
+                />
+              ) : null}
               {"\n"}
             </JsonLine>
           );
@@ -268,22 +384,37 @@ function renderValue(
                 val,
                 fieldKeys,
                 testStepId,
+                mode,
+                normalizedExports,
+                existingExportsLoading,
+                existingExportsError,
                 activeField,
                 setActiveField,
                 indent + 1
               )}
               {i < entries.length - 1 ? "," : ""}
-              {isLeaf && !isActive && (
+              {isLeaf && mode === "create" && !isActive ? (
                 <AddVarButton onClick={() => setActiveField(jsonPath)} />
-              )}
-              {isLeaf && isActive && (
+              ) : null}
+              {isLeaf && mode === "create" && isActive ? (
                 <ExportInput
                   fieldName={key}
                   jsonPath={jsonPath}
                   testStepId={testStepId}
                   onClose={() => setActiveField(null)}
                 />
-              )}
+              ) : null}
+              {isLeaf && mode === "displayExisting" ? (
+                <ExistingExportsDropdown
+                  open={isActive}
+                  onOpenChange={(nextOpen) =>
+                    setActiveField(nextOpen ? jsonPath : null)
+                  }
+                  exports={normalizedExports}
+                  loading={existingExportsLoading}
+                  error={existingExportsError}
+                />
+              ) : null}
               {"\n"}
             </JsonLine>
           );
@@ -301,8 +432,30 @@ function renderValue(
 export function JsonResponseExporter({
   body,
   testStepId,
+  mode = "create",
+  existingExports = [],
+  existingExportsLoading = false,
+  existingExportsError = null,
 }: JsonResponseExporterProps) {
   const [activeField, setActiveField] = useState<string | null>(null);
+  const normalizedExports = useMemo<ValidExistingExport[]>(() => {
+    return existingExports
+      .filter((item) => typeof item?.key === "string" && item.key.trim())
+      .map((item) => {
+        const extractorPath =
+          typeof item.extractor?.path === "string" ? item.extractor.path : null;
+        return {
+          id: item.id,
+          key: item.key.trim(),
+          stepName:
+            typeof item.test_step?.name === "string" && item.test_step.name.trim()
+              ? item.test_step.name.trim()
+              : "Unknown step",
+          extractorPath,
+        };
+      })
+      .sort((a, b) => a.key.localeCompare(b.key));
+  }, [existingExports]);
 
   const parsed = parseBody(body);
 
@@ -320,7 +473,18 @@ export function JsonResponseExporter({
 
   return (
     <pre className="font-mono text-xs bg-muted/30 p-3 rounded-lg overflow-auto max-h-64 border border-border/50 whitespace-pre">
-      {renderValue(parsed, [], testStepId, activeField, setActiveField, 0)}
+      {renderValue(
+        parsed,
+        [],
+        testStepId,
+        mode,
+        normalizedExports,
+        existingExportsLoading,
+        existingExportsError,
+        activeField,
+        setActiveField,
+        0
+      )}
     </pre>
   );
 }

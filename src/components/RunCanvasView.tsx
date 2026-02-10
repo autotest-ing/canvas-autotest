@@ -572,6 +572,7 @@ export function RunCanvasView({ runId, suiteId, environmentId, variables }: RunC
       {/* Step Detail Dialog */}
       <StepDetailDialog
         step={selectedStep}
+        suiteId={suiteId}
         open={stepDialogOpen}
         onOpenChange={setStepDialogOpen}
       />
