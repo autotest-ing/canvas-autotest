@@ -9,11 +9,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-export type SourceType = "postman" | "openapi";
+export type SourceType = "postman" | "openapi" | "swagger";
 
 export interface Source {
   id: string;
   name: string;
+  description?: string | null;
   type: SourceType;
   lastSync: string;
   requestCount: number;
@@ -27,7 +28,7 @@ interface SourceCardProps {
   onDelete: (id: string) => void;
 }
 
-const typeConfig = {
+const typeConfig: Record<SourceType, { icon: typeof FileJson; label: string; color: string }> = {
   postman: {
     icon: FileJson,
     label: "Postman",
@@ -37,6 +38,11 @@ const typeConfig = {
     icon: FileCode,
     label: "OpenAPI",
     color: "bg-blue-500/15 text-blue-600 border-blue-500/20",
+  },
+  swagger: {
+    icon: FileCode,
+    label: "Swagger",
+    color: "bg-green-500/15 text-green-600 border-green-500/20",
   },
 };
 
