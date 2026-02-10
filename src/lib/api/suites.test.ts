@@ -368,9 +368,7 @@ describe("step export API client", () => {
       })
     );
 
-    const result = await fetchStepExportsByAccount("account-1", "jwt-token", {
-      testSuiteId: "suite-1",
-    });
+    const result = await fetchStepExportsByAccount("account-1", "jwt-token");
 
     const [requestUrl, requestOptions] = fetchSpy.mock.calls[0];
     const parsedUrl = new URL(String(requestUrl));
@@ -378,7 +376,7 @@ describe("step export API client", () => {
       "https://internal-api.autotest.ing/v1.0/test-steps/exports"
     );
     expect(parsedUrl.searchParams.get("account_id")).toBe("account-1");
-    expect(parsedUrl.searchParams.get("test_suite_id")).toBe("suite-1");
+    expect(parsedUrl.searchParams.get("test_suite_id")).toBeNull();
     expect(requestOptions).toEqual(
       expect.objectContaining({
         headers: expect.objectContaining({

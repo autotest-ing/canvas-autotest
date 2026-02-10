@@ -100,7 +100,6 @@ describe("StepDetailDialog", () => {
     render(
       <StepDetailDialog
         step={step}
-        suiteId="suite-1"
         open
         onOpenChange={vi.fn()}
       />
@@ -116,8 +115,7 @@ describe("StepDetailDialog", () => {
     await waitFor(() => {
       expect(fetchStepExportsByAccountMock).toHaveBeenCalledWith(
         "account-1",
-        "jwt-token",
-        { testSuiteId: "suite-1" }
+        "jwt-token"
       );
     });
 

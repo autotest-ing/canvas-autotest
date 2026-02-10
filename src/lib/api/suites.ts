@@ -660,9 +660,7 @@ export type TestStepExportCompactResponse = {
   is_secret: boolean;
 };
 
-export type FetchStepExportsByAccountParams = {
-  testSuiteId?: string;
-};
+export type FetchStepExportsByAccountParams = Record<string, never>;
 
 export async function createStepExport(
   stepId: string,
@@ -692,10 +690,6 @@ export async function fetchStepExportsByAccount(
 ): Promise<TestStepExportCompactResponse[]> {
   const url = new URL(`${BASE_API_URL}/v1.0/test-steps/exports`);
   url.searchParams.set("account_id", accountId);
-
-  if (params?.testSuiteId?.trim()) {
-    url.searchParams.set("test_suite_id", params.testSuiteId.trim());
-  }
 
   const response = await fetch(url.toString(), {
     headers: getAuthHeaders(token),
@@ -1044,7 +1038,7 @@ export async function createSchedule(
 ): Promise<Schedule> {
   // Mock implementation
   await new Promise((resolve) => setTimeout(resolve, 500));
-  
+
   const newSchedule: Schedule = {
     id: `sched-${Date.now()}`,
     account_id: "acc-1",
@@ -1060,7 +1054,7 @@ export async function createSchedule(
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
-  
+
   mockSchedules.push(newSchedule);
   return newSchedule;
 }
@@ -1071,31 +1065,31 @@ export async function updateSchedule(
   _token: string
 ): Promise<Schedule> {
   await new Promise((resolve) => setTimeout(resolve, 400));
-  
+
   const index = mockSchedules.findIndex((s) => s.id === scheduleId);
   if (index === -1) {
     throw new Error("Schedule not found");
   }
-  
+
   const updated: Schedule = {
     ...mockSchedules[index],
     ...payload,
     environment_id: payload.environment_id ?? mockSchedules[index].environment_id,
     updated_at: new Date().toISOString(),
   };
-  
+
   mockSchedules[index] = updated;
   return updated;
 }
 
 export async function deleteSchedule(scheduleId: string, _token: string): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 300));
-  
+
   const index = mockSchedules.findIndex((s) => s.id === scheduleId);
   if (index === -1) {
     throw new Error("Schedule not found");
   }
-  
+
   mockSchedules.splice(index, 1);
 }
 
@@ -1105,17 +1099,17 @@ export async function toggleScheduleEnabled(
   _token: string
 ): Promise<Schedule> {
   await new Promise((resolve) => setTimeout(resolve, 200));
-  
+
   const index = mockSchedules.findIndex((s) => s.id === scheduleId);
   if (index === -1) {
     throw new Error("Schedule not found");
   }
-  
+
   mockSchedules[index] = {
     ...mockSchedules[index],
     is_enabled: isEnabled,
     updated_at: new Date().toISOString(),
   };
-  
+
   return mockSchedules[index];
 }

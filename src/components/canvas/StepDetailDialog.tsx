@@ -39,7 +39,6 @@ import { JsonResponseExporter } from "./JsonResponseExporter";
 
 interface StepDetailDialogProps {
   step: RunTestStep | null;
-  suiteId?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -143,15 +142,15 @@ function AssertionsTab({ assertions }: { assertions: AssertionItem[] }) {
                 className={cn(
                   "flex items-start gap-3 p-3 rounded-lg border",
                   assertion.status === "fail" &&
-                    "bg-destructive/5 border-destructive/20",
+                  "bg-destructive/5 border-destructive/20",
                   assertion.status === "pass" &&
-                    "bg-emerald-500/5 border-emerald-500/20",
+                  "bg-emerald-500/5 border-emerald-500/20",
                   assertion.status === "warn" &&
-                    "bg-amber-500/5 border-amber-500/20",
+                  "bg-amber-500/5 border-amber-500/20",
                   assertion.status !== "fail" &&
-                    assertion.status !== "pass" &&
-                    assertion.status !== "warn" &&
-                    "bg-muted/30 border-border/50"
+                  assertion.status !== "pass" &&
+                  assertion.status !== "warn" &&
+                  "bg-muted/30 border-border/50"
                 )}
               >
                 <AssertionStatusIcon status={assertion.status} />
@@ -433,7 +432,6 @@ function ResponseTab({
 
 export function StepDetailDialog({
   step,
-  suiteId,
   open,
   onOpenChange,
 }: StepDetailDialogProps) {
@@ -495,9 +493,7 @@ export function StepDetailDialog({
     setExportsLoading(true);
     setExportsError(null);
 
-    fetchStepExportsByAccount(accountId, token, {
-      testSuiteId: suiteId,
-    })
+    fetchStepExportsByAccount(accountId, token)
       .then((data) => {
         if (!cancelled) setExistingExports(data);
       })
@@ -514,7 +510,7 @@ export function StepDetailDialog({
     return () => {
       cancelled = true;
     };
-  }, [currentUser?.default_account_id, open, suiteId, token]);
+  }, [currentUser?.default_account_id, open, token]);
 
   if (!step) return null;
 
@@ -561,9 +557,9 @@ export function StepDetailDialog({
               className={cn(
                 "text-[10px]",
                 step.status === "pass" &&
-                  "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+                "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
                 step.status === "fail" &&
-                  "bg-destructive/10 text-destructive border-destructive/20"
+                "bg-destructive/10 text-destructive border-destructive/20"
               )}
             >
               {step.status === "pass" ? (
