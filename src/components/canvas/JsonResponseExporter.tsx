@@ -344,6 +344,24 @@ function JsonLine({
   );
 }
 
+// function renderValue(
+//   value: unknown,
+//   keys: string[],
+//   testStepId: string,
+//   mode: ExporterMode,
+//   normalizedExports: ValidExistingExport[],
+//   existingExportsLoading: boolean,
+//   existingExportsError: string | null,
+//   activeField: string | null,
+//   setActiveField: (path: string | null) => void,
+//   onApplyExport: (exportId: string) => void,
+//   indent: number,
+//   environmentVariables: EnvironmentDetailVariable[],
+//   environmentVariablesLoading: boolean,
+//   environmentVariablesError: string | null,
+//   environmentName: string | null,
+//   onSelectEnvVar: (key: string) => void
+// ): React.ReactNode {
 function renderValue(
   value: unknown,
   keys: string[],
