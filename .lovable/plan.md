@@ -1,181 +1,129 @@
 
-# Add Ability to Schedule Runs
+
+# Refactor Variables Popup: Two-Column Layout with Environment Variables
 
 ## Overview
-Add a scheduling feature that allows users to configure recurring test suite runs. This includes a dedicated Schedules page accessible from the side navigation, a dialog for creating/editing schedules, and the ability to view upcoming scheduled runs.
+Refactor the existing variables dropdown (the popup that appears when clicking "+ var" on JSON response fields) to display two side-by-side sections: **Runtime variables** (existing step exports) and **Environment variables** (fetched from the environments API).
+
+## Current Behavior
+When clicking the "+ var" button on a JSON field in the StepDetailDialog's Request tab, a dropdown (`ExistingExportsDropdown`) appears showing all runtime variables (step exports like OTP_TOKEN, PROD_JWT, etc.) in a single-column list.
+
+## New Behavior
+The dropdown will be wider and contain two titled columns:
+- **Left column** - "Runtime variables": Same as current step exports
+- **Right column** - "Environment variables": Variables from the user's default environment, fetched via the environments API
 
 ## Changes Required
 
-### 1. Create Schedule Run Dialog Component
-**File: `src/components/ScheduleRunDialog.tsx`** (new file)
+### 1. Add Environment Variables Fetching in StepDetailDialog
+**File: `src/components/canvas/StepDetailDialog.tsx`** (modify)
 
-A dialog for creating and editing scheduled runs with the following fields:
-- **Suite selection**: Dropdown to select which suite to schedule (required)
-- **Environment selection**: Optional environment for the scheduled run
-- **Schedule type**: One-time or recurring
-- **For one-time**: Date picker for start date/time
-- **For recurring**: Cron-style frequency options:
-  - Every X minutes/hours
-  - Daily at specific time
-  - Weekly on specific days
-  - Custom cron expression (advanced)
-- **Enabled toggle**: Turn schedule on/off without deleting
-- **Name**: Optional descriptive name for the schedule
+Add a new `useEffect` alongside the existing exports fetching to:
+1. Call `fetchEnvironments(accountId, token)` to get the list of environments
+2. Find the default environment (or use the first one)
+3. Call `fetchEnvironmentDetail(envId, token)` to get its variables array
+4. Store in new state: `environmentVariables`, `envVarsLoading`, `envVarsError`
 
-UI Pattern: Follow the existing `CreateTestCaseDialog.tsx` pattern with controlled form state and async submission.
+Pass these new values down through `RequestTab` to `JsonResponseExporter`.
 
-### 2. Create Schedules List View Component
-**File: `src/components/SchedulesListView.tsx`** (new file)
+### 2. Update JsonResponseExporter Props and Data Flow
+**File: `src/components/canvas/JsonResponseExporter.tsx`** (modify)
 
-A list view displaying all configured schedules with:
-- Header with title, count, and "New Schedule" button
-- Search/filter functionality
-- Table (desktop) / Cards (mobile) layout showing:
-  - Schedule name
-  - Suite name
-  - Frequency description (e.g., "Daily at 9:00 AM")
-  - Next run time
-  - Status (enabled/disabled)
-  - Last run status badge
-- Row actions: Edit, Enable/Disable toggle, Delete
+Add new props to `JsonResponseExporterProps`:
+- `environmentVariables?: EnvironmentDetailVariable[]`
+- `environmentVariablesLoading?: boolean`
+- `environmentVariablesError?: string | null`
 
-### 3. Create Schedules Page
-**File: `src/pages/Schedules.tsx`** (new file)
+Pass these through to the `ExistingExportsDropdown` component via `renderValue`.
 
-Page component following existing patterns:
-- Uses `LeftRail` with `activeItem="schedules"`
-- Wrapped with `AuthGate` and `TooltipProvider`
-- Renders `SchedulesListView`
+### 3. Refactor ExistingExportsDropdown to Two-Column Layout
+**File: `src/components/canvas/JsonResponseExporter.tsx`** (modify)
 
-### 4. Update Navigation
-**File: `src/components/LeftRail.tsx`**
+Refactor `ExistingExportsDropdown` to:
+- Widen the dropdown content from `w-72` to approximately `w-[560px]`
+- Create a two-column grid layout inside the dropdown content
+- **Left column**: "Runtime variables" header + existing exports list (current behavior)
+- **Right column**: "Environment variables" header + environment variables list with key/value display
+- Each section handles its own loading/error/empty states independently
+- Clicking a runtime variable triggers the existing `onSelect` behavior
+- Clicking an environment variable triggers the same `onSelect` callback (or a dedicated `onSelectEnvVar`) to insert the variable reference
 
-Add Schedules to navigation:
-- Import `Calendar` icon from lucide-react
-- Add to `topItems` array after Runs:
-  ```typescript
-  { icon: Calendar, label: "Schedules", id: "schedules", path: "/schedules" }
-  ```
+### 4. Update renderValue Function Signature
+**File: `src/components/canvas/JsonResponseExporter.tsx`** (modify)
 
-### 5. Update App Router
-**File: `src/App.tsx`**
+Add environment variable parameters to the `renderValue` function so the data flows through to every `ExistingExportsDropdown` instance rendered inline with JSON fields.
 
-Add routes:
-- `<Route path="/schedules" element={<Schedules />} />`
-- `<Route path="/schedules/:scheduleId" element={<Schedules />} />`
+### 5. Wire Up Data in StepDetailDialog
+**File: `src/components/canvas/StepDetailDialog.tsx`** (modify)
 
-### 6. Add API Types and Functions
-**File: `src/lib/api/suites.ts`**
+Update `RequestTab` props interface and the `JsonResponseExporter` usage to include the new environment variables props.
 
-Add types and API functions for schedules:
+## Technical Details
 
-```typescript
-// Schedule Types
-export type ScheduleFrequency = "once" | "hourly" | "daily" | "weekly" | "cron";
-
-export type ScheduleConfig = {
-  frequency: ScheduleFrequency;
-  start_time?: string;
-  hour?: number;
-  minute?: number;
-  days_of_week?: number[];
-  cron_expression?: string;
-};
-
-export type Schedule = {
-  id: string;
-  account_id: string;
-  suite_id: string;
-  suite_name: string;
-  environment_id: string | null;
-  name: string;
-  config: ScheduleConfig;
-  is_enabled: boolean;
-  next_run_at: string | null;
-  last_run_at: string | null;
-  last_run_status: RunStatus | null;
-  created_at: string;
-  updated_at: string;
-};
-
-export type CreateSchedulePayload = {
-  suite_id: string;
-  environment_id?: string | null;
-  name: string;
-  config: ScheduleConfig;
-  is_enabled: boolean;
-};
-
-// API Functions
-export async function fetchSchedules(accountId: string, token: string): Promise<Schedule[]>;
-export async function createSchedule(payload: CreateSchedulePayload, token: string): Promise<Schedule>;
-export async function updateSchedule(scheduleId: string, payload: Partial<CreateSchedulePayload>, token: string): Promise<Schedule>;
-export async function deleteSchedule(scheduleId: string, token: string): Promise<void>;
-```
-
-### 7. Quick Schedule from Suite View (Optional Enhancement)
-**File: `src/components/SuiteCanvas.tsx`**
-
-Add a "Schedule" button next to "Run Suite" that opens the ScheduleRunDialog pre-filled with the current suite.
-
-## Data Flow
+### API Flow for Environment Variables
 
 ```text
-Schedules Page
-    +-- SchedulesListView
-          +-- Header (title, "New Schedule" button)
-          +-- Search/Filter bar
-          +-- Table/Cards (schedule list)
-          |     +-- Row click opens edit dialog
-          +-- ScheduleRunDialog (create/edit)
-                +-- Suite selector
-                +-- Environment selector
-                +-- Frequency configuration
-                +-- DatePicker (for one-time runs)
-                +-- Enabled toggle
+1. GET /v1.0/environments?account_id={accountId}
+   Response: { items: [{ id: "env-1", name: "Default" }, ...] }
+
+2. GET /v1.0/environments/{envId}  (using default or first env)
+   Response: {
+     id: "env-1",
+     name: "Default",
+     variables: [
+       { id: "...", key: "BASE_URL", value: "https://..." },
+       { id: "...", key: "OTP_TOKEN", value: "..." },
+       ...
+     ]
+   }
 ```
 
-## Mock Data Structure
+### Updated Dropdown Layout
 
-For initial implementation, use mock data:
-
-```typescript
-const mockSchedules: Schedule[] = [
-  {
-    id: "sched-1",
-    account_id: "acc-1",
-    suite_id: "suite-1",
-    suite_name: "Auth Suite",
-    environment_id: "env-1",
-    name: "Daily Auth Tests",
-    config: { frequency: "daily", hour: 9, minute: 0 },
-    is_enabled: true,
-    next_run_at: "2026-02-08T09:00:00Z",
-    last_run_at: "2026-02-07T09:00:00Z",
-    last_run_status: "success",
-    created_at: "2026-01-01T00:00:00Z",
-    updated_at: "2026-02-07T09:00:00Z",
-  },
-  // ... more schedules
-];
+```text
++------------------------------------------------------------+
+|  Runtime variables          |  Environment variables        |
+|                             |  (Default)                    |
+|-----------------------------|-------------------------------|
+|  OTP_TOKEN                  |  BASE_URL                     |
+|  [PROD] Signin              |  https://internal-api...      |
+|  $.token                    |                               |
+|                             |  OTP_TOKEN                    |
+|  PROD_JWT                   |  ******                       |
+|  [PROD] Signin Confirm      |                               |
+|  $.access_token             |  PROD_JWT                     |
+|                             |  ******                       |
+|  SELECTED_PROJECT_ID        |                               |
+|  Get current user           |  SELECTED_PROJECT             |
+|  $.projects.0.id            |  ******                       |
+|                             |                               |
+|  TOKEN                      |  TOKEN                        |
+|  [PROD] Signin              |  ******                       |
+|  $.token                    |                               |
++------------------------------------------------------------+
 ```
+
+### Environment Variable Display
+Each environment variable item shows:
+- **Key** (bold, e.g., `BASE_URL`)
+- **Value** (truncated, muted text, e.g., `https://internal-api...`) - secrets are masked
+
+### Existing API Functions Used
+- `fetchEnvironments(accountId, token)` - already exists in `src/lib/api/suites.ts`
+- `fetchEnvironmentDetail(envId, token)` - already exists in `src/lib/api/suites.ts`
+- `EnvironmentDetailVariable` type - already defined with `{ key, value, is_overridable }`
 
 ## Files Summary
 
 | File | Action |
 |------|--------|
-| `src/components/ScheduleRunDialog.tsx` | Create |
-| `src/components/SchedulesListView.tsx` | Create |
-| `src/pages/Schedules.tsx` | Create |
-| `src/components/LeftRail.tsx` | Modify |
-| `src/App.tsx` | Modify |
-| `src/lib/api/suites.ts` | Modify |
-| `src/components/SuiteCanvas.tsx` | Modify (optional) |
+| `src/components/canvas/StepDetailDialog.tsx` | Modify - add env vars fetch + pass down |
+| `src/components/canvas/JsonResponseExporter.tsx` | Modify - refactor dropdown to two columns |
 
-## Technical Considerations
+## Edge Cases
+- If no environments exist, the right column shows "No environments configured"
+- If the environment has no variables, show "No variables"
+- Loading and error states are handled independently for each column
+- The dropdown remains functional if either API call fails
+- Environment name is shown in the column header (e.g., "Environment variables (Default)")
 
-- **Date Picker**: Use the existing shadcn Calendar component with Popover, ensuring `pointer-events-auto` class is applied per project conventions
-- **Time Selection**: Add hour/minute dropdowns or use a time input for scheduling specific times
-- **Timezone**: Display times in user's local timezone with UTC storage
-- **Validation**: Ensure schedule configuration is valid before submission
-- **Mobile**: Responsive card layout for schedules list on mobile devices
