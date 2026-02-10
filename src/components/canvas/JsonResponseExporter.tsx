@@ -193,12 +193,16 @@ function ExistingExportsDropdown({
   exports,
   loading,
   error,
+  onSelectKey,
+  onCustomKey,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   exports: ValidExistingExport[];
   loading: boolean;
   error: string | null;
+  onSelectKey?: (key: string) => void;
+  onCustomKey?: () => void;
 }) {
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
@@ -208,7 +212,8 @@ function ExistingExportsDropdown({
           className={cn(
             "inline-flex items-center gap-0.5 ml-1.5 align-middle",
             "text-[10px] text-primary/60 hover:text-primary transition-colors",
-            "opacity-0 group-hover/json-line:opacity-100 focus:opacity-100"
+            "opacity-0 group-hover/json-line:opacity-100 focus:opacity-100",
+            open && "opacity-100"
           )}
           title="Add variable"
         >
@@ -226,28 +231,40 @@ function ExistingExportsDropdown({
           <DropdownMenuItem disabled className="text-destructive text-xs">
             Failed to load extracted variables
           </DropdownMenuItem>
-        ) : exports.length === 0 ? (
-          <DropdownMenuItem disabled>No extracted variables</DropdownMenuItem>
         ) : (
-          exports.map((item) => (
+          <>
+            {exports.length > 0 && (
+              <>
+                {exports.map((item) => (
+                  <DropdownMenuItem
+                    key={item.id}
+                    onClick={() => onSelectKey?.(item.key)}
+                    className="flex flex-col items-start gap-0.5 py-2 cursor-pointer"
+                  >
+                    <span className="text-xs font-medium text-foreground">
+                      {item.key}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {item.stepName}
+                    </span>
+                    {item.extractorPath ? (
+                      <span className="text-[10px] text-muted-foreground font-mono">
+                        {item.extractorPath}
+                      </span>
+                    ) : null}
+                  </DropdownMenuItem>
+                ))}
+              </>
+            )}
+            {exports.length > 0 && <div className="h-px bg-border my-1" />}
             <DropdownMenuItem
-              key={item.id}
-              disabled
-              className="flex flex-col items-start gap-0.5 py-2"
+              onClick={onCustomKey}
+              className="gap-2 cursor-pointer"
             >
-              <span className="text-xs font-medium text-foreground">
-                {item.key}
-              </span>
-              <span className="text-[11px] text-muted-foreground">
-                {item.stepName}
-              </span>
-              {item.extractorPath ? (
-                <span className="text-[10px] text-muted-foreground font-mono">
-                  {item.extractorPath}
-                </span>
-              ) : null}
+              <Plus className="w-3.5 h-3.5" />
+              <span className="text-xs">New variable...</span>
             </DropdownMenuItem>
-          ))
+          </>
         )}
       </DropdownMenuContent>
     </DropdownMenu>
@@ -278,6 +295,10 @@ function renderValue(
   existingExportsError: string | null,
   activeField: string | null,
   setActiveField: (path: string | null) => void,
+  onSelectKey: (jsonPath: string, key: string) => void,
+  onCustomKey: (jsonPath: string) => void,
+  customField: string | null,
+  saveStates: Record<string, SaveStatus>,
   indent: number
 ): React.ReactNode {
   const pad = "  ".repeat(indent);
@@ -321,13 +342,27 @@ function renderValue(
                 existingExportsError,
                 activeField,
                 setActiveField,
+                onSelectKey,
+                onCustomKey,
+                customField,
+                saveStates,
                 indent + 1
               )}
               {i < value.length - 1 ? "," : ""}
-              {!isObject && mode === "create" && !isActive ? (
-                <AddVarButton onClick={() => setActiveField(jsonPath)} />
+              {!isObject && mode === "create" && !isActive && customField !== jsonPath ? (
+                <ExistingExportsDropdown
+                  open={isActive}
+                  onOpenChange={(nextOpen) =>
+                    setActiveField(nextOpen ? jsonPath : null)
+                  }
+                  exports={normalizedExports}
+                  loading={existingExportsLoading}
+                  error={existingExportsError}
+                  onSelectKey={(key) => onSelectKey(jsonPath, key)}
+                  onCustomKey={() => onCustomKey(jsonPath)}
+                />
               ) : null}
-              {!isObject && mode === "create" && isActive ? (
+              {!isObject && mode === "create" && customField === jsonPath ? (
                 <ExportInput
                   fieldName={
                     keys.length > 0
@@ -336,9 +371,20 @@ function renderValue(
                   }
                   jsonPath={jsonPath}
                   testStepId={testStepId}
-                  onClose={() => setActiveField(null)}
+                  onClose={() => onCustomKey("")}
                 />
               ) : null}
+              {!isObject && saveStates[jsonPath] === "saving" && (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground inline ml-2 align-middle" />
+              )}
+              {!isObject && saveStates[jsonPath] === "saved" && (
+                <Check className="w-3.5 h-3.5 text-emerald-500 inline ml-2 align-middle" />
+              )}
+              {!isObject && saveStates[jsonPath] === "error" && (
+                <span title="Failed to save">
+                  <X className="w-3.5 h-3.5 text-destructive inline ml-2 align-middle" />
+                </span>
+              )}
               {!isObject && mode === "displayExisting" ? (
                 <ExistingExportsDropdown
                   open={isActive}
@@ -390,20 +436,45 @@ function renderValue(
                 existingExportsError,
                 activeField,
                 setActiveField,
+                onSelectKey,
+                onCustomKey,
+                customField,
+                saveStates,
                 indent + 1
               )}
               {i < entries.length - 1 ? "," : ""}
-              {isLeaf && mode === "create" && !isActive ? (
-                <AddVarButton onClick={() => setActiveField(jsonPath)} />
+              {isLeaf && mode === "create" && !isActive && customField !== jsonPath ? (
+                <ExistingExportsDropdown
+                  open={isActive}
+                  onOpenChange={(nextOpen) =>
+                    setActiveField(nextOpen ? jsonPath : null)
+                  }
+                  exports={normalizedExports}
+                  loading={existingExportsLoading}
+                  error={existingExportsError}
+                  onSelectKey={(key) => onSelectKey(jsonPath, key)}
+                  onCustomKey={() => onCustomKey(jsonPath)}
+                />
               ) : null}
-              {isLeaf && mode === "create" && isActive ? (
+              {isLeaf && mode === "create" && customField === jsonPath ? (
                 <ExportInput
                   fieldName={key}
                   jsonPath={jsonPath}
                   testStepId={testStepId}
-                  onClose={() => setActiveField(null)}
+                  onClose={() => onCustomKey("")}
                 />
               ) : null}
+              {isLeaf && saveStates[jsonPath] === "saving" && (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground inline ml-2 align-middle" />
+              )}
+              {isLeaf && saveStates[jsonPath] === "saved" && (
+                <Check className="w-3.5 h-3.5 text-emerald-500 inline ml-2 align-middle" />
+              )}
+              {isLeaf && saveStates[jsonPath] === "error" && (
+                <span title="Failed to save">
+                  <X className="w-3.5 h-3.5 text-destructive inline ml-2 align-middle" />
+                </span>
+              )}
               {isLeaf && mode === "displayExisting" ? (
                 <ExistingExportsDropdown
                   open={isActive}
@@ -437,7 +508,11 @@ export function JsonResponseExporter({
   existingExportsLoading = false,
   existingExportsError = null,
 }: JsonResponseExporterProps) {
+  const { token } = useAuth();
   const [activeField, setActiveField] = useState<string | null>(null);
+  const [customField, setCustomField] = useState<string | null>(null);
+  const [saveStates, setSaveStates] = useState<Record<string, SaveStatus>>({});
+
   const normalizedExports = useMemo<ValidExistingExport[]>(() => {
     return existingExports
       .filter((item) => typeof item?.key === "string" && item.key.trim())
@@ -456,6 +531,49 @@ export function JsonResponseExporter({
       })
       .sort((a, b) => a.key.localeCompare(b.key));
   }, [existingExports]);
+
+  const handleSelectKey = useCallback(
+    async (jsonPath: string, key: string) => {
+      if (!token) return;
+      setActiveField(null);
+      setSaveStates((prev) => ({ ...prev, [jsonPath]: "saving" }));
+
+      try {
+        await createStepExport(
+          testStepId,
+          {
+            test_step_id: testStepId,
+            var_key: key,
+            extractor: {
+              type: "jsonpath",
+              path: jsonPath,
+              source: "response_body",
+            },
+          },
+          token
+        );
+        setSaveStates((prev) => ({ ...prev, [jsonPath]: "saved" }));
+        setTimeout(() => {
+          setSaveStates((prev) => {
+            const next = { ...prev };
+            delete next[jsonPath];
+            return next;
+          });
+        }, 2000);
+      } catch (err) {
+        console.error("Failed to save export:", err);
+        setSaveStates((prev) => ({ ...prev, [jsonPath]: "error" }));
+        setTimeout(() => {
+          setSaveStates((prev) => {
+            const next = { ...prev };
+            delete next[jsonPath];
+            return next;
+          });
+        }, 3000);
+      }
+    },
+    [token, testStepId]
+  );
 
   const parsed = parseBody(body);
 
@@ -483,6 +601,13 @@ export function JsonResponseExporter({
         existingExportsError,
         activeField,
         setActiveField,
+        handleSelectKey,
+        (path) => {
+          setCustomField(path || null);
+          setActiveField(null);
+        },
+        customField,
+        saveStates,
         0
       )}
     </pre>
