@@ -275,7 +275,13 @@ function AssertionsTab({ assertions }: { assertions: AssertionItem[] }) {
   );
 }
 
-function KeyValueTable({ data }: { data: Record<string, unknown> | null }) {
+function KeyValueTable({
+  data,
+  resolvedData
+}: {
+  data: Record<string, unknown> | null;
+  resolvedData?: Record<string, unknown> | null;
+}) {
   if (!data || Object.keys(data).length === 0) {
     return (
       <p className="text-sm text-muted-foreground py-2">No headers</p>
@@ -310,7 +316,13 @@ function KeyValueTable({ data }: { data: Record<string, unknown> | null }) {
   );
 }
 
-function HeadersSection({ headers }: { headers: Record<string, unknown> | null }) {
+function HeadersSection({
+  headers,
+  resolvedHeaders
+}: {
+  headers: Record<string, unknown> | null;
+  resolvedHeaders?: Record<string, unknown> | null;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -332,7 +344,7 @@ function HeadersSection({ headers }: { headers: Record<string, unknown> | null }
         </button>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <KeyValueTable data={headers} />
+        <KeyValueTable data={headers} resolvedData={resolvedHeaders} />
       </CollapsibleContent>
     </Collapsible>
   );
@@ -340,6 +352,7 @@ function HeadersSection({ headers }: { headers: Record<string, unknown> | null }
 
 function InteractiveUrl({
   url,
+  resolvedUrl,
   testStepId,
   existingExports,
   exportsLoading,
@@ -351,6 +364,7 @@ function InteractiveUrl({
   onApplyVariable,
 }: {
   url: string;
+  resolvedUrl: string | null;
   testStepId: string;
   existingExports: ValidExistingExport[];
   exportsLoading: boolean;
@@ -411,6 +425,7 @@ function InteractiveUrl({
 
 function RequestTab({
   request,
+  resolvedRequest,
   loading,
   error,
   testStepId,
@@ -424,6 +439,7 @@ function RequestTab({
   envName,
 }: {
   request: StepResultHttpRequest | null;
+  resolvedRequest: StepResultHttpResponse | null;
   loading: boolean;
   error: string | null;
   testStepId: string;
@@ -528,6 +544,7 @@ function RequestTab({
             </Badge>
             <InteractiveUrl
               url={request.url ?? "—"}
+              resolvedUrl={resolvedRequest?.request_url ?? null}
               testStepId={testStepId}
               existingExports={normalizedExports}
               exportsLoading={exportsLoading}
@@ -541,7 +558,10 @@ function RequestTab({
           </div>
         </div>
 
-        <HeadersSection headers={request.headers} />
+        <HeadersSection
+          headers={request.headers}
+          resolvedHeaders={resolvedRequest?.request_headers ?? null}
+        />
 
         {/* Body */}
         <div>
@@ -551,6 +571,7 @@ function RequestTab({
           {request.body !== null && request.body !== undefined ? (
             <JsonResponseExporter
               body={request.body}
+              resolvedBody={resolvedRequest?.request_body}
               testStepId={testStepId}
               mode="displayExisting"
               existingExports={existingExports}
@@ -885,6 +906,7 @@ export function StepDetailDialog({
             <TabsContent value="request">
               <RequestTab
                 request={fullDetail?.request ?? null}
+                resolvedRequest={fullDetail?.response ?? null}
                 loading={loading}
                 error={error}
                 testStepId={step.id}
@@ -895,11 +917,14 @@ export function StepDetailDialog({
                 envVarsLoading={envVarsLoading}
                 envVarsError={envVarsError}
                 envName={envName}
-                onApplyExport={() => {
-                  if (step.stepResultId && token) {
-                    fetchStepResultDetails(step.stepResultId, token)
-                      .then((data) => setFullDetail(data))
-                      .catch((err) => console.error("Failed to reload step details:", err));
+                onApplyExport={(key) => {
+                  toast.success(`Export ${key} created`);
+                  // Reload exports
+                  const accountId = currentUser?.default_account_id;
+                  if (accountId && token) {
+                    fetchStepExportsByAccount(accountId, token)
+                      .then((data) => setExistingExports(data))
+                      .catch(() => { });
                   }
                 }}
               />

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { Plus, Save, X, Check, Loader2 } from "lucide-react";
+import { Plus, Save, X, Check, Loader2, Copy, FileJson, AlignLeft } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,6 +8,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -17,13 +23,15 @@ import {
   type TestStepExportCompactResponse,
   type EnvironmentDetailVariable,
 } from "@/lib/api/suites";
+import { toast } from "sonner";
 
 // ============== Types ==============
 
 type ExporterMode = "create" | "displayExisting";
 
-interface JsonResponseExporterProps {
+export interface JsonResponseExporterProps {
   body: unknown;
+  resolvedBody?: unknown;
   testStepId: string;
   mode?: ExporterMode;
   existingExports?: TestStepExportCompactResponse[];
@@ -72,6 +80,21 @@ function parseBody(body: unknown): unknown {
     }
   }
   return body;
+}
+
+function getResolvedValue(path: string[], resolvedBody: unknown): unknown {
+  if (!resolvedBody || typeof resolvedBody !== 'object') return undefined;
+
+  let current: any = resolvedBody;
+  for (const key of path) {
+    if (current === null || current === undefined) return undefined;
+    if (key in current) {
+      current = current[key];
+    } else {
+      return undefined;
+    }
+  }
+  return current;
 }
 
 // ============== Inline Export Input ==============
@@ -353,6 +376,37 @@ function JsonLine({
   );
 }
 
+function RenderStringValue({
+  value,
+  path,
+  resolvedBody
+}: {
+  value: string,
+  path: string[],
+  resolvedBody: unknown
+}) {
+  if (value.includes("{{") && value.includes("}}")) {
+    const resolvedValue = getResolvedValue(path, resolvedBody);
+    if (resolvedValue !== undefined) {
+      return (
+        <TooltipProvider>
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <span className="text-emerald-400 cursor-help underline decoration-emerald-500/50 decoration-dashed decoration-[0.5px] border-b-0">
+                &quot;{value}&quot;
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[300px] break-all">
+              <p className="font-mono text-xs">{String(resolvedValue)}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )
+    }
+  }
+  return <span className="text-emerald-400">&quot;{value}&quot;</span>;
+}
+
 function renderValue(
   value: unknown,
   keys: string[],
@@ -369,7 +423,8 @@ function renderValue(
   environmentVariablesLoading: boolean,
   environmentVariablesError: string | null,
   environmentName: string | null,
-  onApplyEnvVar: (id: string | number, key: string, path: string) => void
+  onApplyEnvVar: (id: string | number, key: string, path: string) => void,
+  resolvedBody?: unknown
 ): React.ReactNode {
   const pad = "  ".repeat(indent);
 
@@ -381,11 +436,7 @@ function renderValue(
   if (typeof value === "number")
     return <span className="text-amber-400">{value}</span>;
   if (typeof value === "string")
-    return (
-      <span className="text-emerald-400">
-        &quot;{value}&quot;
-      </span>
-    );
+    return <RenderStringValue value={value} path={keys} resolvedBody={resolvedBody} />;
 
   if (Array.isArray(value)) {
     if (value.length === 0) return <span>{"[]"}</span>;
@@ -418,7 +469,8 @@ function renderValue(
                 environmentVariablesLoading,
                 environmentVariablesError,
                 environmentName,
-                onApplyEnvVar
+                onApplyEnvVar,
+                resolvedBody
               )}
               {i < value.length - 1 ? "," : ""}
               {!isObject && mode === "create" && !isActive ? (
@@ -502,7 +554,8 @@ function renderValue(
                 environmentVariablesLoading,
                 environmentVariablesError,
                 environmentName,
-                onApplyEnvVar
+                onApplyEnvVar,
+                resolvedBody
               )}
               {i < entries.length - 1 ? "," : ""}
               {isLeaf && mode === "create" && !isActive ? (
@@ -552,6 +605,7 @@ function renderValue(
 
 export function JsonResponseExporter({
   body,
+  resolvedBody,
   testStepId,
   mode = "create",
   existingExports = [],
@@ -566,6 +620,7 @@ export function JsonResponseExporter({
   const { token } = useAuth();
   const [activeField, setActiveField] = useState<string | null>(null);
   const [isApplying, setIsApplying] = useState(false);
+  const [viewMode, setViewMode] = useState<"tree" | "raw">("tree");
 
   const handleApplyExport = useCallback(
     async (exportId: string, path?: string) => {
@@ -625,44 +680,134 @@ export function JsonResponseExporter({
   }, [existingExports]);
 
   const parsed = parseBody(body);
+  const resolvedParsed = parseBody(resolvedBody);
+  const rawText = useMemo(() => {
+    if (typeof body === 'string') return body;
+    try {
+      return JSON.stringify(body, null, 2);
+    } catch {
+      return String(body);
+    }
+  }, [body]);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(rawText);
+    toast.success("Copied to clipboard");
+  };
 
   if (parsed === null || parsed === undefined) {
     return <p className="text-sm text-muted-foreground">No body</p>;
   }
 
+  // Fallback for non-object types
   if (typeof parsed !== "object") {
     return (
-      <pre className="font-mono text-xs bg-muted/30 p-3 rounded-lg overflow-auto max-h-64 border border-border/50">
-        {String(parsed)}
-      </pre>
+      <div className="relative group">
+        <div className="absolute right-2 top-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+          <TooltipProvider>
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" className="h-6 w-6 bg-background/80 backdrop-blur-sm" onClick={handleCopy}>
+                  <Copy className="h-3 w-3" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Copy</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+        <pre className="font-mono text-xs bg-muted/30 p-3 rounded-lg overflow-auto max-h-64 border border-border/50">
+          {String(parsed)}
+        </pre>
+      </div>
     );
   }
 
   return (
-    <pre className="font-mono text-xs bg-muted/30 p-3 rounded-lg overflow-auto max-h-64 border border-border/50 whitespace-pre">
-      {renderValue(
-        parsed,
-        [],
-        testStepId,
-        mode,
-        normalizedExports,
-        existingExportsLoading,
-        existingExportsError,
-        activeField,
-        setActiveField,
-        handleApplyExport,
-        0,
-        environmentVariables,
-        environmentVariablesLoading,
-        environmentVariablesError,
-        environmentName,
-        handleApplyEnvVar
-      )}
-      {isApplying && (
-        <div className="absolute inset-0 bg-background/40 flex items-center justify-center rounded-lg backdrop-blur-[1px]">
-          <Loader2 className="w-6 h-6 animate-spin text-primary" />
-        </div>
-      )}
-    </pre>
+    <div className="relative border border-border/50 rounded-lg overflow-hidden flex flex-col bg-muted/30">
+      <div className="flex items-center justify-end px-2 py-1 border-b border-border/50 bg-muted/20 gap-1">
+        <TooltipProvider>
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn("h-6 px-2 text-[10px] gap-1", viewMode === "tree" && "bg-background shadow-sm")}
+                onClick={() => setViewMode("tree")}
+              >
+                <AlignLeft className="w-3 h-3" />
+                Tree
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Tree View</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <TooltipProvider>
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn("h-6 px-2 text-[10px] gap-1", viewMode === "raw" && "bg-background shadow-sm")}
+                onClick={() => setViewMode("raw")}
+              >
+                <FileJson className="w-3 h-3" />
+                Raw
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Raw JSON</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <div className="w-[1px] h-3 bg-border mx-1" />
+
+        <TooltipProvider>
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCopy}>
+                <Copy className="h-3 w-3" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Copy to clipboard</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+
+      <div className="overflow-auto max-h-64 p-3 relative">
+        {viewMode === "raw" ? (
+          <pre className="font-mono text-xs whitespace-pre text-foreground/80">
+            {rawText}
+          </pre>
+        ) : (
+          <pre className="font-mono text-xs whitespace-pre">
+            {renderValue(
+              parsed,
+              [],
+              testStepId,
+              mode,
+              normalizedExports,
+              existingExportsLoading,
+              existingExportsError,
+              activeField,
+              setActiveField,
+              handleApplyExport,
+              0,
+              environmentVariables,
+              environmentVariablesLoading,
+              environmentVariablesError,
+              environmentName,
+              handleApplyEnvVar,
+              resolvedParsed
+            )}
+          </pre>
+        )}
+
+        {isApplying && (
+          <div className="absolute inset-0 bg-background/40 flex items-center justify-center rounded-lg backdrop-blur-[1px]">
+            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
