@@ -44,7 +44,7 @@ interface ExportRowState {
   error?: string;
 }
 
-interface ValidExistingExport {
+export interface ValidExistingExport {
   id: string;
   key: string;
   stepName: string;
@@ -195,7 +195,7 @@ function AddVarButton({
   );
 }
 
-function ExistingExportsDropdown({
+export function ExistingExportsDropdown({
   open,
   onOpenChange,
   exports,
@@ -207,6 +207,7 @@ function ExistingExportsDropdown({
   environmentVariablesError = null,
   environmentName = null,
   onSelectEnvVar,
+  children,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -219,22 +220,25 @@ function ExistingExportsDropdown({
   environmentVariablesError?: string | null;
   environmentName?: string | null;
   onSelectEnvVar?: (id: string | number, key: string) => void;
+  children?: React.ReactNode;
 }) {
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            "inline-flex items-center gap-0.5 ml-1.5 align-middle",
-            "text-[10px] text-primary/60 hover:text-primary transition-colors",
-            "opacity-0 group-hover/json-line:opacity-100 focus:opacity-100"
-          )}
-          title="Add variable"
-        >
-          <Plus className="w-3 h-3" />
-          <span className="hidden sm:inline">var</span>
-        </button>
+        {children || (
+          <button
+            type="button"
+            className={cn(
+              "inline-flex items-center gap-0.5 ml-1.5 align-middle",
+              "text-[10px] text-primary/60 hover:text-primary transition-colors",
+              "opacity-0 group-hover/json-line:opacity-100 focus:opacity-100"
+            )}
+            title="Add variable"
+          >
+            <Plus className="w-3 h-3" />
+            <span className="hidden sm:inline">var</span>
+          </button>
+        )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-[560px] p-0 bg-popover z-50">
         <div className="grid grid-cols-2 divide-x divide-border">
