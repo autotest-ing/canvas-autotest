@@ -324,6 +324,9 @@ export type StepResultHttpResponse = {
   body: unknown;
   raw_body: string | null;
   duration_ms: number | null;
+  request_body?: unknown;
+  request_headers?: Record<string, unknown> | null;
+  request_url?: string | null;
 };
 
 export type StepResultAssertionResult = {
