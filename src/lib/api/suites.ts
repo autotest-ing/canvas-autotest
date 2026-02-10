@@ -741,6 +741,39 @@ export async function applyStepExport(
   return (await response.json()) as ApplyStepExportResponse;
 }
 
+export type ApplyEnvironmentVariableResponse = {
+  ok: boolean;
+  request_id: string;
+  path: string;
+  var_key: string;
+  new_payload: unknown;
+};
+
+export async function applyEnvironmentVariable(
+  stepId: string,
+  envVarId: string | number,
+  token: string,
+  path: string
+): Promise<ApplyEnvironmentVariableResponse> {
+  const response = await fetch(
+    `${BASE_API_URL}/v1.0/test-steps/${stepId}/variables/${envVarId}/apply`,
+    {
+      method: "POST",
+      headers: {
+        ...getAuthHeaders(token),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ path }),
+    }
+  );
+
+  if (!response.ok) {
+    throw await buildApiError(response, "Failed to apply environment variable");
+  }
+
+  return (await response.json()) as ApplyEnvironmentVariableResponse;
+}
+
 export async function fetchStepExportsByAccount(
   accountId: string,
   token: string,

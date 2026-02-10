@@ -13,6 +13,7 @@ import { useAuth } from "@/context/AuthContext";
 import {
   createStepExport,
   applyStepExport,
+  applyEnvironmentVariable,
   type TestStepExportCompactResponse,
   type EnvironmentDetailVariable,
 } from "@/lib/api/suites";
@@ -217,7 +218,7 @@ function ExistingExportsDropdown({
   environmentVariablesLoading?: boolean;
   environmentVariablesError?: string | null;
   environmentName?: string | null;
-  onSelectEnvVar?: (key: string) => void;
+  onSelectEnvVar?: (id: string | number, key: string) => void;
 }) {
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
@@ -310,7 +311,11 @@ function ExistingExportsDropdown({
                   <button
                     key={envVar.id ?? idx}
                     type="button"
-                    onClick={() => onSelectEnvVar?.(envVar.key)}
+                    onClick={() => {
+                      if (envVar.id) {
+                        onSelectEnvVar?.(envVar.id, envVar.key);
+                      }
+                    }}
                     className="w-full flex flex-col items-start gap-0.5 px-3 py-2 hover:bg-accent/50 transition-colors cursor-pointer text-left"
                   >
                     <span className="text-xs font-medium text-foreground">
@@ -360,7 +365,7 @@ function renderValue(
   environmentVariablesLoading: boolean,
   environmentVariablesError: string | null,
   environmentName: string | null,
-  onSelectEnvVar: (key: string) => void
+  onApplyEnvVar: (id: string | number, key: string, path: string) => void
 ): React.ReactNode {
   const pad = "  ".repeat(indent);
 
@@ -409,7 +414,7 @@ function renderValue(
                 environmentVariablesLoading,
                 environmentVariablesError,
                 environmentName,
-                onSelectEnvVar
+                onApplyEnvVar
               )}
               {i < value.length - 1 ? "," : ""}
               {!isObject && mode === "create" && !isActive ? (
@@ -444,7 +449,7 @@ function renderValue(
                   environmentVariablesLoading={environmentVariablesLoading}
                   environmentVariablesError={environmentVariablesError}
                   environmentName={environmentName}
-                  onSelectEnvVar={onSelectEnvVar}
+                  onSelectEnvVar={(id, key) => onApplyEnvVar(id, key, jsonPath)}
                 />
               ) : null}
               {"\n"}
@@ -493,7 +498,7 @@ function renderValue(
                 environmentVariablesLoading,
                 environmentVariablesError,
                 environmentName,
-                onSelectEnvVar
+                onApplyEnvVar
               )}
               {i < entries.length - 1 ? "," : ""}
               {isLeaf && mode === "create" && !isActive ? (
@@ -524,7 +529,7 @@ function renderValue(
                   environmentVariablesLoading={environmentVariablesLoading}
                   environmentVariablesError={environmentVariablesError}
                   environmentName={environmentName}
-                  onSelectEnvVar={onSelectEnvVar}
+                  onSelectEnvVar={(id, key) => onApplyEnvVar(id, key, jsonPath)}
                 />
               ) : null}
               {"\n"}
@@ -576,6 +581,26 @@ export function JsonResponseExporter({
     },
     [testStepId, token, onApplyExport, isApplying]
   );
+
+  const handleApplyEnvVar = useCallback(
+    async (envVarId: string | number, varKey: string, path: string) => {
+      if (!token || isApplying) return;
+
+      setIsApplying(true);
+      try {
+        const result = await applyEnvironmentVariable(testStepId, envVarId, token, path);
+        if (result.ok && onApplyExport) {
+          onApplyExport(varKey);
+        }
+      } catch (err) {
+        console.error("Failed to apply environment variable:", err);
+      } finally {
+        setIsApplying(false);
+      }
+    },
+    [testStepId, token, onApplyExport, isApplying]
+  );
+
   const normalizedExports = useMemo<ValidExistingExport[]>(() => {
     return existingExports
       .filter((item) => typeof item?.key === "string" && item.key.trim())
@@ -627,7 +652,7 @@ export function JsonResponseExporter({
         environmentVariablesLoading,
         environmentVariablesError,
         environmentName,
-        (key) => onApplyExport?.(key)
+        handleApplyEnvVar
       )}
       {isApplying && (
         <div className="absolute inset-0 bg-background/40 flex items-center justify-center rounded-lg backdrop-blur-[1px]">
