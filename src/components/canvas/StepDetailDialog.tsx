@@ -28,10 +28,13 @@ import type { RunTestStep } from "@/components/RunTestCaseList";
 import {
   fetchStepExportsByAccount,
   fetchStepResultDetails,
+  fetchEnvironments,
+  fetchEnvironmentDetail,
   type StepResultFullDetail,
   type StepResultHttpRequest,
   type StepResultHttpResponse,
   type TestStepExportCompactResponse,
+  type EnvironmentDetailVariable,
 } from "@/lib/api/suites";
 import { JsonResponseExporter } from "./JsonResponseExporter";
 
@@ -263,6 +266,10 @@ function RequestTab({
   exportsLoading,
   exportsError,
   onApplyExport,
+  environmentVariables,
+  envVarsLoading,
+  envVarsError,
+  envName,
 }: {
   request: StepResultHttpRequest | null;
   loading: boolean;
@@ -272,6 +279,10 @@ function RequestTab({
   exportsLoading: boolean;
   exportsError: string | null;
   onApplyExport?: (varKey: string) => void;
+  environmentVariables?: EnvironmentDetailVariable[];
+  envVarsLoading?: boolean;
+  envVarsError?: string | null;
+  envName?: string | null;
 }) {
   if (loading) {
     return (
@@ -334,6 +345,10 @@ function RequestTab({
               existingExportsLoading={exportsLoading}
               existingExportsError={exportsError}
               onApplyExport={onApplyExport}
+              environmentVariables={environmentVariables}
+              environmentVariablesLoading={envVarsLoading}
+              environmentVariablesError={envVarsError}
+              environmentName={envName}
             />
           ) : (
             <p className="text-sm text-muted-foreground">No body</p>
@@ -448,6 +463,10 @@ export function StepDetailDialog({
   const [existingExports, setExistingExports] = useState<TestStepExportCompactResponse[]>([]);
   const [exportsLoading, setExportsLoading] = useState(false);
   const [exportsError, setExportsError] = useState<string | null>(null);
+  const [environmentVariables, setEnvironmentVariables] = useState<EnvironmentDetailVariable[]>([]);
+  const [envVarsLoading, setEnvVarsLoading] = useState(false);
+  const [envVarsError, setEnvVarsError] = useState<string | null>(null);
+  const [envName, setEnvName] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -508,6 +527,54 @@ export function StepDetailDialog({
       })
       .finally(() => {
         if (!cancelled) setExportsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.default_account_id, open, token]);
+
+  // Fetch environment variables
+  useEffect(() => {
+    const accountId = currentUser?.default_account_id;
+    if (!open || !token || !accountId) {
+      setEnvironmentVariables([]);
+      setEnvVarsError(null);
+      setEnvVarsLoading(false);
+      setEnvName(null);
+      return;
+    }
+
+    let cancelled = false;
+    setEnvVarsLoading(true);
+    setEnvVarsError(null);
+
+    fetchEnvironments(accountId, token)
+      .then((envs) => {
+        if (cancelled) return;
+        const defaultEnv = envs.find((e: any) => e.is_default) ?? envs[0];
+        if (!defaultEnv) {
+          setEnvironmentVariables([]);
+          setEnvVarsLoading(false);
+          return;
+        }
+        setEnvName(defaultEnv.name ?? null);
+        return fetchEnvironmentDetail(defaultEnv.id, token);
+      })
+      .then((detail) => {
+        if (cancelled) return;
+        if (detail?.variables) {
+          setEnvironmentVariables(detail.variables);
+        }
+      })
+      .catch((err: Error) => {
+        if (!cancelled) {
+          setEnvironmentVariables([]);
+          setEnvVarsError(err.message);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setEnvVarsLoading(false);
       });
 
     return () => {
@@ -611,6 +678,10 @@ export function StepDetailDialog({
                 existingExports={existingExports}
                 exportsLoading={exportsLoading}
                 exportsError={exportsError}
+                environmentVariables={environmentVariables}
+                envVarsLoading={envVarsLoading}
+                envVarsError={envVarsError}
+                envName={envName}
                 onApplyExport={() => {
                   if (step.stepResultId && token) {
                     fetchStepResultDetails(step.stepResultId, token)

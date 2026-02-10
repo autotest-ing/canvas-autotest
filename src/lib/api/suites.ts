@@ -5,6 +5,31 @@ const getAuthHeaders = (token: string) => ({
   Authorization: `Bearer ${token}`,
 });
 
+// ============== Collections API ==============
+
+export type CollectionSourceType = "Postman" | "OpenAPI" | "swagger";
+
+export interface CollectionItem {
+  id: string;
+  name: string;
+  description: string | null;
+  updated_at: string;
+  source_type: CollectionSourceType;
+  requests_count: number;
+}
+
+export async function fetchCollections(
+  accountId: string,
+  token: string
+): Promise<CollectionItem[]> {
+  const res = await fetch(
+    `${BASE_API_URL}/v1.0/collections?account_id=${encodeURIComponent(accountId)}`,
+    { headers: getAuthHeaders(token) }
+  );
+  if (!res.ok) throw new Error(`Failed to fetch collections: ${res.status}`);
+  return res.json();
+}
+
 export function getSuiteExecutionWsUrl(token: string): string {
   return `${WS_BASE_URL}/v1.0/executions/suite_ws?token=${encodeURIComponent(token)}`;
 }

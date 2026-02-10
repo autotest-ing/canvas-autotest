@@ -14,6 +14,7 @@ import {
   createStepExport,
   applyStepExport,
   type TestStepExportCompactResponse,
+  type EnvironmentDetailVariable,
 } from "@/lib/api/suites";
 
 // ============== Types ==============
@@ -28,6 +29,10 @@ interface JsonResponseExporterProps {
   existingExportsLoading?: boolean;
   existingExportsError?: string | null;
   onApplyExport?: (varKey: string) => void;
+  environmentVariables?: EnvironmentDetailVariable[];
+  environmentVariablesLoading?: boolean;
+  environmentVariablesError?: string | null;
+  environmentName?: string | null;
 }
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
@@ -196,6 +201,11 @@ function ExistingExportsDropdown({
   loading,
   error,
   onSelect,
+  environmentVariables = [],
+  environmentVariablesLoading = false,
+  environmentVariablesError = null,
+  environmentName = null,
+  onSelectEnvVar,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -203,6 +213,11 @@ function ExistingExportsDropdown({
   loading: boolean;
   error: string | null;
   onSelect: (id: string) => void;
+  environmentVariables?: EnvironmentDetailVariable[];
+  environmentVariablesLoading?: boolean;
+  environmentVariablesError?: string | null;
+  environmentName?: string | null;
+  onSelectEnvVar?: (key: string) => void;
 }) {
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
@@ -220,39 +235,96 @@ function ExistingExportsDropdown({
           <span className="hidden sm:inline">var</span>
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-72">
-        {loading ? (
-          <DropdownMenuItem disabled className="gap-2">
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            Loading extracted variables...
-          </DropdownMenuItem>
-        ) : error ? (
-          <DropdownMenuItem disabled className="text-destructive text-xs">
-            Failed to load extracted variables
-          </DropdownMenuItem>
-        ) : exports.length === 0 ? (
-          <DropdownMenuItem disabled>No extracted variables</DropdownMenuItem>
-        ) : (
-          exports.map((item) => (
-            <DropdownMenuItem
-              key={item.id}
-              onClick={() => onSelect(item.id)}
-              className="flex flex-col items-start gap-0.5 py-2 cursor-pointer"
-            >
-              <span className="text-xs font-medium text-foreground">
-                {item.key}
+      <DropdownMenuContent align="start" className="w-[560px] p-0 bg-popover z-50">
+        <div className="grid grid-cols-2 divide-x divide-border">
+          {/* Left column: Runtime variables */}
+          <div className="flex flex-col">
+            <div className="px-3 py-2 border-b border-border">
+              <span className="text-xs font-semibold text-foreground">Runtime variables</span>
+            </div>
+            <div className="max-h-[300px] overflow-y-auto">
+              {loading ? (
+                <div className="flex items-center gap-2 px-3 py-3 text-xs text-muted-foreground">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Loading...
+                </div>
+              ) : error ? (
+                <div className="px-3 py-3 text-xs text-destructive">
+                  Failed to load variables
+                </div>
+              ) : exports.length === 0 ? (
+                <div className="px-3 py-3 text-xs text-muted-foreground">
+                  No extracted variables
+                </div>
+              ) : (
+                exports.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => onSelect(item.id)}
+                    className="w-full flex flex-col items-start gap-0.5 px-3 py-2 hover:bg-accent/50 transition-colors cursor-pointer text-left"
+                  >
+                    <span className="text-xs font-medium text-foreground">
+                      {item.key}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {item.stepName}
+                    </span>
+                    {item.extractorPath ? (
+                      <span className="text-[10px] text-muted-foreground font-mono">
+                        {item.extractorPath}
+                      </span>
+                    ) : null}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Right column: Environment variables */}
+          <div className="flex flex-col">
+            <div className="px-3 py-2 border-b border-border">
+              <span className="text-xs font-semibold text-foreground">
+                Environment variables
+                {environmentName && (
+                  <span className="text-muted-foreground font-normal ml-1">({environmentName})</span>
+                )}
               </span>
-              <span className="text-[11px] text-muted-foreground">
-                {item.stepName}
-              </span>
-              {item.extractorPath ? (
-                <span className="text-[10px] text-muted-foreground font-mono">
-                  {item.extractorPath}
-                </span>
-              ) : null}
-            </DropdownMenuItem>
-          ))
-        )}
+            </div>
+            <div className="max-h-[300px] overflow-y-auto">
+              {environmentVariablesLoading ? (
+                <div className="flex items-center gap-2 px-3 py-3 text-xs text-muted-foreground">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Loading...
+                </div>
+              ) : environmentVariablesError ? (
+                <div className="px-3 py-3 text-xs text-destructive">
+                  Failed to load environment variables
+                </div>
+              ) : environmentVariables.length === 0 ? (
+                <div className="px-3 py-3 text-xs text-muted-foreground">
+                  No environment variables
+                </div>
+              ) : (
+                environmentVariables.map((envVar, idx) => (
+                  <button
+                    key={envVar.id ?? idx}
+                    type="button"
+                    onClick={() => onSelectEnvVar?.(envVar.key)}
+                    className="w-full flex flex-col items-start gap-0.5 px-3 py-2 hover:bg-accent/50 transition-colors cursor-pointer text-left"
+                  >
+                    <span className="text-xs font-medium text-foreground">
+                      {envVar.key}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-mono truncate max-w-full">
+                      {envVar.value ? (envVar.value.length > 30 ? envVar.value.slice(0, 30) + "…" : envVar.value) : "******"}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -283,7 +355,12 @@ function renderValue(
   activeField: string | null,
   setActiveField: (path: string | null) => void,
   onApplyExport: (exportId: string, path: string) => void,
-  indent: number
+  indent: number,
+  environmentVariables: EnvironmentDetailVariable[],
+  environmentVariablesLoading: boolean,
+  environmentVariablesError: string | null,
+  environmentName: string | null,
+  onSelectEnvVar: (key: string) => void
 ): React.ReactNode {
   const pad = "  ".repeat(indent);
 
@@ -327,7 +404,12 @@ function renderValue(
                 activeField,
                 setActiveField,
                 onApplyExport,
-                indent + 1
+                indent + 1,
+                environmentVariables,
+                environmentVariablesLoading,
+                environmentVariablesError,
+                environmentName,
+                onSelectEnvVar
               )}
               {i < value.length - 1 ? "," : ""}
               {!isObject && mode === "create" && !isActive ? (
@@ -358,6 +440,11 @@ function renderValue(
                     onApplyExport(exportId, jsonPath);
                     setActiveField(null);
                   }}
+                  environmentVariables={environmentVariables}
+                  environmentVariablesLoading={environmentVariablesLoading}
+                  environmentVariablesError={environmentVariablesError}
+                  environmentName={environmentName}
+                  onSelectEnvVar={onSelectEnvVar}
                 />
               ) : null}
               {"\n"}
@@ -401,7 +488,12 @@ function renderValue(
                 activeField,
                 setActiveField,
                 onApplyExport,
-                indent + 1
+                indent + 1,
+                environmentVariables,
+                environmentVariablesLoading,
+                environmentVariablesError,
+                environmentName,
+                onSelectEnvVar
               )}
               {i < entries.length - 1 ? "," : ""}
               {isLeaf && mode === "create" && !isActive ? (
@@ -428,6 +520,11 @@ function renderValue(
                     onApplyExport(exportId, jsonPath);
                     setActiveField(null);
                   }}
+                  environmentVariables={environmentVariables}
+                  environmentVariablesLoading={environmentVariablesLoading}
+                  environmentVariablesError={environmentVariablesError}
+                  environmentName={environmentName}
+                  onSelectEnvVar={onSelectEnvVar}
                 />
               ) : null}
               {"\n"}
@@ -452,6 +549,10 @@ export function JsonResponseExporter({
   existingExportsLoading = false,
   existingExportsError = null,
   onApplyExport,
+  environmentVariables = [],
+  environmentVariablesLoading = false,
+  environmentVariablesError = null,
+  environmentName = null,
 }: JsonResponseExporterProps) {
   const { token } = useAuth();
   const [activeField, setActiveField] = useState<string | null>(null);
@@ -521,7 +622,12 @@ export function JsonResponseExporter({
         activeField,
         setActiveField,
         handleApplyExport,
-        0
+        0,
+        environmentVariables,
+        environmentVariablesLoading,
+        environmentVariablesError,
+        environmentName,
+        (key) => onApplyExport?.(key)
       )}
       {isApplying && (
         <div className="absolute inset-0 bg-background/40 flex items-center justify-center rounded-lg backdrop-blur-[1px]">
