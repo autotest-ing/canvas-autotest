@@ -688,9 +688,11 @@ export type TestStepExportCompactResponse = {
 export type ApplyStepExportResponse = {
   ok: boolean;
   request_id: string;
-  path: string;
+  path?: string;
   var_key: string;
-  new_payload: unknown;
+  new_payload?: unknown;
+  new_url?: string;
+  new_full_url?: string;
 };
 
 export type FetchStepExportsByAccountParams = Record<string, never>;
@@ -741,12 +743,39 @@ export async function applyStepExport(
   return (await response.json()) as ApplyStepExportResponse;
 }
 
+export async function applyStepExportToUrl(
+  stepId: string,
+  exportId: string,
+  token: string,
+  currentValue: string
+): Promise<ApplyStepExportResponse> {
+  const response = await fetch(
+    `${BASE_API_URL}/v1.0/test-steps/${stepId}/exports/${exportId}/apply-url`,
+    {
+      method: "POST",
+      headers: {
+        ...getAuthHeaders(token),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ current_value: currentValue }),
+    }
+  );
+
+  if (!response.ok) {
+    throw await buildApiError(response, "Failed to apply step export to URL");
+  }
+
+  return (await response.json()) as ApplyStepExportResponse;
+}
+
 export type ApplyEnvironmentVariableResponse = {
   ok: boolean;
   request_id: string;
-  path: string;
+  path?: string;
   var_key: string;
-  new_payload: unknown;
+  new_payload?: unknown;
+  new_url?: string;
+  new_full_url?: string;
 };
 
 export async function applyEnvironmentVariable(
@@ -769,6 +798,31 @@ export async function applyEnvironmentVariable(
 
   if (!response.ok) {
     throw await buildApiError(response, "Failed to apply environment variable");
+  }
+
+  return (await response.json()) as ApplyEnvironmentVariableResponse;
+}
+
+export async function applyEnvironmentVariableToUrl(
+  stepId: string,
+  envVarId: string | number,
+  token: string,
+  currentValue: string
+): Promise<ApplyEnvironmentVariableResponse> {
+  const response = await fetch(
+    `${BASE_API_URL}/v1.0/test-steps/${stepId}/variables/${envVarId}/apply-url`,
+    {
+      method: "POST",
+      headers: {
+        ...getAuthHeaders(token),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ current_value: currentValue }),
+    }
+  );
+
+  if (!response.ok) {
+    throw await buildApiError(response, "Failed to apply environment variable to URL");
   }
 
   return (await response.json()) as ApplyEnvironmentVariableResponse;

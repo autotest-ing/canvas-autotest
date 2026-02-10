@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -30,13 +30,16 @@ import {
   fetchStepResultDetails,
   fetchEnvironments,
   fetchEnvironmentDetail,
+  applyStepExportToUrl,
+  applyEnvironmentVariableToUrl,
   type StepResultFullDetail,
   type StepResultHttpRequest,
   type StepResultHttpResponse,
   type TestStepExportCompactResponse,
   type EnvironmentDetailVariable,
 } from "@/lib/api/suites";
-import { JsonResponseExporter } from "./JsonResponseExporter";
+import { JsonResponseExporter, ExistingExportsDropdown, type ValidExistingExport } from "./JsonResponseExporter";
+import { toast } from "sonner";
 
 // ============== Types ==============
 
@@ -257,6 +260,77 @@ function HeadersSection({ headers }: { headers: Record<string, unknown> | null }
   );
 }
 
+function InteractiveUrl({
+  url,
+  testStepId,
+  existingExports,
+  exportsLoading,
+  exportsError,
+  environmentVariables,
+  envVarsLoading,
+  envVarsError,
+  environmentName,
+  onApplyVariable,
+}: {
+  url: string;
+  testStepId: string;
+  existingExports: ValidExistingExport[];
+  exportsLoading: boolean;
+  exportsError: string | null;
+  environmentVariables: EnvironmentDetailVariable[];
+  envVarsLoading: boolean;
+  envVarsError: string | null;
+  environmentName: string | null;
+  onApplyVariable: (varType: 'runtime' | 'env', varId: string | number, currentValue: string) => Promise<void>;
+}) {
+  const [activeSegment, setActiveSegment] = useState<number | null>(null);
+
+  // Split by slashes, keep them by using a regex with capture group
+  const parts = url.split(/(\/)/);
+
+  return (
+    <code className="text-sm font-mono text-foreground break-all">
+      {parts.map((part, idx) => {
+        const isClickable = part.length > 0 && part !== "/" && !part.includes(":") && !part.includes("{{") && !part.includes("}}");
+
+        if (!isClickable) {
+          return <span key={idx}>{part}</span>;
+        }
+
+        return (
+          <ExistingExportsDropdown
+            key={idx}
+            open={activeSegment === idx}
+            onOpenChange={(open) => setActiveSegment(open ? idx : null)}
+            exports={existingExports}
+            loading={exportsLoading}
+            error={exportsError}
+            environmentVariables={environmentVariables}
+            environmentVariablesLoading={envVarsLoading}
+            environmentVariablesError={envVarsError}
+            environmentName={environmentName}
+            onSelect={async (exportId) => {
+              await onApplyVariable('runtime', exportId, part);
+              setActiveSegment(null);
+            }}
+            onSelectEnvVar={async (envVarId) => {
+              await onApplyVariable('env', envVarId, part);
+              setActiveSegment(null);
+            }}
+          >
+            <span
+              className="px-0.5 -mx-0.5 rounded hover:bg-primary/20 cursor-pointer text-primary transition-colors underline decoration-primary/30 decoration-dashed underline-offset-4"
+              title="Click to apply variable"
+            >
+              {part}
+            </span>
+          </ExistingExportsDropdown>
+        );
+      })}
+    </code>
+  );
+}
+
 function RequestTab({
   request,
   loading,
@@ -284,6 +358,57 @@ function RequestTab({
   envVarsError?: string | null;
   envName?: string | null;
 }) {
+  const { token } = useAuth();
+  const [isApplying, setIsApplying] = useState(false);
+
+  const normalizedExports = useMemo<ValidExistingExport[]>(() => {
+    return existingExports
+      .filter((item) => typeof item?.key === "string" && item.key.trim())
+      .map((item) => {
+        const extractorPath =
+          typeof item.extractor?.path === "string" ? item.extractor.path : null;
+        return {
+          id: item.id,
+          key: item.key.trim(),
+          stepName:
+            typeof item.test_step?.name === "string" && item.test_step.name.trim()
+              ? item.test_step.name.trim()
+              : "Unknown step",
+          extractorPath,
+        };
+      })
+      .sort((a, b) => a.key.localeCompare(b.key));
+  }, [existingExports]);
+
+  const handleApplyVariableToUrl = async (
+    varType: 'runtime' | 'env',
+    varId: string | number,
+    currentValue: string
+  ) => {
+    if (!token || isApplying) return;
+
+    setIsApplying(true);
+    const promise = varType === 'runtime'
+      ? applyStepExportToUrl(testStepId, String(varId), token, currentValue)
+      : applyEnvironmentVariableToUrl(testStepId, varId, token, currentValue);
+
+    toast.promise(promise, {
+      loading: 'Applying variable to URL...',
+      success: (data) => {
+        onApplyExport?.(data.var_key);
+        return `Applied {{${data.var_key}}} to URL`;
+      },
+      error: (err) => `Failed to apply variable: ${err instanceof Error ? err.message : 'Unknown error'}`,
+    });
+
+    try {
+      await promise;
+    } catch {
+      // Handled by toast.promise
+    } finally {
+      setIsApplying(false);
+    }
+  };
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -323,9 +448,18 @@ function RequestTab({
             >
               {request.method ?? "GET"}
             </Badge>
-            <code className="text-sm font-mono text-foreground break-all">
-              {request.url ?? "—"}
-            </code>
+            <InteractiveUrl
+              url={request.url ?? "—"}
+              testStepId={testStepId}
+              existingExports={normalizedExports}
+              exportsLoading={exportsLoading}
+              exportsError={exportsError}
+              environmentVariables={environmentVariables ?? []}
+              envVarsLoading={envVarsLoading}
+              envVarsError={envVarsError}
+              environmentName={envName ?? null}
+              onApplyVariable={handleApplyVariableToUrl}
+            />
           </div>
         </div>
 
