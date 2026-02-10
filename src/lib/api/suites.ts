@@ -694,13 +694,18 @@ export async function createStepExport(
 export async function applyStepExport(
   stepId: string,
   exportId: string,
-  token: string
+  token: string,
+  path?: string
 ): Promise<ApplyStepExportResponse> {
   const response = await fetch(
     `${BASE_API_URL}/v1.0/test-steps/${stepId}/exports/${exportId}/apply`,
     {
       method: "POST",
-      headers: getAuthHeaders(token),
+      headers: {
+        ...getAuthHeaders(token),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ path }),
     }
   );
 

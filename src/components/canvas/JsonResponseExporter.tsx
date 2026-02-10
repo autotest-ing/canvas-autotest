@@ -282,7 +282,7 @@ function renderValue(
   existingExportsError: string | null,
   activeField: string | null,
   setActiveField: (path: string | null) => void,
-  onApplyExport: (exportId: string) => void,
+  onApplyExport: (exportId: string, path: string) => void,
   indent: number
 ): React.ReactNode {
   const pad = "  ".repeat(indent);
@@ -355,7 +355,7 @@ function renderValue(
                   loading={existingExportsLoading}
                   error={existingExportsError}
                   onSelect={(exportId) => {
-                    onApplyExport(exportId);
+                    onApplyExport(exportId, jsonPath);
                     setActiveField(null);
                   }}
                 />
@@ -425,7 +425,7 @@ function renderValue(
                   loading={existingExportsLoading}
                   error={existingExportsError}
                   onSelect={(exportId) => {
-                    onApplyExport(exportId);
+                    onApplyExport(exportId, jsonPath);
                     setActiveField(null);
                   }}
                 />
@@ -458,12 +458,12 @@ export function JsonResponseExporter({
   const [isApplying, setIsApplying] = useState(false);
 
   const handleApplyExport = useCallback(
-    async (exportId: string) => {
+    async (exportId: string, path?: string) => {
       if (!token || isApplying) return;
 
       setIsApplying(true);
       try {
-        const result = await applyStepExport(testStepId, exportId, token);
+        const result = await applyStepExport(testStepId, exportId, token, path);
         if (result.ok && onApplyExport) {
           onApplyExport(result.var_key);
         }
