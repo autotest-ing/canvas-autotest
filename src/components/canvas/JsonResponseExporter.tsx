@@ -385,9 +385,15 @@ function RenderStringValue({
   path: string[],
   resolvedBody: unknown
 }) {
+  const handleCopyValue = (valueToCopy: string) => {
+    navigator.clipboard.writeText(valueToCopy);
+    toast.success("Copied to clipboard");
+  };
+
   if (value.includes("{{") && value.includes("}}")) {
     const resolvedValue = getResolvedValue(path, resolvedBody);
     if (resolvedValue !== undefined) {
+      const stringValue = String(resolvedValue);
       return (
         <TooltipProvider>
           <Tooltip delayDuration={0}>
@@ -396,8 +402,22 @@ function RenderStringValue({
                 &quot;{value}&quot;
               </span>
             </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-[300px] break-all">
-              <p className="font-mono text-xs">{String(resolvedValue)}</p>
+            <TooltipContent side="top" className="max-w-[300px] p-0">
+              <div className="flex items-center gap-2 p-2">
+                <p className="font-mono text-xs break-all flex-1">{stringValue}</p>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 shrink-0 hover:bg-accent"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCopyValue(stringValue);
+                  }}
+                  title="Copy to clipboard"
+                >
+                  <Copy className="h-3 w-3" />
+                </Button>
+              </div>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
