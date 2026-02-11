@@ -154,9 +154,7 @@ function AssertionRow({ assertion }: { assertion: AssertionItem }) {
   const showApplyButton =
     !justApplied &&
     assertion.status === "fail" &&
-    assertionDetails &&
-    (assertionDetails.assertion_type === "status_code" ||
-      assertionDetails.assertion_type === "response_time");
+    assertionDetails;
 
   return (
     <div
