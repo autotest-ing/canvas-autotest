@@ -1,16 +1,16 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { 
-  Home, 
-  Layers, 
+import {
+  Home,
+  Layers,
   FileText,
   Play,
   Calendar,
-  Database, 
-  Globe, 
+  Database,
+  Globe,
   Plug,
   Rocket,
-  Bell, 
+  Bell,
   Settings,
   LogOut,
   ChevronRight,
@@ -27,9 +27,8 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/context/AuthContext";
+import { useNotificationsCount } from "@/hooks/use-notifications-count";
 
-// Mock unread count - in a real app, this would come from a context/store
-const UNREAD_NOTIFICATION_COUNT = 3;
 
 interface NavItem {
   icon: React.ElementType;
@@ -77,6 +76,8 @@ export function LeftRail({ activeItem, onItemClick }: LeftRailProps) {
   const location = useLocation();
   const isMobile = useIsMobile();
   const { logout } = useAuth();
+  const { count: unreadCount } = useNotificationsCount();
+
 
   const signOutItem: NavItem = {
     icon: LogOut,
@@ -97,7 +98,8 @@ export function LeftRail({ activeItem, onItemClick }: LeftRailProps) {
   const NavButton = ({ item, showLabel = false }: { item: NavItem; showLabel?: boolean }) => {
     const isActive = !item.isAction && (activeItem === item.id || location.pathname === item.path);
     const Icon = item.icon;
-    const showBadge = item.id === "notifications" && UNREAD_NOTIFICATION_COUNT > 0;
+    const showBadge = item.id === "notifications" && unreadCount > 0;
+
 
     const button = (
       <button
@@ -116,7 +118,7 @@ export function LeftRail({ activeItem, onItemClick }: LeftRailProps) {
           )} />
           {showBadge && (
             <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
-              {UNREAD_NOTIFICATION_COUNT > 9 ? "9+" : UNREAD_NOTIFICATION_COUNT}
+              {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
         </div>
@@ -177,8 +179,9 @@ export function LeftRail({ activeItem, onItemClick }: LeftRailProps) {
             {mobileNavItems.map((item) => {
               const isActive = activeItem === item.id || location.pathname === item.path;
               const Icon = item.icon;
-              const showBadge = item.id === "notifications" && UNREAD_NOTIFICATION_COUNT > 0;
-              
+              const showBadge = item.id === "notifications" && unreadCount > 0;
+
+
               return (
                 <button
                   key={item.id}
@@ -193,7 +196,7 @@ export function LeftRail({ activeItem, onItemClick }: LeftRailProps) {
                     <Icon className="w-5 h-5" />
                     {showBadge && (
                       <span className="absolute -top-1 -right-1.5 min-w-[16px] h-[16px] px-0.5 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center">
-                        {UNREAD_NOTIFICATION_COUNT > 9 ? "9+" : UNREAD_NOTIFICATION_COUNT}
+                        {unreadCount > 9 ? "9+" : unreadCount}
                       </span>
                     )}
                   </div>
