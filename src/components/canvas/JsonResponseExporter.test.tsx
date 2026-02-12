@@ -153,4 +153,40 @@ describe("JsonResponseExporter", () => {
     expect(await screen.findByDisplayValue("TOKEN")).toBeInTheDocument();
     expect(screen.queryByText("No extracted variables")).not.toBeInTheDocument();
   });
+
+  it("triggers setActiveField when clicking on a string value", async () => {
+    render(<JsonResponseExporter body={{ name: "test-name" }} testStepId="step-1" />);
+
+    const valueElement = screen.getByText(/"test-name"/);
+    fireEvent.click(valueElement);
+
+    expect(await screen.findByDisplayValue("NAME")).toBeInTheDocument();
+  });
+
+  it("triggers setActiveField when clicking on a number value", async () => {
+    render(<JsonResponseExporter body={{ count: 123 }} testStepId="step-1" />);
+
+    const valueElement = screen.getByText("123");
+    fireEvent.click(valueElement);
+
+    expect(await screen.findByDisplayValue("COUNT")).toBeInTheDocument();
+  });
+
+  it("triggers setActiveField when clicking on a boolean value", async () => {
+    render(<JsonResponseExporter body={{ active: true }} testStepId="step-1" />);
+
+    const valueElement = screen.getByText("true");
+    fireEvent.click(valueElement);
+
+    expect(await screen.findByDisplayValue("ACTIVE")).toBeInTheDocument();
+  });
+
+  it("triggers setActiveField when clicking on a null value", async () => {
+    render(<JsonResponseExporter body={{ data: null }} testStepId="step-1" />);
+
+    const valueElement = screen.getByText("null");
+    fireEvent.click(valueElement);
+
+    expect(await screen.findByDisplayValue("DATA")).toBeInTheDocument();
+  });
 });
