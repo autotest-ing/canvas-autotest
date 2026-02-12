@@ -588,7 +588,7 @@ export async function deleteTestCase(testCaseId: string, token: string): Promise
 
 export async function updateTestStep(
   stepId: string,
-  payload: { sort_order?: number },
+  payload: { name?: string; sort_order?: number; request?: RequestPayload; config?: Record<string, unknown> },
   token: string
 ): Promise<void> {
   const response = await fetch(`${BASE_API_URL}/v1.0/test-steps/${stepId}`, {
