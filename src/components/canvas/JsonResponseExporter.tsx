@@ -274,11 +274,11 @@ export function ExistingExportsDropdown({
               {loading ? (
                 <div className="flex items-center gap-2 px-3 py-3 text-xs text-muted-foreground">
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Loading...
+                  Loading extracted variables...
                 </div>
               ) : error ? (
                 <div className="px-3 py-3 text-xs text-destructive">
-                  Failed to load variables
+                  Failed to load extracted variables
                 </div>
               ) : exports.length === 0 ? (
                 <div className="px-3 py-3 text-xs text-muted-foreground">
@@ -379,15 +379,31 @@ function JsonLine({
 function RenderStringValue({
   value,
   path,
-  resolvedBody
+  resolvedBody,
+  onClick,
+  isInteractive
 }: {
   value: string,
   path: string[],
-  resolvedBody: unknown
+  resolvedBody: unknown,
+  onClick?: () => void,
+  isInteractive?: boolean
 }) {
   const handleCopyValue = (valueToCopy: string) => {
     navigator.clipboard.writeText(valueToCopy);
     toast.success("Copied to clipboard");
+  };
+
+  const commonClasses = cn(
+    "text-emerald-400",
+    isInteractive && "cursor-pointer hover:bg-primary/10 rounded px-0.5 transition-colors"
+  );
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (isInteractive && onClick) {
+      e.stopPropagation();
+      onClick();
+    }
   };
 
   if (value.includes("{{") && value.includes("}}")) {
@@ -398,7 +414,10 @@ function RenderStringValue({
         <TooltipProvider>
           <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
-              <span className="text-emerald-400 cursor-help underline decoration-emerald-500/50 decoration-dashed decoration-[0.5px] border-b-0">
+              <span
+                className={cn(commonClasses, "cursor-help underline decoration-emerald-500/50 decoration-dashed decoration-[0.5px] border-b-0")}
+                onClick={handleClick}
+              >
                 &quot;{value}&quot;
               </span>
             </TooltipTrigger>
@@ -424,7 +443,11 @@ function RenderStringValue({
       )
     }
   }
-  return <span className="text-emerald-400">&quot;{value}&quot;</span>;
+  return (
+    <span className={commonClasses} onClick={handleClick}>
+      &quot;{value}&quot;
+    </span>
+  );
 }
 
 function renderValue(
@@ -447,16 +470,46 @@ function renderValue(
   resolvedBody?: unknown
 ): React.ReactNode {
   const pad = "  ".repeat(indent);
+  const jsonPath = buildJsonPath(keys);
+  const isInteractive = mode === "create" || mode === "displayExisting";
+  const commonClasses = isInteractive ? "cursor-pointer hover:bg-primary/10 rounded px-0.5 transition-colors" : "";
 
-  if (value === null) return <span className="text-orange-400">null</span>;
+  if (value === null) return (
+    <span
+      className={cn("text-orange-400", commonClasses)}
+      onClick={() => isInteractive && setActiveField(jsonPath)}
+    >
+      null
+    </span>
+  );
   if (typeof value === "boolean")
     return (
-      <span className="text-orange-400">{value ? "true" : "false"}</span>
+      <span
+        className={cn("text-orange-400", commonClasses)}
+        onClick={() => isInteractive && setActiveField(jsonPath)}
+      >
+        {value ? "true" : "false"}
+      </span>
     );
   if (typeof value === "number")
-    return <span className="text-amber-400">{value}</span>;
+    return (
+      <span
+        className={cn("text-amber-400", commonClasses)}
+        onClick={() => isInteractive && setActiveField(jsonPath)}
+      >
+        {value}
+      </span>
+    );
   if (typeof value === "string")
-    return <RenderStringValue value={value} path={keys} resolvedBody={resolvedBody} />;
+    return (
+      <RenderStringValue
+        value={value}
+        path={keys}
+        resolvedBody={resolvedBody}
+        isInteractive={isInteractive}
+        onClick={() => setActiveField(jsonPath)}
+      />
+    );
 
   if (Array.isArray(value)) {
     if (value.length === 0) return <span>{"[]"}</span>;
