@@ -107,6 +107,14 @@ export function ImportSourceDialog({ open, onOpenChange, onImport }: ImportSourc
             </TabsTrigger>
           </TabsList>
 
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={getAcceptTypes()}
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+
           <TabsContent value="postman" className="space-y-4 mt-4">
             <div className="space-y-2">
               <Label htmlFor="postman-name">Collection Name</Label>
@@ -118,13 +126,6 @@ export function ImportSourceDialog({ open, onOpenChange, onImport }: ImportSourc
               />
             </div>
 
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept={getAcceptTypes()}
-              onChange={handleFileSelect}
-              className="hidden"
-            />
             <div
               onDragEnter={handleDrag}
               onDragLeave={handleDrag}
