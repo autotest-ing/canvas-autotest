@@ -1,141 +1,138 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useCallback } from "react";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import { RunTestCaseList, type RunTestCase } from "./RunTestCaseList";
+import { RunTestCaseList, type RunTestCase, type RunTestStep } from "./RunTestCaseList";
 import { RunTestCaseCanvas } from "./RunTestCaseCanvas";
 import { RunSummaryCard } from "./RunSummaryCard";
 import { AIFixCard } from "./AIFixCard";
-import { Breadcrumbs } from "./Breadcrumbs";
 import { MobileBottomSpacer } from "./LeftRail";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "@/context/AuthContext";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { List } from "lucide-react";
+import { List, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  fetchRunDetails,
+  type EnrichedRunDetail,
+  type EnrichedCaseResult,
+  type EnrichedStepResult,
+  type StepResultHttpRequest,
+  type StepResultHttpResponse,
+  type EnrichedAssertionResult,
+} from "@/lib/api/suites";
 
-// Mock data with proper hierarchy: Run → Test Cases → Test Steps
-const mockRunTestCases: RunTestCase[] = [
-  {
-    id: "1",
-    name: "User Login Flow",
-    status: "pass",
-    duration: "434ms",
-    steps: [
-      {
-        id: "1-1",
-        name: "Submit Login Request",
-        method: "POST",
-        endpoint: "/auth/login",
-        status: "pass",
-        duration: "245ms",
-        assertionsPassed: 3,
-        assertionsTotal: 3,
-      },
-      {
-        id: "1-2",
-        name: "Verify User Session",
-        method: "GET",
-        endpoint: "/auth/me",
-        status: "pass",
-        duration: "189ms",
-        assertionsPassed: 2,
-        assertionsTotal: 2,
-      },
-    ],
-  },
-  {
-    id: "2",
-    name: "Token Refresh Flow",
-    status: "mixed",
-    duration: "562ms",
-    steps: [
-      {
-        id: "2-1",
-        name: "Request Token Refresh",
-        method: "POST",
-        endpoint: "/auth/refresh",
-        status: "pass",
-        duration: "212ms",
-        assertionsPassed: 2,
-        assertionsTotal: 2,
-      },
-      {
-        id: "2-2",
-        name: "Validate New Token",
-        method: "GET",
-        endpoint: "/auth/validate",
-        status: "fail",
-        duration: "350ms",
-        assertionsPassed: 1,
-        assertionsTotal: 2,
-      },
-    ],
-  },
-  {
-    id: "3",
-    name: "User Registration",
-    status: "fail",
-    duration: "1.2s",
-    steps: [
-      {
-        id: "3-1",
-        name: "Submit Registration",
-        method: "POST",
-        endpoint: "/auth/register",
-        status: "fail",
-        duration: "1.2s",
-        assertionsPassed: 0,
-        assertionsTotal: 2,
-      },
-      {
-        id: "3-2",
-        name: "Verify Email Sent",
-        method: "GET",
-        endpoint: "/auth/verify-email-status",
-        status: "pending",
-        assertionsPassed: 0,
-        assertionsTotal: 1,
-      },
-    ],
-  },
-  {
-    id: "4",
-    name: "Logout Flow",
-    status: "pending",
-    steps: [
-      {
-        id: "4-1",
-        name: "Submit Logout",
-        method: "POST",
-        endpoint: "/auth/logout",
-        status: "pending",
-        assertionsPassed: 0,
-        assertionsTotal: 2,
-      },
-      {
-        id: "4-2",
-        name: "Verify Session Invalidated",
-        method: "GET",
-        endpoint: "/auth/me",
-        status: "pending",
-        assertionsPassed: 0,
-        assertionsTotal: 1,
-      },
-    ],
-  },
-];
+// ============== Helpers ==============
 
-// Mock data linking runs to suites
-const mockRunData = {
-  runId: "run-42",
-  suiteName: "Auth Suite",
-  suiteId: "auth-suite",
-  startedAt: "15 min ago",
-  duration: "2.1s",
-  triggeredBy: "CI/CD",
-  branch: "main",
-  commit: "a1b2c3d",
-};
+function formatDuration(startedAt: string, finishedAt: string | null): string {
+  if (!finishedAt) return "--";
+  const ms = new Date(finishedAt).getTime() - new Date(startedAt).getTime();
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function formatTimeAgo(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diffMs = now - then;
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return "just now";
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin} min ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr} hour${diffHr > 1 ? "s" : ""} ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  return `${diffDay} day${diffDay > 1 ? "s" : ""} ago`;
+}
+
+type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+
+function toHttpMethod(method: string | null): HttpMethod {
+  if (!method) return "GET";
+  const upper = method.toUpperCase();
+  if (["GET", "POST", "PUT", "PATCH", "DELETE"].includes(upper)) {
+    return upper as HttpMethod;
+  }
+  return "GET";
+}
+
+function mapCaseStatus(status: string): RunTestCase["status"] {
+  switch (status) {
+    case "success":
+      return "pass";
+    case "failed":
+      return "fail";
+    case "skipped":
+      return "pending";
+    case "running":
+      return "running";
+    default:
+      return "pending";
+  }
+}
+
+function mapStepStatus(status: string): RunTestStep["status"] {
+  switch (status) {
+    case "success":
+      return "pass";
+    case "failed":
+      return "fail";
+    case "skipped":
+      return "pending";
+    case "running":
+      return "running";
+    default:
+      return "pending";
+  }
+}
+
+function deriveCaseStatus(caseResult: EnrichedCaseResult): RunTestCase["status"] {
+  const stepStatuses = caseResult.step_results.map((sr) => mapStepStatus(sr.status));
+  const hasFailed = stepStatuses.includes("fail");
+  const hasPassed = stepStatuses.includes("pass");
+  const hasRunning = stepStatuses.includes("running");
+
+  if (hasRunning) return "running";
+  if (hasFailed && hasPassed) return "mixed";
+  if (hasFailed) return "fail";
+  if (hasPassed) return "pass";
+  return mapCaseStatus(caseResult.status);
+}
+
+function mapStepResult(sr: EnrichedStepResult): RunTestStep {
+  const passedAssertions = sr.assertion_results.filter((ar) => ar.status === "pass").length;
+  return {
+    id: sr.id,
+    name: sr.step_name || "Unnamed Step",
+    method: toHttpMethod(sr.method),
+    endpoint: sr.endpoint || "",
+    status: mapStepStatus(sr.status),
+    duration: formatDuration(sr.started_at, sr.finished_at),
+    assertionsPassed: passedAssertions,
+    assertionsTotal: sr.assertion_results.length,
+    stepResultId: sr.id,
+    request: sr.request,
+    response: sr.response,
+    assertionResults: sr.assertion_results.map((ar) => ({
+      status: ar.status,
+      message: ar.message || ar.assertion_name || "",
+      actual: ar.actual,
+      expected: ar.expected,
+    })),
+  };
+}
+
+function mapCaseResult(cr: EnrichedCaseResult): RunTestCase {
+  const steps = cr.step_results.map(mapStepResult);
+  return {
+    id: cr.id,
+    name: cr.case_name || "Unnamed Case",
+    status: deriveCaseStatus(cr),
+    steps,
+    duration: formatDuration(cr.started_at, cr.finished_at),
+  };
+}
+
+// ============== Component ==============
 
 interface RunViewProps {
   runId?: string;
@@ -143,30 +140,45 @@ interface RunViewProps {
 }
 
 export function RunView({ runId, suiteId }: RunViewProps) {
-  const navigate = useNavigate();
-  const firstFailedCase = mockRunTestCases.find(tc => tc.status === "fail" || tc.status === "mixed");
-  const [selectedTestCaseId, setSelectedTestCaseId] = useState<string | null>(
-    firstFailedCase?.id || mockRunTestCases[0]?.id || null
-  );
+  const { token } = useAuth();
+  const isMobile = useIsMobile();
+
+  const [runData, setRunData] = useState<EnrichedRunDetail | null>(null);
+  const [testCases, setTestCases] = useState<RunTestCase[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [selectedTestCaseId, setSelectedTestCaseId] = useState<string | null>(null);
   const [showAIFix, setShowAIFix] = useState(false);
   const [fixingStepId, setFixingStepId] = useState<string | null>(null);
   const [mobileListOpen, setMobileListOpen] = useState(false);
-  const isMobile = useIsMobile();
 
-  const selectedTestCase = mockRunTestCases.find(tc => tc.id === selectedTestCaseId) || null;
+  const loadRunDetails = useCallback(async () => {
+    if (!runId || !token) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await fetchRunDetails(runId, token);
+      setRunData(data);
+      const mapped = data.case_results.map(mapCaseResult);
+      setTestCases(mapped);
 
-  // Build breadcrumbs based on context
-  const breadcrumbItems = suiteId
-    ? [
-      { label: "Suites", href: "/suites" },
-      { label: mockRunData.suiteName, href: `/suites/${suiteId}` },
-      { label: "Runs", href: `/suites/${suiteId}/runs` },
-      { label: runId || mockRunData.runId },
-    ]
-    : [
-      { label: "Runs", href: "/runs" },
-      { label: runId || mockRunData.runId },
-    ];
+      // Auto-select first failed case, or first case
+      const firstFailed = mapped.find((tc) => tc.status === "fail" || tc.status === "mixed");
+      setSelectedTestCaseId(firstFailed?.id || mapped[0]?.id || null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to load run details";
+      setError(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [runId, token]);
+
+  useEffect(() => {
+    loadRunDetails();
+  }, [loadRunDetails]);
+
+  const selectedTestCase = testCases.find((tc) => tc.id === selectedTestCaseId) || null;
 
   const handleFixWithAI = (stepId: string) => {
     setFixingStepId(stepId);
@@ -208,8 +220,8 @@ export function RunView({ runId, suiteId }: RunViewProps) {
   };
 
   const handleRerunFailed = () => {
-    const failedCount = mockRunTestCases.filter(
-      tc => tc.status === "fail" || tc.status === "mixed"
+    const failedCount = testCases.filter(
+      (tc) => tc.status === "fail" || tc.status === "mixed"
     ).length;
     toast.success(`Re-running ${failedCount} failed test case(s)...`, {
       description: "Starting a new run for failed test cases only.",
@@ -217,7 +229,7 @@ export function RunView({ runId, suiteId }: RunViewProps) {
   };
 
   const handleRerunTestCase = (testCaseId: string) => {
-    const testCase = mockRunTestCases.find(tc => tc.id === testCaseId);
+    const testCase = testCases.find((tc) => tc.id === testCaseId);
     toast.success(`Re-running "${testCase?.name}"...`, {
       description: "Starting a new run for this test case.",
     });
@@ -225,23 +237,60 @@ export function RunView({ runId, suiteId }: RunViewProps) {
 
   // Find the step name for the AI fix card
   const fixingStep = fixingStepId
-    ? selectedTestCase?.steps.find(s => s.id === fixingStepId)
+    ? selectedTestCase?.steps.find((s) => s.id === fixingStepId)
     : null;
+
+  // Derived run metadata
+  const displayRunId = runId || runData?.id || "";
+  const shortRunId = displayRunId.length > 12
+    ? `${displayRunId.slice(0, 8)}...${displayRunId.slice(-4)}`
+    : displayRunId;
+  const suiteName = runData?.suite_name || "";
+  const duration = runData
+    ? formatDuration(runData.started_at, runData.finished_at)
+    : "--";
+  const startedAt = runData ? formatTimeAgo(runData.started_at) : "";
+  const branch = runData?.summary?.branch as string | undefined;
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-sm">Loading run details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-center max-w-md px-4">
+          <p className="text-sm text-destructive">{error}</p>
+          <Button variant="outline" size="sm" onClick={loadRunDetails}>
+            Try again
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // Mobile layout
   if (isMobile) {
     return (
       <div className="min-h-screen flex flex-col animate-fade-in">
-
         {/* Summary Card */}
         <div className="px-4 pb-4">
           <RunSummaryCard
-            runId={runId || mockRunData.runId}
-            testCases={mockRunTestCases}
-            duration={mockRunData.duration}
-            triggeredBy={mockRunData.triggeredBy}
-            startedAt={mockRunData.startedAt}
-            branch={mockRunData.branch}
+            runId={shortRunId}
+            testCases={testCases}
+            duration={duration}
+            triggeredBy="Manual"
+            startedAt={startedAt}
+            branch={branch}
             onRerunAll={handleRerunAll}
             onRerunFailed={handleRerunFailed}
           />
@@ -258,7 +307,7 @@ export function RunView({ runId, suiteId }: RunViewProps) {
             </SheetTrigger>
             <SheetContent side="left" className="w-80 p-0">
               <RunTestCaseList
-                testCases={mockRunTestCases}
+                testCases={testCases}
                 selectedId={selectedTestCaseId}
                 onSelect={handleSelectTestCase}
               />
@@ -297,16 +346,15 @@ export function RunView({ runId, suiteId }: RunViewProps) {
   // Desktop layout
   return (
     <div className="h-screen animate-fade-in flex flex-col">
-
       {/* Summary Card */}
       <div className="px-6 py-4 border-b border-border/50">
         <RunSummaryCard
-          runId={runId || mockRunData.runId}
-          testCases={mockRunTestCases}
-          duration={mockRunData.duration}
-          triggeredBy={mockRunData.triggeredBy}
-          startedAt={mockRunData.startedAt}
-          branch={mockRunData.branch}
+          runId={shortRunId}
+          testCases={testCases}
+          duration={duration}
+          triggeredBy="Manual"
+          startedAt={startedAt}
+          branch={branch}
           onRerunAll={handleRerunAll}
           onRerunFailed={handleRerunFailed}
         />
@@ -316,7 +364,7 @@ export function RunView({ runId, suiteId }: RunViewProps) {
         <ResizablePanelGroup direction="horizontal" className="h-full">
           <ResizablePanel defaultSize={25} minSize={20} maxSize={40}>
             <RunTestCaseList
-              testCases={mockRunTestCases}
+              testCases={testCases}
               selectedId={selectedTestCaseId}
               onSelect={handleSelectTestCase}
             />

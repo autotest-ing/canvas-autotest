@@ -966,6 +966,71 @@ export async function fetchLatestStepResult(
   return (await response.json()) as StepResultFullDetail;
 }
 
+// ============== Enriched Run Detail Types ==============
+
+export type EnrichedAssertionResult = StepResultAssertionResult & {
+  assertion_name: string;
+};
+
+export type EnrichedStepResult = {
+  id: string;
+  case_result_id: string;
+  test_step_id: string;
+  status: string;
+  started_at: string;
+  finished_at: string | null;
+  error: string | null;
+  step_name: string;
+  method: string | null;
+  endpoint: string | null;
+  request: StepResultHttpRequest | null;
+  response: StepResultHttpResponse | null;
+  assertion_results: EnrichedAssertionResult[];
+};
+
+export type EnrichedCaseResult = {
+  id: string;
+  suite_run_id: string;
+  test_case_id: string;
+  status: string;
+  started_at: string;
+  finished_at: string | null;
+  error: string | null;
+  case_name: string;
+  sort_order: number;
+  step_results: EnrichedStepResult[];
+};
+
+export type EnrichedRunDetail = {
+  id: string;
+  suite_id: string;
+  environment_id: string | null;
+  collection_run_id: string | null;
+  status: string;
+  started_at: string;
+  finished_at: string | null;
+  summary: Record<string, number>;
+  created_at: string;
+  suite_name: string;
+  case_results: EnrichedCaseResult[];
+};
+
+export async function fetchRunDetails(
+  runId: string,
+  token: string
+): Promise<EnrichedRunDetail> {
+  const response = await fetch(
+    `${BASE_API_URL}/v1.0/executions/runs/${runId}/details`,
+    { headers: getAuthHeaders(token) }
+  );
+
+  if (!response.ok) {
+    throw await buildApiError(response, "Failed to load run details");
+  }
+
+  return (await response.json()) as EnrichedRunDetail;
+}
+
 export async function fetchAllRuns(
   accountId: string,
   token: string,
