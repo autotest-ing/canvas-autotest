@@ -22,7 +22,11 @@ import {
   Clock,
   Loader2,
   ChevronDown,
+  Plus,
+  Trash2,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
 import type { RunTestStep } from "@/components/RunTestCaseList";
 import {
@@ -34,6 +38,7 @@ import {
   applyEnvironmentVariableToUrl,
   applyAssertionActualValue,
   getAssertion,
+  updateTestStep,
   type AssertionDetailResponse,
   type StepResultFullDetail,
   type StepResultHttpRequest,
@@ -275,51 +280,119 @@ function AssertionsTab({ assertions }: { assertions: AssertionItem[] }) {
 
 function KeyValueTable({
   data,
-  resolvedData
+  resolvedData,
+  isEditable = false,
+  onAddHeader,
+  isUpdating = false,
 }: {
   data: Record<string, unknown> | null;
   resolvedData?: Record<string, unknown> | null;
+  isEditable?: boolean;
+  onAddHeader?: (key: string, value: string) => void;
+  isUpdating?: boolean;
 }) {
-  if (!data || Object.keys(data).length === 0) {
+  const [newKey, setNewKey] = useState("");
+  const [newValue, setNewValue] = useState("");
+
+  const handleAddClick = () => {
+    if (newKey.trim() && onAddHeader) {
+      onAddHeader(newKey.trim(), newValue.trim());
+      setNewKey("");
+      setNewValue("");
+    }
+  };
+
+  if (!data || (Object.keys(data).length === 0 && !isEditable)) {
     return (
       <p className="text-sm text-muted-foreground py-2">No headers</p>
     );
   }
 
+  const entries = Object.entries(data || {});
+
   return (
-    <div className="border rounded-lg overflow-hidden">
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="bg-muted/50">
-            <th className="text-left px-3 py-1.5 font-medium text-muted-foreground w-1/3">
-              Key
-            </th>
-            <th className="text-left px-3 py-1.5 font-medium text-muted-foreground">
-              Value
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {Object.entries(data).map(([key, value]) => (
-            <tr key={key} className="border-t border-border/50">
-              <td className="px-3 py-1.5 font-mono text-foreground">{key}</td>
-              <td className="px-3 py-1.5 font-mono text-muted-foreground break-all">
-                {String(value ?? "")}
-              </td>
+    <div className="border rounded-lg overflow-hidden flex flex-col">
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead className="sticky top-0 z-10">
+            <tr className="bg-muted/50 border-b">
+              <th className="text-left px-3 py-1.5 font-medium text-muted-foreground w-1/3">
+                Key
+              </th>
+              <th className="text-left px-3 py-1.5 font-medium text-muted-foreground">
+                Value
+              </th>
+              {isEditable && <th className="w-10"></th>}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+        </table>
+      </div>
+      <ScrollArea className={cn("max-h-[200px]", entries.length > 5 && "h-[200px]")}>
+        <table className="w-full text-xs">
+          <tbody>
+            {entries.map(([key, value]) => (
+              <tr key={key} className="border-t border-border/50 first:border-0">
+                <td className="px-3 py-1.5 font-mono text-foreground w-1/3 break-all">{key}</td>
+                <td className="px-3 py-1.5 font-mono text-muted-foreground break-all">
+                  {String(value ?? "")}
+                </td>
+                {isEditable && (
+                  <td className="px-1.5 py-1">
+                    {/* Future: Add delete button here if needed */}
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </ScrollArea>
+      {isEditable && (
+        <div className="p-2 bg-muted/20 border-t flex items-center gap-2">
+          <Input
+            placeholder="Key"
+            value={newKey}
+            onChange={(e) => setNewKey(e.target.value)}
+            className="h-7 text-[10px] py-1 px-2 font-mono"
+            disabled={isUpdating}
+          />
+          <Input
+            placeholder="Value"
+            value={newValue}
+            onChange={(e) => setNewValue(e.target.value)}
+            className="h-7 text-[10px] py-1 px-2 font-mono"
+            disabled={isUpdating}
+          />
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7 shrink-0 text-primary hover:text-primary hover:bg-primary/10"
+            onClick={handleAddClick}
+            disabled={!newKey.trim() || isUpdating}
+          >
+            {isUpdating ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Plus className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
 
 function HeadersSection({
   headers,
-  resolvedHeaders
+  resolvedHeaders,
+  isEditable = false,
+  onAddHeader,
+  isUpdating = false,
 }: {
   headers: Record<string, unknown> | null;
   resolvedHeaders?: Record<string, unknown> | null;
+  isEditable?: boolean;
+  onAddHeader?: (key: string, value: string) => void;
+  isUpdating?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -330,9 +403,16 @@ function HeadersSection({
           type="button"
           className="w-full flex items-center justify-between rounded-lg border border-border/60 px-3 py-2 hover:bg-muted/30 transition-colors"
         >
-          <span className="text-xs font-medium text-muted-foreground">
-            Headers
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground">
+              Headers
+            </span>
+            {headers && Object.keys(headers).length > 0 && (
+              <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4 min-w-[1.25rem] justify-center">
+                {Object.keys(headers).length}
+              </Badge>
+            )}
+          </div>
           <ChevronDown
             className={cn(
               "w-4 h-4 text-muted-foreground transition-transform",
@@ -342,7 +422,13 @@ function HeadersSection({
         </button>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <KeyValueTable data={headers} resolvedData={resolvedHeaders} />
+        <KeyValueTable
+          data={headers}
+          resolvedData={resolvedHeaders}
+          isEditable={isEditable}
+          onAddHeader={onAddHeader}
+          isUpdating={isUpdating}
+        />
       </CollapsibleContent>
     </Collapsible>
   );
@@ -501,6 +587,31 @@ function RequestTab({
       setIsApplying(false);
     }
   };
+
+  const handleAddHeader = async (key: string, value: string) => {
+    if (!token || !request || isApplying) return;
+
+    setIsApplying(true);
+    try {
+      const updatedHeaders = { ...(request.headers || {}), [key]: value };
+      const newPayload = {
+        request: {
+          ...request,
+          headers: updatedHeaders,
+        }
+      };
+
+      await updateTestStep(testStepId, newPayload, token);
+      toast.success(`Header "${key}" added`);
+      // Note: Ideally we would refresh the UI state here.
+      // Since this dialog fetches details on open, we might need a way to trigger refresh.
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add header");
+    } finally {
+      setIsApplying(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -559,6 +670,9 @@ function RequestTab({
         <HeadersSection
           headers={request.headers}
           resolvedHeaders={resolvedRequest?.request_headers ?? null}
+          isEditable={true}
+          onAddHeader={handleAddHeader}
+          isUpdating={isApplying}
         />
 
         {/* Body */}
