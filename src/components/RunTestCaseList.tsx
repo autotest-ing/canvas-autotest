@@ -15,6 +15,22 @@ export interface RunTestStep {
   assertionsPassed: number;
   assertionsTotal: number;
   stepResultId?: string;
+  request?: {
+    method: string | null;
+    url: string | null;
+    headers: Record<string, unknown> | null;
+    body: unknown;
+  } | null;
+  response?: {
+    status_code: number | null;
+    headers: Record<string, unknown> | null;
+    body: unknown;
+    raw_body: string | null;
+    duration_ms: number | null;
+    request_body?: unknown;
+    request_headers?: Record<string, unknown> | null;
+    request_url?: string | null;
+  } | null;
   assertionResults?: Array<{
     status: string;
     message: string;

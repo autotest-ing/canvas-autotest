@@ -52,40 +52,74 @@ function StepStatusIcon({ status }: { status: RunTestStep["status"] }) {
   }
 }
 
-// Mock data for step details
-const mockStepDetails = {
-  request: `POST /auth/login HTTP/1.1
-Host: api.example.com
-Content-Type: application/json
+function formatRequestText(step: RunTestStep): string {
+  const req = step.request;
+  if (!req) return "No request data available";
 
-{
-  "email": "user@example.com",
-  "password": "********"
-}`,
-  response: `HTTP/1.1 200 OK
-Content-Type: application/json
+  const lines: string[] = [];
+  const method = (req.method || step.method || "GET").toUpperCase();
+  const url = req.url || step.endpoint || "";
 
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIs...",
-  "refresh_token": "dGhpcyBpcyBhIHJlZnJl...",
-  "expires_in": 3600
-}`,
-  assertions: [
-    { id: "1", description: "Response status should be 200", status: "pass" as const },
-    { id: "2", description: "Response body should contain access_token", status: "pass" as const },
-    { id: "3", description: "Token should be valid JWT format", status: "pass" as const },
-  ],
-};
+  lines.push(`${method} ${url} HTTP/1.1`);
 
-function RunStepCard({ step, stepNumber, isExpanded = false, onFixWithAI }: { 
-  step: RunTestStep; 
-  stepNumber: number; 
+  if (req.headers && typeof req.headers === "object") {
+    for (const [key, value] of Object.entries(req.headers)) {
+      lines.push(`${key}: ${value}`);
+    }
+  }
+
+  if (req.body !== undefined && req.body !== null) {
+    lines.push("");
+    lines.push(
+      typeof req.body === "string" ? req.body : JSON.stringify(req.body, null, 2)
+    );
+  }
+
+  return lines.join("\n");
+}
+
+function formatResponseText(step: RunTestStep): string {
+  const resp = step.response;
+  if (!resp) return "No response data available";
+
+  const lines: string[] = [];
+  const statusCode = resp.status_code ?? 0;
+  lines.push(`HTTP/1.1 ${statusCode}`);
+
+  if (resp.headers && typeof resp.headers === "object") {
+    for (const [key, value] of Object.entries(resp.headers)) {
+      if (key.toLowerCase() === "content-type") {
+        lines.push(`${key}: ${value}`);
+      }
+    }
+  }
+
+  if (resp.body !== undefined && resp.body !== null) {
+    lines.push("");
+    lines.push(
+      typeof resp.body === "string" ? resp.body : JSON.stringify(resp.body, null, 2)
+    );
+  } else if (resp.raw_body) {
+    lines.push("");
+    lines.push(resp.raw_body);
+  }
+
+  return lines.join("\n");
+}
+
+function RunStepCard({ step, stepNumber, isExpanded = false, onFixWithAI }: {
+  step: RunTestStep;
+  stepNumber: number;
   isExpanded?: boolean;
   onFixWithAI: () => void;
 }) {
   const [open, setOpen] = useState(isExpanded);
   const [copiedTab, setCopiedTab] = useState<string | null>(null);
   const isFailed = step.status === "fail";
+
+  const assertions = step.assertionResults || [];
+  const requestText = formatRequestText(step);
+  const responseText = formatResponseText(step);
 
   const handleCopy = (content: string, tab: string) => {
     navigator.clipboard.writeText(content);
@@ -104,7 +138,7 @@ function RunStepCard({ step, stepNumber, isExpanded = false, onFixWithAI }: {
               </span>
               <StepStatusIcon status={step.status} />
             </div>
-            
+
             <Badge
               variant="outline"
               className={cn(
@@ -114,7 +148,7 @@ function RunStepCard({ step, stepNumber, isExpanded = false, onFixWithAI }: {
             >
               {step.method}
             </Badge>
-            
+
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground truncate">
                 {step.name}
@@ -123,7 +157,7 @@ function RunStepCard({ step, stepNumber, isExpanded = false, onFixWithAI }: {
                 {step.endpoint}
               </p>
             </div>
-            
+
             <div className="flex items-center gap-3 shrink-0">
               {step.duration && (
                 <span className="text-xs text-muted-foreground">{step.duration}</span>
@@ -140,11 +174,11 @@ function RunStepCard({ step, stepNumber, isExpanded = false, onFixWithAI }: {
             </div>
           </button>
         </CollapsibleTrigger>
-        
+
         <CollapsibleContent>
           <div className="px-4 pb-4 pt-0">
             <div className="border-t border-border/50 pt-3">
-              <Tabs defaultValue={isFailed ? "assertions" : "request"}>
+              <Tabs defaultValue={isFailed ? "assertions" : "assertions"}>
                 <div className="flex items-center justify-between mb-3">
                   <TabsList className="bg-muted/50 h-8">
                     <TabsTrigger value="assertions" className="text-xs h-6">Assertions</TabsTrigger>
@@ -160,41 +194,45 @@ function RunStepCard({ step, stepNumber, isExpanded = false, onFixWithAI }: {
                 </div>
 
                 <TabsContent value="assertions" className="mt-0 space-y-2">
-                  {mockStepDetails.assertions.map((assertion) => (
-                    <div
-                      key={assertion.id}
-                      className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/30"
-                    >
+                  {assertions.length === 0 ? (
+                    <p className="text-sm text-muted-foreground p-2.5">No assertions</p>
+                  ) : (
+                    assertions.map((assertion, idx) => (
                       <div
-                        className={cn(
-                          "w-5 h-5 rounded-full flex items-center justify-center shrink-0",
-                          assertion.status === "pass"
-                            ? "bg-emerald-500/15"
-                            : "bg-destructive/15"
-                        )}
+                        key={idx}
+                        className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/30"
                       >
-                        {assertion.status === "pass" ? (
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                        ) : (
-                          <XCircle className="w-3 h-3 text-destructive" />
-                        )}
+                        <div
+                          className={cn(
+                            "w-5 h-5 rounded-full flex items-center justify-center shrink-0",
+                            assertion.status === "pass"
+                              ? "bg-emerald-500/15"
+                              : "bg-destructive/15"
+                          )}
+                        >
+                          {assertion.status === "pass" ? (
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          ) : (
+                            <XCircle className="w-3 h-3 text-destructive" />
+                          )}
+                        </div>
+                        <p className="flex-1 text-sm text-foreground">
+                          {assertion.message}
+                        </p>
                       </div>
-                      <p className="flex-1 text-sm text-foreground">
-                        {assertion.description}
-                      </p>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </TabsContent>
 
                 <TabsContent value="request" className="mt-0">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium text-muted-foreground uppercase">Request</span>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         className="h-6 px-2"
-                        onClick={() => handleCopy(mockStepDetails.request, "request")}
+                        onClick={() => handleCopy(requestText, "request")}
                       >
                         {copiedTab === "request" ? (
                           <Check className="w-3 h-3" />
@@ -204,7 +242,7 @@ function RunStepCard({ step, stepNumber, isExpanded = false, onFixWithAI }: {
                       </Button>
                     </div>
                     <pre className="p-3 rounded-lg bg-muted/30 border border-border/50 text-xs font-mono text-foreground overflow-x-auto whitespace-pre-wrap">
-                      {mockStepDetails.request}
+                      {requestText}
                     </pre>
                   </div>
                 </TabsContent>
@@ -213,11 +251,11 @@ function RunStepCard({ step, stepNumber, isExpanded = false, onFixWithAI }: {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium text-muted-foreground uppercase">Response</span>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         className="h-6 px-2"
-                        onClick={() => handleCopy(mockStepDetails.response, "response")}
+                        onClick={() => handleCopy(responseText, "response")}
                       >
                         {copiedTab === "response" ? (
                           <Check className="w-3 h-3" />
@@ -228,11 +266,11 @@ function RunStepCard({ step, stepNumber, isExpanded = false, onFixWithAI }: {
                     </div>
                     <pre className={cn(
                       "p-3 rounded-lg text-xs font-mono text-foreground overflow-x-auto whitespace-pre-wrap",
-                      isFailed 
-                        ? "bg-destructive/5 border border-destructive/20" 
+                      isFailed
+                        ? "bg-destructive/5 border border-destructive/20"
                         : "bg-muted/30 border border-border/50"
                     )}>
-                      {mockStepDetails.response}
+                      {responseText}
                     </pre>
                   </div>
                 </TabsContent>
@@ -285,9 +323,9 @@ export function RunTestCaseCanvas({ testCase, onFixWithAI, onRerunTestCase }: Ru
             </div>
           </div>
           {isFailed && onRerunTestCase && (
-            <Button 
-              size="sm" 
-              variant="outline" 
+            <Button
+              size="sm"
+              variant="outline"
               onClick={() => onRerunTestCase(testCase.id)}
               disabled={isRunning}
               className="gap-2 shrink-0"
@@ -310,7 +348,7 @@ export function RunTestCaseCanvas({ testCase, onFixWithAI, onRerunTestCase }: Ru
               ({testCase.steps.length} step{testCase.steps.length !== 1 ? "s" : ""})
             </span>
           </div>
-          
+
           {testCase.steps.map((step, index) => (
             <RunStepCard
               key={step.id}
