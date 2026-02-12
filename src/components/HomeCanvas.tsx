@@ -146,6 +146,8 @@ export function HomeCanvas({ initialConversationId }: HomeCanvasProps) {
             <PromptInput
               onSubmit={chat.sendMessage}
               isLoading={chat.isLoading}
+              agentMode={chat.agentMode}
+              onAgentModeChange={chat.setAgentMode}
             />
           </div>
           <MobileBottomSpacer />
