@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 interface ImportSourceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onImport: (source: { name: string; type: "postman" | "openapi"; url?: string }) => void;
+  onImport: (source: { name: string; type: "postman" | "openapi"; url?: string; file?: File }) => void;
 }
 
 export function ImportSourceDialog({ open, onOpenChange, onImport }: ImportSourceDialogProps) {
@@ -32,7 +32,7 @@ export function ImportSourceDialog({ open, onOpenChange, onImport }: ImportSourc
     if (!name) return;
     setIsImporting(true);
     setTimeout(() => {
-      onImport({ name, type: activeTab, url: url || undefined });
+      onImport({ name, type: activeTab, url: url || undefined, file: selectedFile || undefined });
       setIsImporting(false);
       setName("");
       setUrl("");
@@ -55,7 +55,7 @@ export function ImportSourceDialog({ open, onOpenChange, onImport }: ImportSourc
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
+
     const file = e.dataTransfer.files[0];
     if (file) {
       setSelectedFile(file);
@@ -80,8 +80,8 @@ export function ImportSourceDialog({ open, onOpenChange, onImport }: ImportSourc
   };
 
   const getAcceptTypes = () => {
-    return activeTab === "postman" 
-      ? ".json" 
+    return activeTab === "postman"
+      ? ".json"
       : ".json,.yaml,.yml";
   };
 
@@ -133,8 +133,8 @@ export function ImportSourceDialog({ open, onOpenChange, onImport }: ImportSourc
               onClick={handleDropZoneClick}
               className={cn(
                 "border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer",
-                dragActive 
-                  ? "border-primary bg-primary/5" 
+                dragActive
+                  ? "border-primary bg-primary/5"
                   : "border-border hover:border-primary/50"
               )}
             >
@@ -206,8 +206,8 @@ export function ImportSourceDialog({ open, onOpenChange, onImport }: ImportSourc
               onClick={handleDropZoneClick}
               className={cn(
                 "border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer",
-                dragActive 
-                  ? "border-primary bg-primary/5" 
+                dragActive
+                  ? "border-primary bg-primary/5"
                   : "border-border hover:border-primary/50"
               )}
             >
