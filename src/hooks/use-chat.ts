@@ -35,6 +35,8 @@ export type UseChat = {
   error: string | null;
   conversationId: string | null;
   conversationTitle: string | null;
+  agentMode: boolean;
+  setAgentMode: (enabled: boolean) => void;
   sendMessage: (text: string, attachedFile?: File | null) => Promise<void>;
   handleHintAction: (button: HintButton) => void;
   clearMessages: () => void;
@@ -58,6 +60,7 @@ export function useChat(options?: {
   const [error, setError] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversationTitle, setConversationTitle] = useState<string | null>(null);
+  const [agentMode, setAgentMode] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const buildHistory = useCallback((msgs: ChatMessage[]): ChatHistoryMessage[] => {
@@ -240,6 +243,7 @@ export function useChat(options?: {
           conversationId,
           attachedFile: fileContent,
           attachedFileName: fileName,
+          agentMode,
           onEvent: handleEvent,
           signal: abortController.signal,
         });
@@ -266,7 +270,7 @@ export function useChat(options?: {
         abortRef.current = null;
       }
     },
-    [token, currentUser, messages, buildHistory, conversationId, options],
+    [token, currentUser, messages, buildHistory, conversationId, agentMode, options],
   );
 
   const handleHintAction = useCallback(
@@ -297,6 +301,8 @@ export function useChat(options?: {
     error,
     conversationId,
     conversationTitle,
+    agentMode,
+    setAgentMode,
     sendMessage,
     handleHintAction,
     clearMessages,

@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from "react";
-import { Paperclip, Sparkles, Play, X, FileJson, Loader2, FolderPlus, TestTube, Footprints, Import, ChevronRight, FileCode, FileType, Braces, ClipboardList } from "lucide-react";
+import { Paperclip, Sparkles, Play, X, FileJson, Loader2, FolderPlus, TestTube, Footprints, Import, ChevronRight, FileCode, FileType, Braces, ClipboardList, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Command,
@@ -21,10 +21,18 @@ interface SlashCommand {
   description?: string;
   icon: React.ElementType;
   prompt?: string;
+  action?: string;
   children?: SlashCommand[];
 }
 
 const slashCommands: SlashCommand[] = [
+  {
+    id: "agent-mode",
+    label: "Agent mode",
+    description: "Auto-create assertions & exports after each step run",
+    icon: Bot,
+    action: "toggle_agent_mode",
+  },
   {
     id: "create-test-plan",
     label: "Create test plan",
@@ -123,6 +131,8 @@ interface PromptInputProps {
   onPlan?: () => void;
   isLoading?: boolean;
   showExamplePrompts?: boolean;
+  agentMode?: boolean;
+  onAgentModeChange?: (enabled: boolean) => void;
 }
 
 export function PromptInput({
@@ -130,6 +140,8 @@ export function PromptInput({
   onPlan,
   isLoading,
   showExamplePrompts = true,
+  agentMode = false,
+  onAgentModeChange,
 }: PromptInputProps) {
   const [value, setValue] = useState("");
   const [isFocused, setIsFocused] = useState(false);
@@ -202,6 +214,19 @@ export function PromptInput({
       return;
     }
 
+    if (command.action === "toggle_agent_mode") {
+      onAgentModeChange?.(!agentMode);
+      // Remove the slash text
+      const slashIndex = value.lastIndexOf("/");
+      const newValue = slashIndex !== -1 ? value.slice(0, slashIndex) : value;
+      setValue(newValue);
+      setShowSlashMenu(false);
+      setActiveSubmenu(null);
+      setSlashFilter("");
+      setTimeout(() => textareaRef.current?.focus(), 0);
+      return;
+    }
+
     if (command.prompt) {
       // Remove the slash and any filter text, then insert the prompt
       const slashIndex = value.lastIndexOf("/");
@@ -219,7 +244,7 @@ export function PromptInput({
         textareaRef.current?.setSelectionRange(newValue.length, newValue.length);
       }, 0);
     }
-  }, [value]);
+  }, [value, agentMode, onAgentModeChange]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -327,11 +352,27 @@ export function PromptInput({
                         onMouseEnter={() => command.children && setActiveSubmenu(command.id)}
                         className={cn(
                           "flex items-center gap-2 px-3 py-2 cursor-pointer",
-                          activeSubmenu === command.id && "bg-accent"
+                          activeSubmenu === command.id && "bg-accent",
+                          command.action === "toggle_agent_mode" && agentMode && "bg-primary/10"
                         )}
                       >
-                        <command.icon className="w-4 h-4 text-muted-foreground" />
+                        <command.icon className={cn(
+                          "w-4 h-4",
+                          command.action === "toggle_agent_mode" && agentMode
+                            ? "text-primary"
+                            : "text-muted-foreground"
+                        )} />
                         <span className="flex-1">{command.label}</span>
+                        {command.action === "toggle_agent_mode" && (
+                          <span className={cn(
+                            "text-xs px-1.5 py-0.5 rounded-full font-medium",
+                            agentMode
+                              ? "bg-primary/20 text-primary"
+                              : "bg-muted text-muted-foreground"
+                          )}>
+                            {agentMode ? "ON" : "OFF"}
+                          </span>
+                        )}
                         {command.children && (
                           <ChevronRight className="w-4 h-4 text-muted-foreground" />
                         )}
@@ -392,6 +433,20 @@ export function PromptInput({
             >
               <Paperclip className="w-4 h-4" />
               <span>Attach</span>
+            </button>
+            <button
+              onClick={() => onAgentModeChange?.(!agentMode)}
+              disabled={isLoading}
+              title={agentMode ? "Agent mode: ON — auto-creates assertions & exports" : "Agent mode: OFF"}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors disabled:opacity-50",
+                agentMode
+                  ? "bg-primary/10 text-primary hover:bg-primary/20"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+              )}
+            >
+              <Bot className="w-4 h-4" />
+              <span>Agent</span>
             </button>
             {onPlan && (
               <button

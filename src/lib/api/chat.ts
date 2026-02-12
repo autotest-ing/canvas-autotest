@@ -33,6 +33,7 @@ export type SendChatParams = {
   conversationId?: string | null;
   attachedFile?: string | null;
   attachedFileName?: string | null;
+  agentMode?: boolean;
   onEvent: (event: ChatSSEEvent) => void;
   signal?: AbortSignal;
 };
@@ -45,6 +46,7 @@ export async function sendChatMessage({
   conversationId,
   attachedFile,
   attachedFileName,
+  agentMode,
   onEvent,
   signal,
 }: SendChatParams): Promise<void> {
@@ -61,6 +63,7 @@ export async function sendChatMessage({
       conversation_id: conversationId ?? null,
       attached_file: attachedFile ?? null,
       attached_file_name: attachedFileName ?? null,
+      agent_mode: agentMode ?? false,
     }),
     signal,
   });

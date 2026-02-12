@@ -21,6 +21,8 @@ export function ChatView({ chat }: ChatViewProps) {
             onSubmit={chat.sendMessage}
             isLoading={chat.isLoading}
             showExamplePrompts={chat.messages.length === 0}
+            agentMode={chat.agentMode}
+            onAgentModeChange={chat.setAgentMode}
           />
         </div>
         <MobileBottomSpacer />
