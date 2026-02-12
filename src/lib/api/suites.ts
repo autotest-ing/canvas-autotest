@@ -803,6 +803,24 @@ export async function applyStepExport(
   return (await response.json()) as ApplyStepExportResponse;
 }
 
+export async function importOpenApi(accountId: string, file: File, token: string): Promise<void> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("account_id", accountId);
+
+  const response = await fetch(`${BASE_API_URL}/v1.0/requests/import/openapi`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw await buildApiError(response, "Failed to import OpenAPI spec");
+  }
+}
+
 export async function applyStepExportToUrl(
   stepId: string,
   exportId: string,

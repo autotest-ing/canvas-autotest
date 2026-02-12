@@ -9,7 +9,7 @@ import { Plus, Database, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { fetchCollections, type CollectionItem, type CollectionSourceType } from "@/lib/api/suites";
+import { fetchCollections, importOpenApi, type CollectionItem, type CollectionSourceType } from "@/lib/api/suites";
 
 function mapSourceType(sourceType: CollectionSourceType): SourceType {
   switch (sourceType) {
@@ -69,7 +69,25 @@ export function SourcesView() {
     loadCollections();
   }, [loadCollections]);
 
-  const handleImport = (source: { name: string; type: "postman" | "openapi"; url?: string }) => {
+  const handleImport = async (source: { name: string; type: "postman" | "openapi"; url?: string; file?: File }) => {
+    const accountId = currentUser?.default_account_id;
+    if (!token || !accountId) return;
+
+    if (source.type === "openapi" && source.file) {
+      try {
+        await importOpenApi(accountId, source.file, token);
+        toast.success("Source imported", {
+          description: `${source.name} has been uploaded and is processing.`,
+        });
+        loadCollections(); // Refresh the list
+      } catch (err) {
+        console.error("Import failed", err);
+        toast.error("Import failed");
+      }
+      return;
+    }
+
+    // Fallback for non-file imports (Postman or URL) - temporary mock behavior preserved
     const newSource: Source = {
       id: String(Date.now()),
       name: source.name,
@@ -96,14 +114,14 @@ export function SourcesView() {
 
   const handleResync = (id: string) => {
     const source = sources.find(s => s.id === id);
-    setSources(sources.map(s => 
+    setSources(sources.map(s =>
       s.id === id ? { ...s, status: "pending" as const } : s
     ));
     toast.info("Re-syncing source...", {
       description: `Updating ${source?.name}`,
     });
     setTimeout(() => {
-      setSources(sources.map(s => 
+      setSources(sources.map(s =>
         s.id === id ? { ...s, status: "synced" as const, lastSync: "Just now" } : s
       ));
       toast.success("Sync complete", {
