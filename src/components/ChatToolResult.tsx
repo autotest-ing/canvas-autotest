@@ -5,6 +5,7 @@ import type { ToolCallEvent, ToolResultEvent } from "@/hooks/use-chat";
 interface ChatToolResultProps {
   toolCall: ToolCallEvent;
   toolResult?: ToolResultEvent;
+  isStreamEnded?: boolean;
 }
 
 const TOOL_LABELS: Record<string, string> = {
@@ -62,11 +63,12 @@ function getToolSummary(toolResult: ToolResultEvent): string {
   return "Done";
 }
 
-export function ChatToolResult({ toolCall, toolResult }: ChatToolResultProps) {
+export function ChatToolResult({ toolCall, toolResult, isStreamEnded }: ChatToolResultProps) {
   const label = TOOL_LABELS[toolCall.tool] || toolCall.tool;
-  const isLoading = !toolResult;
+  const isLoading = !toolResult && !isStreamEnded;
+  const isMissing = !toolResult && !!isStreamEnded;
   const isSuccess = toolResult?.result.success ?? false;
-  const isError = toolResult && !toolResult.result.success;
+  const isError = (toolResult && !toolResult.result.success) || isMissing;
 
   return (
     <div
@@ -100,6 +102,11 @@ export function ChatToolResult({ toolCall, toolResult }: ChatToolResultProps) {
           )}
         >
           {getToolSummary(toolResult)}
+        </span>
+      )}
+      {isMissing && (
+        <span className="text-xs flex-shrink-0 text-destructive">
+          No result received
         </span>
       )}
     </div>

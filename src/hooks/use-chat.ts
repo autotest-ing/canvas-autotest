@@ -12,11 +12,13 @@ import {
 export type ToolCallEvent = {
   tool: string;
   args: Record<string, unknown>;
+  callId?: string;
 };
 
 export type ToolResultEvent = {
   tool: string;
   result: { success: boolean; data?: unknown; error?: string };
+  callId?: string;
 };
 
 export type ChatMessage = {
@@ -202,14 +204,14 @@ export function useChat(options?: {
             case "tool_call":
               current.toolCalls = [
                 ...current.toolCalls,
-                { tool: event.tool, args: event.args },
+                { tool: event.tool, args: event.args, callId: event.call_id },
               ];
               break;
 
             case "tool_result":
               current.toolResults = [
                 ...current.toolResults,
-                { tool: event.tool, result: event.result },
+                { tool: event.tool, result: event.result, callId: event.call_id },
               ];
               break;
 
@@ -268,6 +270,15 @@ export function useChat(options?: {
       } finally {
         setIsLoading(false);
         abortRef.current = null;
+        // Safety net: ensure streaming state is cleared even if "done" event was never received
+        setMessages((prev) => {
+          const updated = [...prev];
+          const idx = updated.findIndex((m) => m.id === assistantId);
+          if (idx !== -1 && updated[idx].isStreaming) {
+            updated[idx] = { ...updated[idx], isStreaming: false };
+          }
+          return updated;
+        });
       }
     },
     [token, currentUser, messages, buildHistory, conversationId, agentMode, options],

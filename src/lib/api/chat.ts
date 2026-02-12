@@ -2,8 +2,8 @@ const BASE_API_URL = "https://internal-api.autotest.ing";
 
 export type ChatSSEEvent =
   | { type: "text"; content: string }
-  | { type: "tool_call"; tool: string; args: Record<string, unknown> }
-  | { type: "tool_result"; tool: string; result: { success: boolean; data?: unknown; error?: string } }
+  | { type: "tool_call"; tool: string; args: Record<string, unknown>; call_id?: string }
+  | { type: "tool_result"; tool: string; result: { success: boolean; data?: unknown; error?: string }; call_id?: string }
   | { type: "hint_buttons"; buttons: HintButton[] }
   | { type: "conversation_id"; conversation_id: string }
   | { type: "title_update"; title: string }

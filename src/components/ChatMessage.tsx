@@ -62,13 +62,19 @@ export function ChatMessage({ message, onHintAction }: ChatMessageProps) {
         {/* Tool calls/results */}
         {message.toolCalls.length > 0 && (
           <div className="space-y-1.5 w-full">
-            {message.toolCalls.map((tc, i) => (
-              <ChatToolResult
-                key={i}
-                toolCall={tc}
-                toolResult={message.toolResults[i]}
-              />
-            ))}
+            {message.toolCalls.map((tc, i) => {
+              const matchedResult = tc.callId
+                ? message.toolResults.find((tr) => tr.callId === tc.callId)
+                : message.toolResults[i];
+              return (
+                <ChatToolResult
+                  key={tc.callId || i}
+                  toolCall={tc}
+                  toolResult={matchedResult}
+                  isStreamEnded={!message.isStreaming}
+                />
+              );
+            })}
           </div>
         )}
 
