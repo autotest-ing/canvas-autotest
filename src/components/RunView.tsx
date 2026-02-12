@@ -152,21 +152,21 @@ export function RunView({ runId, suiteId }: RunViewProps) {
   const [fixingStepId, setFixingStepId] = useState<string | null>(null);
   const [mobileListOpen, setMobileListOpen] = useState(false);
   const isMobile = useIsMobile();
-  
+
   const selectedTestCase = mockRunTestCases.find(tc => tc.id === selectedTestCaseId) || null;
-  
+
   // Build breadcrumbs based on context
   const breadcrumbItems = suiteId
     ? [
-        { label: "Suites", href: "/suites" },
-        { label: mockRunData.suiteName, href: `/suites/${suiteId}` },
-        { label: "Runs", href: `/suites/${suiteId}/runs` },
-        { label: runId || mockRunData.runId },
-      ]
+      { label: "Suites", href: "/suites" },
+      { label: mockRunData.suiteName, href: `/suites/${suiteId}` },
+      { label: "Runs", href: `/suites/${suiteId}/runs` },
+      { label: runId || mockRunData.runId },
+    ]
     : [
-        { label: "Runs", href: "/runs" },
-        { label: runId || mockRunData.runId },
-      ];
+      { label: "Runs", href: "/runs" },
+      { label: runId || mockRunData.runId },
+    ];
 
   const handleFixWithAI = (stepId: string) => {
     setFixingStepId(stepId);
@@ -224,18 +224,14 @@ export function RunView({ runId, suiteId }: RunViewProps) {
   };
 
   // Find the step name for the AI fix card
-  const fixingStep = fixingStepId 
-    ? selectedTestCase?.steps.find(s => s.id === fixingStepId) 
+  const fixingStep = fixingStepId
+    ? selectedTestCase?.steps.find(s => s.id === fixingStepId)
     : null;
 
   // Mobile layout
   if (isMobile) {
     return (
       <div className="min-h-screen flex flex-col animate-fade-in">
-        {/* Breadcrumb header */}
-        <div className="px-4 pt-4 pb-2">
-          <Breadcrumbs items={breadcrumbItems} />
-        </div>
 
         {/* Summary Card */}
         <div className="px-4 pb-4">
@@ -301,10 +297,6 @@ export function RunView({ runId, suiteId }: RunViewProps) {
   // Desktop layout
   return (
     <div className="h-screen animate-fade-in flex flex-col">
-      {/* Breadcrumb header */}
-      <div className="px-6 py-3 border-b border-border/50">
-        <Breadcrumbs items={breadcrumbItems} />
-      </div>
 
       {/* Summary Card */}
       <div className="px-6 py-4 border-b border-border/50">
