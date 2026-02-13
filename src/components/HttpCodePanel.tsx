@@ -15,14 +15,14 @@ interface HttpCodePanelProps {
   onClose: () => void;
 }
 
-function formatHeaders(headers: Record<string, unknown> | null | undefined): string {
+export function formatHeaders(headers: Record<string, unknown> | null | undefined): string {
   if (!headers || Object.keys(headers).length === 0) return "";
   return Object.entries(headers)
     .map(([key, value]) => `${key}: ${String(value)}`)
     .join("\n");
 }
 
-function formatBody(body: unknown): string {
+export function formatBody(body: unknown): string {
   if (body === null || body === undefined) return "";
   if (typeof body === "string") {
     if (body === "") {

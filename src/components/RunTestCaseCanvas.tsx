@@ -8,6 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChevronDown, CheckCircle2, XCircle, Clock, Copy, Check, Sparkles, RotateCcw } from "lucide-react";
 import type { RunTestStep, RunTestCase } from "./RunTestCaseList";
+import { formatHeaders, formatBody } from "./HttpCodePanel";
+import { VariableHighlightedText } from "./VariableHighlightedText";
 
 interface RunTestCaseCanvasProps {
   testCase: RunTestCase | null;
@@ -52,32 +54,6 @@ function StepStatusIcon({ status }: { status: RunTestStep["status"] }) {
   }
 }
 
-function formatRequestText(step: RunTestStep): string {
-  const req = step.request;
-  if (!req) return "No request data available";
-
-  const lines: string[] = [];
-  const method = (req.method || step.method || "GET").toUpperCase();
-  const url = req.url || step.endpoint || "";
-
-  lines.push(`${method} ${url} HTTP/1.1`);
-
-  if (req.headers && typeof req.headers === "object") {
-    for (const [key, value] of Object.entries(req.headers)) {
-      lines.push(`${key}: ${value}`);
-    }
-  }
-
-  if (req.body !== undefined && req.body !== null) {
-    lines.push("");
-    lines.push(
-      typeof req.body === "string" ? req.body : JSON.stringify(req.body, null, 2)
-    );
-  }
-
-  return lines.join("\n");
-}
-
 function formatResponseText(step: RunTestStep): string {
   const resp = step.response;
   if (!resp) return "No response data available";
@@ -118,8 +94,12 @@ function RunStepCard({ step, stepNumber, isExpanded = false, onFixWithAI }: {
   const isFailed = step.status === "fail";
 
   const assertions = step.assertionResults || [];
-  const requestText = formatRequestText(step);
   const responseText = formatResponseText(step);
+
+  const reqMethod = (step.request?.method || step.method || "GET").toUpperCase();
+  const reqUrl = step.request?.url || step.endpoint || "";
+  const reqHeaders = formatHeaders(step.request?.headers);
+  const reqBody = step.request?.body != null ? formatBody(step.request.body) : "";
 
   const handleCopy = (content: string, tab: string) => {
     navigator.clipboard.writeText(content);
@@ -225,25 +205,83 @@ function RunStepCard({ step, stepNumber, isExpanded = false, onFixWithAI }: {
                 </TabsContent>
 
                 <TabsContent value="request" className="mt-0">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-muted-foreground uppercase">Request</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-2"
-                        onClick={() => handleCopy(requestText, "request")}
-                      >
-                        {copiedTab === "request" ? (
-                          <Check className="w-3 h-3" />
-                        ) : (
-                          <Copy className="w-3 h-3" />
-                        )}
-                      </Button>
+                  <div className="space-y-3">
+                    {/* Method + URL */}
+                    <div className="rounded-md border border-border/60 bg-muted/30 overflow-hidden">
+                      <div className="px-3 py-2 bg-muted/50 flex items-center justify-between">
+                        <code className="text-xs font-mono">
+                          <span className="font-semibold text-primary">{reqMethod}</span>{" "}
+                          <span className="text-foreground/80">
+                            <VariableHighlightedText text={reqUrl} variables={step.variables} />
+                          </span>
+                        </code>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 shrink-0"
+                          onClick={() => handleCopy(`${reqMethod} ${reqUrl}`, "req-url")}
+                        >
+                          {copiedTab === "req-url" ? (
+                            <Check className="w-3 h-3" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
-                    <pre className="p-3 rounded-lg bg-muted/30 border border-border/50 text-xs font-mono text-foreground overflow-x-auto whitespace-pre-wrap">
-                      {requestText}
-                    </pre>
+
+                    {/* Headers */}
+                    {reqHeaders && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-muted-foreground uppercase">Headers</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2"
+                            onClick={() => handleCopy(reqHeaders, "req-headers")}
+                          >
+                            {copiedTab === "req-headers" ? (
+                              <Check className="w-3 h-3" />
+                            ) : (
+                              <Copy className="w-3 h-3" />
+                            )}
+                          </Button>
+                        </div>
+                        <pre className="p-3 rounded-lg bg-muted/30 border border-border/50 text-xs font-mono text-foreground/70 overflow-x-auto whitespace-pre-wrap">
+                          <VariableHighlightedText text={reqHeaders} variables={step.variables} />
+                        </pre>
+                      </div>
+                    )}
+
+                    {/* Body */}
+                    {reqBody && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-muted-foreground uppercase">Body</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2"
+                            onClick={() => handleCopy(reqBody, "req-body")}
+                          >
+                            {copiedTab === "req-body" ? (
+                              <Check className="w-3 h-3" />
+                            ) : (
+                              <Copy className="w-3 h-3" />
+                            )}
+                          </Button>
+                        </div>
+                        <pre className="p-3 rounded-lg bg-muted/30 border border-border/50 text-xs font-mono text-foreground/70 overflow-x-auto whitespace-pre-wrap">
+                          <VariableHighlightedText text={reqBody} variables={step.variables} />
+                        </pre>
+                      </div>
+                    )}
+
+                    {/* No data fallback */}
+                    {!reqHeaders && !reqBody && (
+                      <p className="text-sm text-muted-foreground p-2.5">No headers or body</p>
+                    )}
                   </div>
                 </TabsContent>
 
