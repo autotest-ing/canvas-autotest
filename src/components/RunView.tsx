@@ -118,6 +118,7 @@ function mapStepResult(sr: EnrichedStepResult): RunTestStep {
       actual: ar.actual,
       expected: ar.expected,
     })),
+    variables: sr.variables,
   };
 }
 

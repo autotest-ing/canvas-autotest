@@ -37,6 +37,7 @@ export interface RunTestStep {
     actual?: unknown;
     expected?: unknown;
   }>;
+  variables?: Record<string, string> | null;
 }
 
 export interface RunTestCase {

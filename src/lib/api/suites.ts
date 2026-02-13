@@ -986,6 +986,7 @@ export type EnrichedStepResult = {
   request: StepResultHttpRequest | null;
   response: StepResultHttpResponse | null;
   assertion_results: EnrichedAssertionResult[];
+  variables: Record<string, string> | null;
 };
 
 export type EnrichedCaseResult = {
